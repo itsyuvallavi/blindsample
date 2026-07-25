@@ -11,13 +11,13 @@ compliance, and definition of done.
 
 ### Repository state
 
-- Local Git repository exists on `main`.
+- Public repository: `https://github.com/itsyuvallavi/blindsample`.
 - Initial commit: `9b72209 docs: establish BlindSample project scope`.
-- Working tree was clean at inspection.
-- Public GitHub remote is not yet created because the saved GitHub CLI
-  authentication is expired.
-- Product code, migrations, tests, Supabase project, 0G connection, and Vercel
-  project do not yet exist.
+- Implementation branch: `build/mvp`.
+- The reproducible Next.js, Node.js 22, test, and CI baseline is complete.
+- A real private 0G request has returned `tee_verified: true`.
+- Product routes, persistence, the reusable 0G scoring client, Supabase
+  project, and Vercel project do not yet exist.
 
 ### Product rules already agreed
 
@@ -335,10 +335,10 @@ Assume the submission failed. The most likely reasons are:
 
 User-owned actions:
 
-1. Reauthenticate GitHub CLI.
-2. Create/fund a 0G Private Computer account and create a Private API key.
-3. Create or connect a Supabase project in the nearest available EU region.
-4. Connect or authenticate the Vercel account.
+1. [x] Reauthenticate GitHub CLI.
+2. [x] Create/fund a 0G Private Computer account and create a Private API key.
+3. [ ] Create or connect a Supabase project in the nearest available EU region.
+4. [ ] Connect or authenticate the Vercel account.
 
 No secret should be sent through chat. Secrets are entered locally and later
 added directly to Vercel.
@@ -348,6 +348,8 @@ Gate:
 - GitHub, 0G, Supabase, and Vercel access are available.
 
 ### Phase 1 — Publish and scaffold
+
+Status: complete on 2026-07-26.
 
 Implementation:
 

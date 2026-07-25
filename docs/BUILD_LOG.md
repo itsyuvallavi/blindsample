@@ -56,3 +56,36 @@ Still blocked:
 - The public GitHub remote requires GitHub CLI reauthentication.
 - 0G, Supabase, and Vercel user-owned projects or credentials are not yet
   connected.
+
+## 2026-07-26 — Reproducible application baseline
+
+Completed:
+
+- Published `itsyuvallavi/blindsample` as a public repository.
+- Created the `build/mvp` implementation branch.
+- Added Next.js 16.2.12, React 19.2.8, TypeScript, Tailwind CSS, and a Node.js
+  22 runtime contract.
+- Replaced generator content with a minimal BlindSample landing route and
+  added a non-secret health endpoint.
+- Added executable score-boundary tests for the 1–100 product contract.
+- Added one GitHub Actions workflow for install, lint, typecheck, tests, and
+  production build.
+- Removed unused generator assets and agent-specific documentation files.
+- Overrode vulnerable production transitive versions of PostCSS and Sharp.
+
+Why:
+
+- Establishes a small, reproducible, sponsor-ready application baseline before
+  external service and product-flow code is introduced.
+
+Verified:
+
+- `npm run check`
+- 1 test file and 2 tests passed.
+- Next.js production build completed with `/` and `/api/health`.
+- `npm audit --omit=dev` reports no production vulnerabilities.
+
+Next:
+
+- Add the reusable server-only 0G client and strict verified-response contract
+  as a separate commit.

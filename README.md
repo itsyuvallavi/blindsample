@@ -33,16 +33,50 @@ The MVP will not include a marketplace, payments, custom smart contracts,
 
 ## Current status
 
-Repository foundation and implementation plan created. Product code has not
-yet been implemented.
+The public repository, implementation plan, and reproducible web application
+baseline are complete. The `build/mvp` branch includes:
+
+- Next.js App Router with TypeScript and Node.js 22
+- A minimal BlindSample landing route and health endpoint
+- Executable product-contract tests
+- Lint, typecheck, test, and production-build commands
+- One GitHub Actions verification workflow
+
+A live private request to 0G has returned a TEE-verified trace. The reusable
+0G scoring client and buyer/seller product flows are the next implementation
+milestones.
+
+## Local development
+
+Requirements:
+
+- Node.js 22
+- npm
+- A funded 0G Private Computer inference key with Private trust mode
+
+Install and verify:
+
+```bash
+npm ci
+cp .env.example .env.local
+npm run check
+```
+
+Add the private `sk-...` inference key to `.env.local`, then start the app:
+
+```bash
+npm run dev
+```
+
+Never commit `.env.local` or a real dataset sample.
 
 ## Documentation
 
 - [Execution plan](docs/EXECUTION_PLAN.md)
 - [Build log](docs/BUILD_LOG.md)
 
-Setup and deployment instructions will be added as the corresponding
-implementation becomes runnable.
+Integration and deployment instructions will be added as those milestones
+become runnable.
 
 ## License
 
