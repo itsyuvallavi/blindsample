@@ -16,8 +16,8 @@ compliance, and definition of done.
 - Implementation branch: `build/mvp`.
 - The reproducible Next.js, Node.js 22, test, and CI baseline is complete.
 - A real private 0G request has returned `tee_verified: true`.
-- Product routes, persistence, the reusable 0G scoring client, Supabase
-  project, and Vercel project do not yet exist.
+- Product routes, persistence, strict scoring, the Supabase project, and the
+  Vercel project do not yet exist.
 
 ### Product rules already agreed
 
@@ -411,6 +411,8 @@ Gate:
 - No CSV or raw capability token exists in Supabase.
 
 ### Phase 3 — Prove 0G privately
+
+Status: complete on 2026-07-26.
 
 Implementation:
 

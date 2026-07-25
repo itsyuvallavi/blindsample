@@ -89,3 +89,43 @@ Next:
 
 - Add the reusable server-only 0G client and strict verified-response contract
   as a separate commit.
+
+## 2026-07-26 — Private 0G verification
+
+Completed:
+
+- Added a server-only 0G Router client using the platform `fetch` API.
+- Forced the `private` provider trust mode on every request.
+- Requested `verify_tee: true` on every completion.
+- Rejected responses without a positive TEE verification result and complete
+  safe trace metadata.
+- Added one retry for transient `429` and `503` responses without any
+  lower-trust fallback.
+- Added unit tests for configuration, routing headers, verification rejection,
+  and retry behavior.
+- Added an opt-in live test that loads the ignored local environment file.
+
+Why:
+
+- 0G Compute / Private Computer is the load-bearing sponsor integration and
+  must fail closed before dataset scoring or UI code depends on it.
+
+Verified:
+
+- `npm run check`
+- `npm run test:0g -- --disableConsoleIntercept`
+- Live model: `glm-5.2`
+- Live provider: `0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D`
+- Live request ID: `0e974680-08b3-4d14-913a-287e1f214fb6`
+- Router verification result: `tee_verified: true`
+- No API key, prompt body, or model response content was logged or committed.
+
+Limitation:
+
+- The `tee_verified` field is verification reported by 0G Router. BlindSample
+  does not independently reproduce the provider-signature verification.
+
+Next:
+
+- Add Supabase metadata persistence and separate buyer/seller capability
+  tokens as a new commit.

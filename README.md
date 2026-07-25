@@ -42,9 +42,9 @@ baseline are complete. The `build/mvp` branch includes:
 - Lint, typecheck, test, and production-build commands
 - One GitHub Actions verification workflow
 
-A live private request to 0G has returned a TEE-verified trace. The reusable
-0G scoring client and buyer/seller product flows are the next implementation
-milestones.
+The reusable 0G client is implemented and a live private request has returned
+a TEE-verified trace. Persistence, strict scoring, and the buyer/seller product
+flows are the next implementation milestones.
 
 ## Local development
 
@@ -69,6 +69,27 @@ npm run dev
 ```
 
 Never commit `.env.local` or a real dataset sample.
+
+## 0G integration
+
+The server-side client is implemented in
+[`src/lib/zero-g/client.ts`](src/lib/zero-g/client.ts). Every request:
+
+- Sends `X-0G-Provider-Trust-Mode: private`
+- Sends `verify_tee: true`
+- Rejects missing or false `tee_verified` results
+- Retains only the model, provider, request ID, and verification result as safe
+  trace metadata
+- Retries one transient `429` or `503` response without weakening trust mode
+
+Run the opt-in live verification with:
+
+```bash
+npm run test:0g
+```
+
+The returned `tee_verified` value is verification reported by 0G Router. It is
+not an independently reproduced attestation inside BlindSample.
 
 ## Documentation
 
