@@ -129,3 +129,31 @@ Next:
 
 - Add Supabase metadata persistence and separate buyer/seller capability
   tokens as a new commit.
+
+## 2026-07-26 — CI lockfile portability
+
+Completed:
+
+- Reproduced the GitHub Actions install failure locally with npm 10.9.4.
+- Regenerated the lockfile with the same npm release used by the Node.js 22
+  workflow.
+- Added the previously omitted cross-platform optional dependency records.
+- Pinned npm 10.9.4 in the package metadata.
+
+Why:
+
+- The macOS/npm 11 lockfile passed locally but omitted Linux-side dependency
+  records required by GitHub's Node.js 22 runner.
+
+Verified:
+
+- `npx npm@10.9.4 ci --ignore-scripts --no-audit --no-fund`
+- `npm run check`
+- `npx npm@10.9.4 audit --omit=dev`
+- Clean install, 7 unit tests, and production build passed.
+- Production dependency audit reports zero vulnerabilities.
+
+Next:
+
+- Push this isolated lockfile fix and require a green GitHub Actions result
+  before adding Supabase code.

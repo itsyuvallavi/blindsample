@@ -51,7 +51,7 @@ flows are the next implementation milestones.
 Requirements:
 
 - Node.js 22
-- npm
+- npm 10.9.4
 - A funded 0G Private Computer inference key with Private trust mode
 
 Install and verify:
