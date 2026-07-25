@@ -17,6 +17,7 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.110.8",
     "next": "16.2.12",
     "react": "19.2.8",
     "react-dom": "19.2.8"

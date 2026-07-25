@@ -43,8 +43,9 @@ baseline are complete. The `build/mvp` branch includes:
 - One GitHub Actions verification workflow
 
 The reusable 0G client is implemented and a live private request has returned
-a TEE-verified trace. Persistence, strict scoring, and the buyer/seller product
-flows are the next implementation milestones.
+a TEE-verified trace. The Supabase project and private metadata schema are
+deployed, with RLS and browser grants locked down. Strict scoring and the
+buyer/seller product flows are the next implementation milestones.
 
 ## Local development
 
@@ -53,6 +54,8 @@ Requirements:
 - Node.js 22
 - npm 10.9.4
 - A funded 0G Private Computer inference key with Private trust mode
+- A Supabase `sb_secret_...` key for the BlindSample project
+- A random capability-token pepper containing at least 32 characters
 
 Install and verify:
 
@@ -62,7 +65,8 @@ cp .env.example .env.local
 npm run check
 ```
 
-Add the private `sk-...` inference key to `.env.local`, then start the app:
+Add the server-only values shown in `.env.example` to `.env.local`, then start
+the app:
 
 ```bash
 npm run dev
@@ -90,6 +94,19 @@ npm run test:0g
 
 The returned `tee_verified` value is verification reported by 0G Router. It is
 not an independently reproduced attestation inside BlindSample.
+
+## Supabase persistence
+
+The only application table is defined in
+[`supabase/migrations/20260725234857_create_evaluations.sql`](supabase/migrations/20260725234857_create_evaluations.sql).
+It stores evaluation metadata, HMAC capability hashes, question-level scores,
+and safe 0G trace fields. It never stores CSV contents, raw capability tokens,
+or model prompts.
+
+The server repository is in
+[`src/lib/supabase/evaluations.ts`](src/lib/supabase/evaluations.ts). Browser
+roles have no direct table grants, and all runtime access uses an unprefixed
+server-only secret.
 
 ## Documentation
 

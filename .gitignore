@@ -47,3 +47,6 @@ next-env.d.ts
 # Local scratch data
 tmp/
 data/private/
+
+# Supabase CLI
+supabase/.temp/

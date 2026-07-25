@@ -157,3 +157,46 @@ Next:
 
 - Push this isolated lockfile fix and require a green GitHub Actions result
   before adding Supabase code.
+
+## 2026-07-26 — Private evaluation persistence
+
+Completed:
+
+- Created the user-owned `BlindSample` Supabase project in `eu-west-1`.
+- Created and deployed one reviewed `evaluations` migration.
+- Added database checks for status, expiry, capability hashes, sample limits,
+  and publication of only complete TEE-verified results.
+- Enabled RLS and removed direct `anon` and `authenticated` table grants.
+- Added a server-only Supabase client that accepts only current
+  `sb_secret_...` keys.
+- Added separate 256-bit buyer and seller capabilities and stores only their
+  HMAC-SHA256 hashes.
+- Added environment-scoped evaluation creation, role-specific reads, an
+  atomic submission claim, completion, failure, and retry transitions.
+- Created and Git-connected the Vercel `blindsample` project. Local
+  `.vercel` metadata remains ignored.
+
+Why:
+
+- Buyer and seller sessions must coordinate asynchronously without accounts,
+  while the private CSV and raw access tokens must never be persisted.
+
+Verified:
+
+- The deployed table has RLS enabled and contains no rows.
+- `anon` and `authenticated` cannot select or insert.
+- `service_role` retains the server operations required by the application.
+- Supabase security and performance advisors returned only expected
+  informational notices for the deliberately policy-free locked table and its
+  unused new index.
+- Capability and Supabase configuration tests pass without real secrets.
+
+Pending user-owned configuration:
+
+- Add the Supabase `sb_secret_...` key and a random 32-or-more-character
+  `ACCESS_TOKEN_PEPPER` to `.env.local` and the Vercel project.
+
+Next:
+
+- Run live server CRUD and role-separation checks, then build the strict
+  question-to-score pipeline.

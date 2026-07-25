@@ -337,8 +337,8 @@ User-owned actions:
 
 1. [x] Reauthenticate GitHub CLI.
 2. [x] Create/fund a 0G Private Computer account and create a Private API key.
-3. [ ] Create or connect a Supabase project in the nearest available EU region.
-4. [ ] Connect or authenticate the Vercel account.
+3. [x] Create or connect a Supabase project in the nearest available EU region.
+4. [x] Connect or authenticate the Vercel account.
 
 No secret should be sent through chat. Secrets are entered locally and later
 added directly to Vercel.
@@ -378,6 +378,9 @@ Gate:
 - Clean install, lint, typecheck, test, and production build pass.
 
 ### Phase 2 — Add Supabase persistence
+
+Status: implementation complete on 2026-07-26; live application CRUD awaits
+the server secret in local and Vercel environments.
 
 Implementation:
 
