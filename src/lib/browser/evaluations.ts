@@ -1,7 +1,9 @@
-export type Question = {
-  id: string;
-  text: string;
-};
+import type {
+  CriterionDraft,
+  EvaluationContract,
+  EvaluationContractPreview,
+} from "../evaluation-contracts/types";
+import type { EvaluationResult } from "../scoring/types";
 
 export type EvaluationStatus =
   | "waiting_for_seller"
@@ -10,9 +12,10 @@ export type EvaluationStatus =
   | "failed";
 
 export type SellerEvaluation = {
+  approvedAt: string;
+  contracts: EvaluationContract[];
   expiresAt: string;
   id: string;
-  questions: Question[];
   status: EvaluationStatus;
   title: string;
 };
@@ -20,15 +23,9 @@ export type SellerEvaluation = {
 export type BuyerEvaluation = SellerEvaluation & {
   completedAt: string | null;
   errorCode: string | null;
+  results: EvaluationResult[] | null;
   sampleColumnCount: number | null;
   sampleRowCount: number | null;
-  scores: { questionId: string; score: number }[] | null;
-  trace: {
-    model: string;
-    provider: string;
-    requestId: string;
-    teeVerified: true;
-  } | null;
 };
 
 export type EvaluationResponse =
@@ -67,8 +64,22 @@ export async function readEvaluation(
   );
 }
 
+export async function previewEvaluationContracts(
+  criteria: CriterionDraft[],
+) {
+  return requestJson<EvaluationContractPreview>(
+    "/api/evaluation-contracts",
+    {
+      body: JSON.stringify({ criteria }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
+  );
+}
+
 export async function createEvaluation(input: {
-  questions: Question[];
+  approvedContractSetHash: string;
+  criteria: CriterionDraft[];
   title: string;
 }) {
   return requestJson<CreatedEvaluationResponse>("/api/evaluations", {

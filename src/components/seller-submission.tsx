@@ -12,6 +12,7 @@ import {
 import { PRODUCT_LIMITS } from "../lib/product-contract";
 import { SecurityRail } from "./security-rail";
 import { StatusMessage } from "./status-message";
+import { CommandLine, TerminalBar } from "./evaluation-builder";
 
 export function SellerSubmission({
   evaluationId,
@@ -143,12 +144,13 @@ export function SellerSubmission({
     return (
       <PageIntro
         label="Submission complete"
-        title="The buyer can now view the scores."
-        description="The TLS-encrypted upload was processed through 0G private compute. BlindSample did not save the CSV or expose its rows to the buyer."
+        title="The buyer can now view the audit results."
+        description="BlindSample evaluated only the submitted records and did not save the CSV or expose its rows to the buyer."
       >
         <StatusMessage tone="success">
-          0G reported TEE-verified execution before BlindSample published any
-          score.
+          Every numeric semantic result requires private, TEE-verified 0G
+          classification. Insufficient evidence is published only as unable
+          to score.
         </StatusMessage>
       </PageIntro>
     );
@@ -179,14 +181,20 @@ export function SellerSubmission({
         </p>
 
         <div className="question-review">
-          <h2>Buyer questions</h2>
+          <h2>Approved evaluation contracts</h2>
           <ol className="review-list">
-            {evaluation.questions.map((question, index) => (
-              <li key={question.id}>
+            {evaluation.contracts.map((contract, index) => (
+              <li key={contract.questionId}>
                 <span className="question-index">
                   {String(index + 1).padStart(2, "0")}
                 </span>
-                <span>{question.text}</span>
+                <span>
+                  <strong>{contract.originalQuestion}</strong>
+                  <small>
+                    {contract.method} · {contract.normalizedCriterion} ·{" "}
+                    {contract.contractVersion}
+                  </small>
+                </span>
               </li>
             ))}
           </ol>
@@ -195,93 +203,95 @@ export function SellerSubmission({
 
       <form
         onSubmit={handleSubmit}
-        className="workbench-panel submission-panel"
+        className="terminal-window submission-panel"
       >
-        <p className="workbench-panel__marker">
-          SECURED SUBMISSION · 0G
-        </p>
-        <SecurityRail />
-        <h2 className="panel-title">Submit a CSV sample</h2>
-        <p className="panel-copy">
-          Maximum 200 KB, 200 data rows, and 20 columns. Include one header
-          row.
-        </p>
-
-        <label className="field-label field-group">
-          CSV file
-          <input
-            id="sample-file"
-            type="file"
-            accept=".csv,text/csv"
-            aria-invalid={Boolean(error) && !file}
-            aria-required="true"
-            onChange={(event) =>
-              selectFile(event.target.files?.[0] ?? null)
-            }
-            className="file-input"
-          />
-        </label>
-
-        {file ? (
-          <div className="selected-file">
-            <span>{file.name}</span>
-            <span>{formatBytes(file.size)}</span>
-          </div>
-        ) : null}
-
-        <div className="privacy-note">
-          <h3>Encrypted transit. Private execution.</h3>
-          <p>
-            TLS protects the file in transit. BlindSample&apos;s Vercel
-            function holds it only in memory while 0G performs private,
-            TEE-verified inference. The CSV is never written to Supabase.
+        <TerminalBar path="~/blindsample/submit" status="AUTHORIZED" />
+        <div className="terminal-body">
+          <CommandLine>sample submit --memory-only</CommandLine>
+          <SecurityRail />
+          <h2 className="terminal-title">Submit a CSV sample</h2>
+          <p className="terminal-copy">
+            1–50 parsed data records, maximum 200 KB and 20 columns. The header
+            is excluded from the record count; no row is truncated.
           </p>
-          <label className="check-row">
+
+          <label className="field-label field-group">
+            CSV file
             <input
-              type="checkbox"
-              checked={consent}
+              id="sample-file"
+              type="file"
+              accept=".csv,text/csv"
+              aria-invalid={Boolean(error) && !file}
               aria-required="true"
-              onChange={(event) => setConsent(event.target.checked)}
+              onChange={(event) =>
+                selectFile(event.target.files?.[0] ?? null)
+              }
+              className="file-input"
             />
-            <span>
-              I understand this encrypted upload is used only for this 0G
-              private evaluation.
-            </span>
           </label>
+
+          {file ? (
+            <div className="selected-file">
+              <span>{file.name}</span>
+              <span>{formatBytes(file.size)}</span>
+            </div>
+          ) : null}
+
+          <div className="privacy-note">
+            <h3>Protected transit. Private semantic execution.</h3>
+            <p>
+              TLS protects the file in transit. The Vercel function holds it
+              only in memory. Objective metrics run in exact application code;
+              semantic classifications use private 0G and require TEE
+              verification. The CSV is never written to Supabase.
+            </p>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={consent}
+                aria-required="true"
+                onChange={(event) => setConsent(event.target.checked)}
+              />
+              <span>
+                I understand the result describes only these submitted
+                records, not my complete dataset.
+              </span>
+            </label>
+          </div>
+
+          {evaluation.status === "failed" ? (
+            <div className="message-wrap">
+              <StatusMessage>
+                The previous attempt failed safely. You can retry with this
+                seller link.
+              </StatusMessage>
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="message-wrap">
+              <StatusMessage tone="error">{error}</StatusMessage>
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={!file || !consent || submitting}
+            aria-busy={submitting}
+            className="button-primary button-wide"
+          >
+            {submitting
+              ? "Evaluating submitted records…"
+              : "Run approved contracts"}
+          </button>
+          <p className="readiness-note" aria-live="polite">
+            {!file
+              ? "Select a CSV sample to continue."
+              : !consent
+                ? "Confirm the submitted-data limitation."
+                : "Ready to evaluate all parsed records."}
+          </p>
         </div>
-
-        {evaluation.status === "failed" ? (
-          <div className="message-wrap">
-            <StatusMessage>
-              The previous attempt failed safely. You can retry with this
-              seller link.
-            </StatusMessage>
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="message-wrap">
-            <StatusMessage tone="error">{error}</StatusMessage>
-          </div>
-        ) : null}
-
-        <button
-          type="submit"
-          disabled={!file || !consent || submitting}
-          aria-busy={submitting}
-          className="button-primary button-wide"
-        >
-          {submitting
-            ? "Sending securely to 0G…"
-            : "Send to 0G private compute"}
-        </button>
-        <p className="readiness-note" aria-live="polite">
-          {!file
-            ? "Select a CSV sample to continue."
-            : !consent
-              ? "Confirm the privacy notice to continue."
-              : "Ready for private scoring."}
-        </p>
       </form>
     </div>
   );

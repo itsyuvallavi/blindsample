@@ -12,8 +12,9 @@ export function SiteFrame({
     <div className="site-shell">
       <header className="site-nav">
         <Link href="/" className="wordmark">
-          BLINDSAMPLE
+          <span>$</span> blindsample
         </Link>
+        <code>private data, useful answers</code>
         <span className="system-chip" title="0G Private Computer">
           0G PRIVATE
         </span>
@@ -26,10 +27,8 @@ export function SiteFrame({
       </main>
 
       <footer className="site-footer">
-        <span>ETHGlobal Lisbon 2026</span>
-        <span>
-          TLS encrypted in transit · private on 0G · no stored CSV
-        </span>
+        <span>Built for ETHGlobal Lisbon 2026</span>
+        <span>Private compute by 0G</span>
       </footer>
     </div>
   );

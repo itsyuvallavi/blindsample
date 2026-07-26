@@ -8,6 +8,11 @@ import {
   readEvaluation,
   type BuyerEvaluation,
 } from "../lib/browser/evaluations";
+import type { EvaluationResult } from "../lib/scoring/types";
+import {
+  CommandLine,
+  TerminalBar,
+} from "./evaluation-builder";
 import { StatusMessage } from "./status-message";
 
 const POLL_INTERVAL_MS = 3_000;
@@ -32,7 +37,7 @@ export function BuyerResults({
 
       if (!token) {
         if (active) {
-          setError("This buyer link is invalid or incomplete.");
+          setError("This buyer capability is invalid or incomplete.");
           setLoading(false);
         }
         return;
@@ -46,7 +51,7 @@ export function BuyerResults({
         }
 
         if (response.role !== "buyer") {
-          setError("This link does not grant buyer access.");
+          setError("This capability does not grant buyer access.");
           setLoading(false);
           return;
         }
@@ -86,9 +91,9 @@ export function BuyerResults({
   if (!evaluation) {
     return (
       <ResultIntro
-        label="Buyer results"
-        title="This private link is unavailable."
-        description="Use the exact buyer link created for this evaluation."
+        status="DENIED"
+        command="capability inspect --role buyer"
+        title="Buyer capability unavailable"
       >
         <StatusMessage tone="error">
           {error ?? "The evaluation could not be loaded."}
@@ -100,12 +105,18 @@ export function BuyerResults({
   if (evaluation.status === "waiting_for_seller") {
     return (
       <ResultIntro
-        label="Waiting for seller"
+        status="WAITING"
+        command="evaluation watch --seller-submission"
         title={evaluation.title}
-        description="The seller has not sent the TLS-encrypted CSV sample yet. This secured buyer view checks again every three seconds."
       >
+        <p className="terminal-copy">
+          {evaluation.contracts.length} approved contract
+          {evaluation.contracts.length === 1 ? "" : "s"} ready. The seller
+          has not submitted records yet; this capability checks every three
+          seconds.
+        </p>
         <StatusMessage>
-          Share the separate seller link created with this evaluation.
+          Share only the separate seller capability URL.
         </StatusMessage>
       </ResultIntro>
     );
@@ -114,12 +125,17 @@ export function BuyerResults({
   if (evaluation.status === "processing") {
     return (
       <ResultIntro
-        label="Private scoring"
+        status="RUNNING"
+        command="evaluation watch --private"
         title={evaluation.title}
-        description="0G private compute is scoring each question inside TEE-verified execution. This secured view updates automatically."
       >
+        <p className="terminal-copy">
+          Exact objective metrics are running in application code. Semantic
+          rubric classifications require private, TEE-verified 0G responses
+          before a numeric result can be published.
+        </p>
         <StatusMessage>
-          Scores stay sealed until 0G reports verified TEE execution.
+          Unstable or insufficient evidence resolves to unable to score.
         </StatusMessage>
       </ResultIntro>
     );
@@ -128,10 +144,14 @@ export function BuyerResults({
   if (evaluation.status === "failed") {
     return (
       <ResultIntro
-        label="Safe failure"
-        title="No result was published."
-        description="Private scoring did not complete, so BlindSample stored no scores. The seller can retry with the same link."
+        status="FAILED SAFE"
+        command="evaluation inspect --failure"
+        title="No results were published"
       >
+        <p className="terminal-copy">
+          The protected evaluation did not complete. The seller may retry
+          with the same capability.
+        </p>
         <StatusMessage tone="error">
           {failureMessage(evaluation.errorCode)}
         </StatusMessage>
@@ -147,100 +167,202 @@ function CompletedResults({
 }: {
   evaluation: BuyerEvaluation;
 }) {
-  const scoreByQuestion = new Map(
-    evaluation.scores?.map((score) => [score.questionId, score.score]),
+  const resultByQuestion = new Map(
+    evaluation.results?.map((result) => [result.questionId, result]),
   );
-  const scoresAreComplete =
-    scoreByQuestion.size === evaluation.questions.length &&
-    evaluation.questions.every((question) => {
-      const score = scoreByQuestion.get(question.id);
-      return (
-        Number.isInteger(score) &&
-        Number(score) >= 1 &&
-        Number(score) <= 100
-      );
-    });
+  const resultsAreComplete =
+    resultByQuestion.size === evaluation.contracts.length &&
+    evaluation.contracts.every((contract) =>
+      resultByQuestion.has(contract.questionId),
+    );
 
-  if (!evaluation.trace || !evaluation.scores || !scoresAreComplete) {
+  if (!evaluation.results || !resultsAreComplete) {
     return (
       <StatusMessage tone="error">
-        This result is incomplete and cannot be displayed.
+        The stored result set is incomplete and cannot be displayed.
       </StatusMessage>
     );
   }
 
-  return (
-    <div>
-      <div className="results-header">
-        <div>
-          <p className="role-kicker">VERIFIED RESULTS</p>
-          <h1 className="role-title">{evaluation.title}</h1>
-          <p className="role-description">
-            One secured, independent score for each buyer question. No raw
-            sample rows were published.
-          </p>
-        </div>
-        <span className="verification-badge">
-          0G TEE VERIFIED
-        </span>
-      </div>
+  const semanticRequests = evaluation.results.flatMap(
+    (result) => result.evidence.zeroG?.requests ?? [],
+  );
 
-      <section aria-labelledby="scores-title">
-        <h2 id="scores-title" className="sr-only">
-          Question scores
-        </h2>
+  return (
+    <section className="terminal-window">
+      <TerminalBar path="~/blindsample/results" status="COMPLETE" />
+      <div className="terminal-body">
+        <CommandLine>
+          results read --contracts {evaluation.contracts.length}
+        </CommandLine>
+        <div className="results-header">
+          <div>
+            <p className="terminal-success">
+              {evaluation.results.length} question-level result
+              {evaluation.results.length === 1 ? "" : "s"} published
+            </p>
+            <h1 className="terminal-title">{evaluation.title}</h1>
+            <p className="terminal-copy">
+              No overall score is calculated. Every result applies only to
+              the {evaluation.sampleRowCount ?? 0} submitted records.
+            </p>
+          </div>
+          <span className="verification-badge">
+            AUDIT COMPLETE
+          </span>
+        </div>
+
         <div className="score-list">
-          {evaluation.questions.map((question, index) => {
-            const score = scoreByQuestion.get(question.id);
+          {evaluation.contracts.map((contract, index) => {
+            const result = resultByQuestion.get(
+              contract.questionId,
+            ) as EvaluationResult;
 
             return (
-              <article key={question.id} className="score-row">
-                <div>
-                  <p className="question-index">
-                    Question {index + 1}
-                  </p>
-                  <h3 className="score-question">
-                    {question.text}
-                  </h3>
-                </div>
-                <div className="score-value">
-                  <span>{score}</span>
-                  <small>/100</small>
-                </div>
-              </article>
+              <ResultRecord
+                key={contract.questionId}
+                index={index}
+                question={contract.originalQuestion}
+                result={result}
+              />
             );
           })}
         </div>
-      </section>
 
-      <section
-        className="verification-trace"
-        aria-labelledby="verification-title"
-      >
-        <h2 id="verification-title">
-          Verification trace
-        </h2>
-        <p className="verification-copy">
-          0G Router reported private, TEE-verified execution for this request.
-          BlindSample stores this safe trace but does not independently
-          reproduce the provider attestation.
-        </p>
-        <dl className="trace-grid">
-          <TraceItem label="Model" value={evaluation.trace.model} />
-          <TraceItem label="Provider" value={evaluation.trace.provider} />
+        <details className="verification-trace">
+          <summary>How this evaluation was verified</summary>
+          <p className="verification-copy">
+            TEE verification proves protected execution for the listed 0G
+            requests. It does not prove judgment accuracy. Semantic
+            reliability comes from the approved rubric, human-reviewed
+            controls, coverage checks, and repeated-classification agreement.
+          </p>
+          <dl className="trace-grid">
+            <TraceItem
+              label="submitted records"
+              value={String(evaluation.sampleRowCount ?? 0)}
+            />
+            <TraceItem
+              label="submitted columns"
+              value={String(evaluation.sampleColumnCount ?? 0)}
+            />
+            <TraceItem
+              label="0G requests"
+              value={String(semanticRequests.length)}
+            />
+            <TraceItem
+              label="overall score"
+              value="not calculated"
+            />
+          </dl>
+        </details>
+      </div>
+    </section>
+  );
+}
+
+function ResultRecord({
+  index,
+  question,
+  result,
+}: {
+  index: number;
+  question: string;
+  result: EvaluationResult;
+}) {
+  return (
+    <article className="score-row result-record">
+      <header>
+        <div>
+          <p className="question-index">
+            result[{String(index).padStart(2, "0")}] ·{" "}
+            {result.evidence.method}
+          </p>
+          <h3 className="score-question">{question}</h3>
+        </div>
+        {result.status === "scored" ? (
+          <div className="score-value">
+            <span>{result.score}</span>
+            <small>/100</small>
+          </div>
+        ) : (
+          <div className="unable-value">
+            unable
+            <small>{result.reason.replaceAll("_", " ")}</small>
+          </div>
+        )}
+      </header>
+
+      <details className="result-audit">
+        <summary>View audit evidence</summary>
+        <dl className="result-evidence-grid">
           <TraceItem
-            label="Request ID"
-            value={evaluation.trace.requestId}
+            label="records"
+            value={`${result.evidence.recordsEvaluated}/${result.evidence.recordsSubmitted}`}
           />
           <TraceItem
-            label="Sample shape"
-            value={`${evaluation.sampleRowCount ?? 0} rows, ${
-              evaluation.sampleColumnCount ?? 0
-            } columns`}
+            label="coverage"
+            value={`${Math.round(result.evidence.coverageRatio * 100)}%`}
+          />
+          <TraceItem
+            label="contract"
+            value={result.evidence.contractVersion}
+          />
+          <TraceItem
+            label="controls"
+            value={result.evidence.controlCheck}
+          />
+          <TraceItem
+            label="agreement"
+            value={
+              result.evidence.agreement.ratio === null
+                ? "n/a"
+                : `${Math.round(result.evidence.agreement.ratio * 100)}%`
+            }
+          />
+          <TraceItem
+            label="measurement"
+            value={
+              result.evidence.measurement
+                ? `${result.evidence.measurement.value} ${result.evidence.measurement.unit.replace("_", " ")}`
+                : "not published"
+            }
           />
         </dl>
-      </section>
-    </div>
+
+        {result.evidence.zeroG ? (
+          <div className="zero-g-requests">
+            <p>
+              0G private trace · {result.evidence.zeroG.requests.length}{" "}
+              verified request
+              {result.evidence.zeroG.requests.length === 1 ? "" : "s"}
+            </p>
+            <dl>
+              {result.evidence.zeroG.requests.map(
+                (request, requestIndex) => (
+                  <div key={request.requestId}>
+                    <dt>request[{requestIndex}]</dt>
+                    <dd>
+                      {request.model} · {request.provider} ·{" "}
+                      {request.requestId}
+                    </dd>
+                  </div>
+                ),
+              )}
+            </dl>
+          </div>
+        ) : (
+          <p className="local-method-note">
+            No 0G call was needed for this deterministic or preflight-unable
+            result.
+          </p>
+        )}
+
+        <p className="result-limitation">
+          {result.evidence.limitation}
+        </p>
+      </details>
+    </article>
   );
 }
 
@@ -255,36 +377,41 @@ function TraceItem({ label, value }: { label: string; value: string }) {
 
 function ResultIntro({
   children,
-  description,
-  label,
+  command,
+  status,
   title,
 }: {
   children: React.ReactNode;
-  description: string;
-  label: string;
+  command: string;
+  status: string;
   title: string;
 }) {
   return (
-    <section className="role-state">
-      <p className="role-kicker">{label.toUpperCase()}</p>
-      <h1 className="role-title">{title}</h1>
-      <p className="role-description">{description}</p>
-      <div className="role-state__content">{children}</div>
+    <section className="terminal-window role-state">
+      <TerminalBar path="~/blindsample/results" status={status} />
+      <div className="terminal-body">
+        <CommandLine>{command}</CommandLine>
+        <h1 className="terminal-title">{title}</h1>
+        <div className="role-state__content">{children}</div>
+      </div>
     </section>
   );
 }
 
 function ResultsLoading() {
   return (
-    <div
-      className="loading-shell"
+    <section
+      className="terminal-window loading-shell"
       aria-label="Loading buyer results"
     >
-      <div className="skeleton-line skeleton-line--short" />
-      <div className="skeleton-line" />
-      <div className="skeleton-block" />
-      <div className="skeleton-block" />
-    </div>
+      <TerminalBar path="~/blindsample/results" status="CONNECTING" />
+      <div className="terminal-body">
+        <CommandLine>capability authenticate --role buyer</CommandLine>
+        <div className="skeleton-line skeleton-line--short" />
+        <div className="skeleton-line" />
+        <div className="skeleton-block" />
+      </div>
+    </section>
   );
 }
 
@@ -297,13 +424,13 @@ function errorMessage(caught: unknown) {
 function failureMessage(errorCode: string | null) {
   switch (errorCode) {
     case "tee_verification_failed":
-      return "0G verification did not pass. No scores were published.";
-    case "invalid_model_output":
-      return "The scoring result did not match the numeric-only contract.";
+      return "0G verification did not pass. No semantic result was published.";
     case "service_misconfigured":
     case "zero_g_unavailable":
-      return "Private inference is temporarily unavailable.";
+      return "Private 0G inference is temporarily unavailable.";
+    case "result_persistence_failed":
+      return "The result set could not be stored atomically.";
     default:
-      return "The evaluation stopped without publishing a result.";
+      return "The evaluation stopped without publishing a partial result.";
   }
 }
