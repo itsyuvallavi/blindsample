@@ -4,6 +4,7 @@ export const PRODUCT_LIMITS = {
   maximumQuestionCharacters: 300,
   maximumQuestions: 20,
   maximumRows: 50,
+  maximumSemanticCriteria: 3,
   maximumTitleCharacters: 80,
   scoreMaximum: 100,
   scoreMinimum: 1,
