@@ -3,16 +3,25 @@ import {
   stringify as stringifyLossless,
 } from "lossless-json";
 
-import { SampleError } from "./types";
+import {
+  SampleError,
+  type SampleErrorCode,
+} from "./types";
 
-export function normalizeSampleValue(value: unknown): string {
+export function normalizeSampleValue(
+  value: unknown,
+  invalidCode: Extract<
+    SampleErrorCode,
+    "invalid_jsonl" | "invalid_parquet"
+  > = "invalid_jsonl",
+): string {
   if (value === null || value === undefined) {
     return "";
   }
 
   if (typeof value === "string") {
     if (value.includes("\0")) {
-      throw unsupportedValue();
+      throw unsupportedValue(invalidCode);
     }
 
     return value;
@@ -24,7 +33,7 @@ export function normalizeSampleValue(value: unknown): string {
 
   if (typeof value === "number") {
     if (!Number.isFinite(value)) {
-      throw unsupportedValue();
+      throw unsupportedValue(invalidCode);
     }
 
     return String(value);
@@ -36,26 +45,34 @@ export function normalizeSampleValue(value: unknown): string {
 
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) {
-      throw unsupportedValue();
+      throw unsupportedValue(invalidCode);
     }
 
     return value.toISOString();
   }
 
   if (Array.isArray(value) || isPlainRecord(value)) {
-    const serialized = stringifyLossless(canonicalJsonValue(value));
+    const serialized = stringifyLossless(
+      canonicalJsonValue(value, invalidCode),
+    );
 
     if (serialized === undefined) {
-      throw unsupportedValue();
+      throw unsupportedValue(invalidCode);
     }
 
     return serialized;
   }
 
-  throw unsupportedValue();
+  throw unsupportedValue(invalidCode);
 }
 
-function canonicalJsonValue(value: unknown): unknown {
+function canonicalJsonValue(
+  value: unknown,
+  invalidCode: Extract<
+    SampleErrorCode,
+    "invalid_jsonl" | "invalid_parquet"
+  >,
+): unknown {
   if (
     value === null ||
     typeof value === "string" ||
@@ -68,18 +85,23 @@ function canonicalJsonValue(value: unknown): unknown {
   }
 
   if (Array.isArray(value)) {
-    return value.map(canonicalJsonValue);
+    return value.map((item) =>
+      canonicalJsonValue(item, invalidCode),
+    );
   }
 
   if (isPlainRecord(value)) {
     return Object.fromEntries(
       Object.keys(value)
         .sort()
-        .map((key) => [key, canonicalJsonValue(value[key])]),
+        .map((key) => [
+          key,
+          canonicalJsonValue(value[key], invalidCode),
+        ]),
     );
   }
 
-  throw unsupportedValue();
+  throw unsupportedValue(invalidCode);
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -91,9 +113,14 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   );
 }
 
-function unsupportedValue() {
+function unsupportedValue(
+  code: Extract<
+    SampleErrorCode,
+    "invalid_jsonl" | "invalid_parquet"
+  >,
+) {
   return new SampleError(
     "The sample contains a value that cannot be represented safely.",
-    "invalid_jsonl",
+    code,
   );
 }

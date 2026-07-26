@@ -26,6 +26,7 @@
   "dependencies": {
     "@supabase/supabase-js": "2.110.8",
     "csv-parse": "7.0.1",
+    "hyparquet": "1.26.2",
     "lossless-json": "4.3.0",
     "next": "16.2.12",
     "react": "19.2.8",
@@ -38,6 +39,7 @@
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.5",
     "eslint-config-next": "16.2.12",
+    "hyparquet-writer": "0.16.1",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "vitest": "4.1.10"

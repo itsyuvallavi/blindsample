@@ -1,5 +1,6 @@
 export const PRODUCT_LIMITS = {
   maximumColumns: 20,
+  maximumDecodedFileBytes: 1_000_000,
   maximumFileBytes: 200_000,
   maximumNormalizedBytes: 200_000,
   maximumQuestionCharacters: 300,
