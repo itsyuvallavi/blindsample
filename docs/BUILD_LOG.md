@@ -634,3 +634,80 @@ Acceptance:
 - The unsuccessful synthetic evaluations were removed. The successful buyer
   result remains available temporarily for visual review through its private
   capability and expires automatically.
+
+## 2026-07-26 — UX proof-plan implementation
+
+Inspection:
+
+- Rechecked the six UX findings against the buyer builder, review state,
+  seller submission, buyer results, shared frame, and responsive styles.
+- Preserved the existing scoring, capability-token, Supabase, and 0G request
+  boundaries. This slice made no live 0G inference request.
+
+Mapping:
+
+- Mapped semantic-contract safety and draft recovery to the buyer builder and
+  new browser-draft helpers.
+- Mapped role clarity and link ownership to the shared frame and the three
+  buyer/seller surfaces.
+- Mapped score meanings, previews, controls, and motion to the review state
+  and global styles.
+
+Review:
+
+- Identified stale semantic approval as the highest-risk failure: a buyer
+  could edit a question while retaining an unrelated target and examples.
+- Limited browser persistence to draft title, criteria, and semantic review
+  fingerprints. CSV contents, results links, seller links, and capability
+  tokens are never placed in the draft store.
+- Kept preview content static so opening a preview cannot invoke 0G or create
+  an evaluation.
+
+Pre-mortem:
+
+- A restored draft could overwrite a newer edit during hydration.
+- An approved semantic contract could remain approved after a material edit.
+- A preview could accidentally call a paid endpoint.
+- Small controls or source-order choices could fail on mobile.
+- Motion could ignore reduced-motion preferences.
+
+Mitigation:
+
+- Added schema-validated, versioned draft persistence with delayed hydration,
+  explicit discard, and tests for rejected private or malformed fields.
+- Added semantic-contract fingerprints. Editing the question, columns, target,
+  or score anchors marks the contract as needing review.
+- Added a deterministic guard that rejects a changed question when the
+  untouched customer-support scoring setup remains in place.
+- Added static seller/results previews, 44px minimum controls, task-first
+  mobile ordering, transform/opacity-only transitions, and a reduced-motion
+  override.
+
+Planning and implementation:
+
+- Commit `eaeeb96` adds semantic review gating and privacy-safe draft recovery.
+- Commit `12c1638` clarifies the journey, roles, score meanings, controls,
+  previews, cost boundary, and restrained motion.
+- Kept the implementation inside existing product components plus three small
+  single-purpose helpers/tests; no new service or dependency was introduced.
+
+Acceptance:
+
+- `npm run lint`, `npm run typecheck`, and the full non-live test suite pass:
+  111 tests passed and six opt-in live suites remained skipped.
+- `npm run build` completed successfully.
+- Local browser testing confirmed that changing the default semantic question
+  while leaving the customer-support rubric untouched is rejected with an
+  explicit explanation.
+- The reviewed state shows the 1, 50, and 100 meanings without hover, plus all
+  five technical score anchors when expanded.
+- Seller and buyer-result previews are marked `Example only` and open without
+  network evaluation.
+- A changed draft survived a page reload with its review marked stale, then
+  was removed with `Discard draft`.
+- At 375px, the builder appears before marketing content, horizontal overflow
+  is zero, summaries are 48px high, and action buttons are at least 44px high.
+- Desktop and mobile viewport screenshots were visually reviewed. The
+  browser's full-page mobile capture produced an empty raster, so acceptance
+  relied on the rendered live viewport, normal mobile screenshot, DOM order,
+  and measured layout instead.
