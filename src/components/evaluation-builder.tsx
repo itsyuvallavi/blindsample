@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type {
   CriterionDraft,
   CriterionKind,
+  EvaluationContract,
   EvaluationContractPreview,
 } from "../lib/evaluation-contracts/types";
 import {
@@ -28,7 +29,10 @@ import { PRODUCT_LIMITS } from "../lib/product-contract";
 import { StatusMessage } from "./status-message";
 
 const CRITERION_OPTIONS: { label: string; value: CriterionKind }[] = [
-  { label: "Semantic relevance · 0G", value: "semantic_relevance" },
+  {
+    label: "Meaning and relevance · private 0G",
+    value: "semantic_relevance",
+  },
   { label: "Completeness", value: "completeness" },
   { label: "Format validity", value: "format_validity" },
   { label: "Uniqueness", value: "uniqueness" },
@@ -37,6 +41,7 @@ const CRITERION_OPTIONS: { label: string; value: CriterionKind }[] = [
   { label: "Column availability", value: "column_availability" },
   { label: "Category coverage", value: "category_coverage" },
 ];
+const SCORE_PREVIEW_KEYS = ["1", "50", "100"] as const;
 
 type CreatedLinks = CreatedEvaluationResponse & {
   buyerUrl: string;
@@ -330,31 +335,31 @@ export function EvaluationBuilder() {
   if (created) {
     return (
       <section className="terminal-window" aria-labelledby="links-title">
-        <TerminalBar path="~/blindsample/capabilities" status="ACTIVE" />
+        <TerminalBar path="~/blindsample/links" status="READY" />
         <div className="terminal-body">
-          <CommandLine>activate --approved-contracts</CommandLine>
+          <CommandLine>private links create</CommandLine>
           <p className="terminal-success">
-            seller capability activated · buyer capability sealed
+            Two role-specific links created
           </p>
           <h2 id="links-title" className="terminal-title">
             Share one link. Keep one link.
           </h2>
           <p className="terminal-copy">
-            Each URL contains a different expiring capability in its fragment.
-            BlindSample stores only HMAC hashes.
+            Each link grants only the access described below and expires
+            automatically. Creating these links did not spend 0G tokens.
           </p>
 
           <div className="capability-stack">
             <CapabilityLink
-              label="seller://submit"
-              description="Can read approved contracts and submit one CSV. Cannot read results."
+              label="Send this link to the seller"
+              description="The seller can review the approved questions and submit one CSV. They cannot see your results."
               value={created.sellerUrl}
               copied={copied === "seller"}
               onCopy={() => copyLink("seller", created.sellerUrl)}
             />
             <CapabilityLink
-              label="buyer://results"
-              description="Can read status and audit results. Cannot submit or replace data."
+              label="Keep this private results link"
+              description="This is your link for status and question-level results. Do not send it to the seller."
               value={created.buyerUrl}
               copied={copied === "buyer"}
               onCopy={() => copyLink("buyer", created.buyerUrl)}
@@ -363,7 +368,7 @@ export function EvaluationBuilder() {
 
           <div className="button-row">
             <a className="button-primary" href={created.buyerUrl}>
-              Open buyer view
+              Open my private results
             </a>
             <button
               type="button"
@@ -384,14 +389,14 @@ export function EvaluationBuilder() {
         <TerminalBar path="~/blindsample/contracts" status="REVIEW" />
         <div className="terminal-body">
           <CommandLine>
-            contracts preview --count {preview.contracts.length}
+            review questions --count {preview.contracts.length}
           </CommandLine>
           <h2 id="review-title" className="terminal-title">
-            Review the exact scoring rules.
+            Check what each score will mean.
           </h2>
           <p className="terminal-copy">
-            No seller link exists yet. Approval is bound to this contract set;
-            any edit requires a new review.
+            No links exist yet. Any edit returns you to setup before the
+            evaluation can be shared.
           </p>
 
           <div className="contract-review-list">
@@ -403,14 +408,17 @@ export function EvaluationBuilder() {
                 <header>
                   <span>
                     {String(index + 1).padStart(2, "0")} ·{" "}
-                    {contract.method}
+                    {contract.method === "semantic"
+                      ? "private AI check"
+                      : "exact check"}
                   </span>
                   <code>{contract.contractVersion}</code>
                 </header>
                 <h3>{contract.originalQuestion}</h3>
-                <p>{contract.normalizedCriterion}</p>
+                <p>{readerFacingCriterion(contract)}</p>
+                <ScoreMeaningPreview contract={contract} />
                 <details>
-                  <summary>View scoring details</summary>
+                  <summary>Technical scoring details</summary>
                   <dl className="contract-review-grid">
                     <div>
                       <dt>population</dt>
@@ -428,7 +436,10 @@ export function EvaluationBuilder() {
                     </div>
                     <div>
                       <dt>aggregation</dt>
-                      <dd>{contract.aggregationMethod}</dd>
+                      <dd>
+                        {aggregationDescription(contract)}
+                        <small>{contract.aggregationMethod}</small>
+                      </dd>
                     </div>
                     <div>
                       <dt>columns</dt>
@@ -439,22 +450,30 @@ export function EvaluationBuilder() {
                       </dd>
                     </div>
                   </dl>
-                  <div className="anchor-line" aria-label="Score anchors">
+                  <dl
+                    className="anchor-definitions"
+                    aria-label="All score meanings"
+                  >
                     {Object.entries(contract.scoringAnchors).map(
                       ([score, meaning]) => (
-                        <span key={score} title={meaning}>
-                          {score}
-                        </span>
+                        <div key={score}>
+                          <dt>{score}</dt>
+                          <dd>{meaning}</dd>
+                        </div>
                       ),
                     )}
-                  </div>
-                  <p className="terminal-list-label">required evidence</p>
+                  </dl>
+                  <p className="terminal-list-label">
+                    What must be present
+                  </p>
                   <ul>
                     {contract.requiredEvidence.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
-                  <p className="terminal-list-label">unable to score when</p>
+                  <p className="terminal-list-label">
+                    When no score is published
+                  </p>
                   <ul>
                     {contract.unableToScoreConditions.map((item) => (
                       <li key={item}>{item}</li>
@@ -465,6 +484,10 @@ export function EvaluationBuilder() {
             ))}
           </div>
 
+          <ExperiencePreviews
+            question={preview.contracts[0]?.originalQuestion}
+          />
+
           <label className="check-row contract-approval">
             <input
               type="checkbox"
@@ -472,8 +495,8 @@ export function EvaluationBuilder() {
               onChange={(event) => setApproved(event.target.checked)}
             />
             <span>
-              I approve these exact contracts and understand every result
-              applies only to the submitted records.
+              I checked these questions and score meanings. Each result will
+              apply only to the records the seller submits.
             </span>
           </label>
 
@@ -491,7 +514,7 @@ export function EvaluationBuilder() {
               aria-busy={submitting}
               onClick={activateEvaluation}
             >
-              {submitting ? "Activating…" : "Approve & activate links"}
+              {submitting ? "Creating links…" : "Create private links"}
             </button>
             <button
               type="button"
@@ -499,9 +522,13 @@ export function EvaluationBuilder() {
               disabled={submitting}
               onClick={invalidatePreview}
             >
-              Edit criteria
+              Edit questions
             </button>
           </div>
+          <p className="terminal-footnote">
+            Creating links is free. 0G tokens are spent only when the seller
+            submits a CSV for evaluation.
+          </p>
         </div>
       </section>
     );
@@ -514,7 +541,8 @@ export function EvaluationBuilder() {
         <CommandLine>start private evaluation</CommandLine>
         <h2 className="terminal-title">Create an evaluation</h2>
         <p className="terminal-copy">
-          Start with one question. You can add more before sharing.
+          Ask what you need the dataset to prove. You can add more questions
+          before sharing.
         </p>
 
         <label className="field-group">
@@ -569,7 +597,7 @@ export function EvaluationBuilder() {
             disabled={criteria.length >= PRODUCT_LIMITS.maximumQuestions}
             className="button-quiet add-question"
           >
-            + add criterion
+            + Add another question
           </button>
         </fieldset>
 
@@ -605,7 +633,8 @@ export function EvaluationBuilder() {
           {submitting ? "Preparing review…" : "Review evaluation"}
         </button>
         <p className="terminal-footnote">
-          Nothing is shared until you approve the scoring rules.
+          Creating and reviewing this evaluation is free. 0G tokens are spent
+          only after the seller submits a CSV.
         </p>
         <button
           type="button"
@@ -650,17 +679,23 @@ function CriterionEditor({
         <span className="question-index">
           [{String(index).padStart(2, "0")}]
         </span>
-        <div className="question-actions">
-          <MiniButton disabled={!canMoveUp} onClick={() => onMove(-1)}>
-            ↑
-          </MiniButton>
-          <MiniButton disabled={!canMoveDown} onClick={() => onMove(1)}>
-            ↓
-          </MiniButton>
-          <MiniButton disabled={!canRemove} onClick={onRemove}>
-            rm
-          </MiniButton>
-        </div>
+        {canMoveUp || canMoveDown || canRemove ? (
+          <div className="question-actions">
+            {canMoveUp ? (
+              <MiniButton onClick={() => onMove(-1)}>
+                Move up
+              </MiniButton>
+            ) : null}
+            {canMoveDown ? (
+              <MiniButton onClick={() => onMove(1)}>
+                Move down
+              </MiniButton>
+            ) : null}
+            {canRemove ? (
+              <MiniButton onClick={onRemove}>Remove</MiniButton>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <label className="field-group">
@@ -702,7 +737,7 @@ function CriterionEditor({
         }
       >
         <summary>
-          Scoring setup
+          How should this question be scored?
           {criterion.kind === "semantic_relevance" ? (
             <span
               className="review-state"
@@ -715,8 +750,8 @@ function CriterionEditor({
           ) : null}
         </summary>
         <p>
-          These defaults make the result measurable and testable. Adjust them
-          if your CSV uses different columns or examples.
+          Confirm what counts as a match, which CSV columns contain the
+          evidence, and three examples that anchor the score.
         </p>
         <CriterionSettings criterion={criterion} onChange={onChange} />
         {criterion.kind === "semantic_relevance" ? (
@@ -856,20 +891,20 @@ function CriterionSettings({
       return (
         <div className="settings-stack semantic-settings">
           <ColumnsInput
-            label="evidence_columns"
+            label="Which CSV columns contain the evidence?"
             value={criterion.columns}
             onChange={(columns) => onChange({ ...criterion, columns })}
           />
           <TextAreaSetting
-            label="approved_target"
+            label="What should count as a good match?"
             value={criterion.target}
             onChange={(target) => onChange({ ...criterion, target })}
           />
           <p className="terminal-list-label">
-            human-reviewed calibration controls
+            Examples that define the scale
           </p>
           <TextAreaSetting
-            label="negative"
+            label="Clearly not a match · score 1"
             value={criterion.controls.negative}
             onChange={(negative) =>
               onChange({
@@ -879,7 +914,7 @@ function CriterionSettings({
             }
           />
           <TextAreaSetting
-            label="intermediate"
+            label="Mixed or partial match · score 50"
             value={criterion.controls.intermediate}
             onChange={(intermediate) =>
               onChange({
@@ -889,7 +924,7 @@ function CriterionSettings({
             }
           />
           <TextAreaSetting
-            label="positive"
+            label="Clear match · score 100"
             value={criterion.controls.positive}
             onChange={(positive) =>
               onChange({
@@ -998,22 +1033,76 @@ function TextAreaSetting({
 
 function MiniButton({
   children,
-  disabled,
   onClick,
 }: {
   children: React.ReactNode;
-  disabled: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       className="button-mini"
-      disabled={disabled}
       onClick={onClick}
     >
       {children}
     </button>
+  );
+}
+
+function ScoreMeaningPreview({
+  contract,
+}: {
+  contract: EvaluationContract;
+}) {
+  return (
+    <dl
+      className="score-meaning-preview"
+      aria-label="Key score meanings"
+    >
+      {SCORE_PREVIEW_KEYS.map((score) => (
+        <div key={score}>
+          <dt>{score}</dt>
+          <dd>{contract.scoringAnchors[score]}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ExperiencePreviews({ question }: { question?: string }) {
+  return (
+    <div className="experience-previews">
+      <details className="experience-preview">
+        <summary>Preview seller experience</summary>
+        <div className="experience-preview__body">
+          <p className="preview-label">Example only · Seller submission</p>
+          <h3>Review the questions, then choose one CSV.</h3>
+          <p>
+            The seller sees the approved questions before uploading. They
+            cannot see the buyer&apos;s result link or final scores.
+          </p>
+          <p className="cost-boundary">
+            0G tokens start only when the seller submits the CSV.
+          </p>
+        </div>
+      </details>
+      <details className="experience-preview">
+        <summary>Preview example results</summary>
+        <div className="experience-preview__body example-result">
+          <div>
+            <p className="preview-label">Example only · Private buyer result</p>
+            <h3>{question ?? "Does this dataset meet my requirement?"}</h3>
+          </div>
+          <p className="example-score">
+            82<small>/100</small>
+          </p>
+          <p>
+            A real result also shows coverage, agreement, control checks, and
+            verified 0G requests. No overall dataset score is calculated.
+          </p>
+        </div>
+      </details>
+    </div>
   );
 }
 
@@ -1048,7 +1137,7 @@ function CapabilityLink({
           className="button-secondary"
           data-state={copied ? "success" : "default"}
         >
-          {copied ? "copied" : "copy"}
+          {copied ? "Copied ✓" : "Copy link"}
         </button>
       </div>
     </div>
@@ -1146,6 +1235,35 @@ function createCriterion(
         question: "Are the expected categories represented?",
       };
   }
+}
+
+function readerFacingCriterion(contract: EvaluationContract) {
+  const criterion = contract.criterion;
+
+  switch (criterion.kind) {
+    case "semantic_relevance":
+      return `A good match is: ${criterion.target}`;
+    case "completeness":
+      return `Checks whether ${criterion.columns.join(", ")} contain values in each submitted row.`;
+    case "format_validity":
+      return `Checks whether ${criterion.column} uses the expected ${criterion.format.replace("_", " ")} format.`;
+    case "uniqueness":
+      return `Checks whether every ${criterion.column} value is unique.`;
+    case "date_freshness":
+      return `Checks whether ${criterion.column} is no more than ${criterion.maximumAgeDays} days old on ${criterion.referenceDate}.`;
+    case "numeric_range":
+      return `Checks whether ${criterion.column} is between ${criterion.minimum} and ${criterion.maximum}.`;
+    case "column_availability":
+      return `Checks whether the CSV includes ${criterion.columns.join(", ")}.`;
+    case "category_coverage":
+      return `Checks whether ${criterion.column} includes ${criterion.expectedValues.join(", ")}.`;
+  }
+}
+
+function aggregationDescription(contract: EvaluationContract) {
+  return contract.method === "semantic"
+    ? "Average of the record-level match scores."
+    : "Percentage of submitted records that satisfy the requirement.";
 }
 
 function createInitialEvaluationDraft(): EvaluationDraft {

@@ -3,7 +3,7 @@ import { SiteFrame } from "../components/site-frame";
 
 export default function Home() {
   return (
-    <SiteFrame>
+    <SiteFrame role="Buyer setup">
       <section className="home-workbench">
         <div className="home-copy">
           <p className="eyebrow">
@@ -29,15 +29,19 @@ export default function Home() {
       <ol className="simple-steps" aria-label="How BlindSample works">
         <li>
           <span>01</span>
-          <p>Define the questions.</p>
+          <p>Define</p>
         </li>
         <li>
           <span>02</span>
-          <p>Send the private seller link.</p>
+          <p>Share</p>
         </li>
         <li>
           <span>03</span>
-          <p>Receive one verified result per question.</p>
+          <p>Evaluate</p>
+        </li>
+        <li>
+          <span>04</span>
+          <p>Results</p>
         </li>
       </ol>
     </SiteFrame>

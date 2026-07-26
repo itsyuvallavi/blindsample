@@ -21,7 +21,7 @@ export default async function SubmitPage({
   const { id } = await params;
 
   return (
-    <SiteFrame compact>
+    <SiteFrame compact role="Seller submission">
       <SellerSubmission evaluationId={id} />
     </SiteFrame>
   );

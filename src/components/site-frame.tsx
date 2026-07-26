@@ -4,9 +4,11 @@ import type { ReactNode } from "react";
 export function SiteFrame({
   children,
   compact = false,
+  role,
 }: {
   children: ReactNode;
   compact?: boolean;
+  role?: string;
 }) {
   return (
     <div className="site-shell">
@@ -23,6 +25,7 @@ export function SiteFrame({
       <main
         className={`site-main${compact ? " site-main--compact" : ""}`}
       >
+        {role ? <p className="page-role">{role}</p> : null}
         {children}
       </main>
 

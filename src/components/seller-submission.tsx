@@ -214,6 +214,10 @@ export function SellerSubmission({
             1–50 parsed data records, maximum 200 KB and 20 columns. The header
             is excluded from the record count; no row is truncated.
           </p>
+          <p className="cost-boundary">
+            Selecting a file is free. 0G tokens are spent only when you start
+            the private evaluation.
+          </p>
 
           <label className="field-label field-group">
             CSV file
@@ -282,7 +286,7 @@ export function SellerSubmission({
           >
             {submitting
               ? "Evaluating submitted records…"
-              : "Run approved contracts"}
+              : "Start private evaluation"}
           </button>
           <p className="readiness-note" aria-live="polite">
             {!file
