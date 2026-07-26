@@ -1,3 +1,12 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import {
+  dirname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
+
 import { afterAll, describe, expect, it } from "vitest";
 
 import { readCapabilityToken } from "../browser/capability";
@@ -86,28 +95,29 @@ describeLive("five-scenario multi-question semantic E2E matrix", () => {
         results.push(await runScenario(scenario));
       }
 
-      console.info(
-        JSON.stringify({
-          event: "semantic_e2e_scenario_matrix",
-          maximumInferenceRequests:
-            SEMANTIC_E2E_MAXIMUM_INFERENCE_REQUESTS,
-          results,
-          totalInferenceRequests: results.reduce(
-            (sum, result) => sum + result.inferenceRequests,
-            0,
-          ),
-          totalCostNeuron: results
-            .reduce(
-              (sum, result) => sum + BigInt(result.costNeuron),
-              BigInt(0),
-            )
-            .toString(),
-          totalQuestionResults: results.reduce(
-            (sum, result) => sum + result.questions.length,
-            0,
-          ),
-        }),
-      );
+      const report = {
+        event: "semantic_e2e_scenario_matrix",
+        maximumInferenceRequests:
+          SEMANTIC_E2E_MAXIMUM_INFERENCE_REQUESTS,
+        results,
+        totalInferenceRequests: results.reduce(
+          (sum, result) => sum + result.inferenceRequests,
+          0,
+        ),
+        totalCostNeuron: results
+          .reduce(
+            (sum, result) => sum + BigInt(result.costNeuron),
+            BigInt(0),
+          )
+          .toString(),
+        totalQuestionResults: results.reduce(
+          (sum, result) => sum + result.questions.length,
+          0,
+        ),
+      };
+
+      console.info(JSON.stringify(report));
+      await writeSanitizedReport(report);
 
       expect(results).toHaveLength(SEMANTIC_E2E_SCENARIOS.length);
       expect(
@@ -389,4 +399,38 @@ function tokenFromPath(path: string) {
   }
 
   return token;
+}
+
+async function writeSanitizedReport(report: unknown) {
+  const configuredPath =
+    process.env.SEMANTIC_E2E_REPORT_PATH?.trim();
+
+  if (!configuredPath) {
+    return;
+  }
+
+  const reportPath = resolve(configuredPath);
+  const allowedDirectory = resolve("tmp");
+  const relativePath = relative(allowedDirectory, reportPath);
+
+  if (
+    relativePath === "" ||
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`) ||
+    isAbsolute(relativePath)
+  ) {
+    throw new Error(
+      "SEMANTIC_E2E_REPORT_PATH must point to a file inside tmp/.",
+    );
+  }
+
+  await mkdir(dirname(reportPath), { recursive: true });
+  await writeFile(
+    reportPath,
+    `${JSON.stringify(report, null, 2)}\n`,
+    {
+      encoding: "utf8",
+      mode: 0o600,
+    },
+  );
 }
