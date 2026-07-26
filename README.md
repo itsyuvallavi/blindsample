@@ -29,7 +29,8 @@ Every evaluation uses:
 - `verify_tee: true`
 - a required `tee_verified === true` trace
 - `temperature: 0`
-- JSON response mode
+- forced structured function output
+- model reasoning enabled for cross-row checks
 - no automatic retry
 - one hard-coded request per evaluation
 
@@ -45,9 +46,12 @@ ID exactly once. Each result contains:
 - confidence
 - evidence limited to row numbers, aggregate counts, and sanitized reasons
 
-BlindSample validates the schema, question IDs, arithmetic, evidence bounds,
-evaluation ID, and TEE trace. It may reject inconsistent arithmetic but never
-replaces the model score with a locally calculated answer.
+For count-based questions, 0G returns one boolean judgment per evaluated unit.
+BlindSample validates the schema, coverage, question IDs, evidence bounds,
+evaluation ID, and TEE trace, then mechanically counts those 0G judgments and
+applies the documented rounding rule. It never inspects the CSV to make or
+replace a model judgment. Holistic questions keep the model's validated score.
+The per-unit judgments are discarded after safe aggregate results are built.
 
 Any request failure, timeout, 401/403, missing TEE verification, invalid JSON,
 partial result set, invented question, unsafe evidence, or invalid arithmetic
@@ -187,7 +191,13 @@ ALLOW_PAID_0G=1 npm run test:e2e
 # Three harder interval and semantic-quality scenarios. Run only after baseline passes.
 ALLOW_PAID_0G=1 npm run test:e2e:hard
 
-# All ten scenarios. Run only after both three-scenario tiers pass.
+# Three seeded adversarial datasets with nine independently known scores.
+ALLOW_PAID_0G=1 npm run test:e2e:adversarial
+
+# One maximum-size, five-question prompt-injection stress scenario.
+ALLOW_PAID_0G=1 npm run test:e2e:stress
+
+# The complete staged suite. Run only after the smaller tiers pass.
 ALLOW_PAID_0G=1 npm run test:e2e:full
 ```
 

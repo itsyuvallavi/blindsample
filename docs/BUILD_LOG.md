@@ -1060,3 +1060,36 @@ Acceptance:
 - Lint, TypeScript, 91 non-live tests, and the production build pass.
 - Commits `2cb2f2a` and `9153af2` were pushed to `main`.
 - No additional paid 0G request was made while implementing this repair.
+
+## 2026-07-26 — Exact-score reliability acceptance
+
+Inspection and mitigation:
+
+- Reproduced schema, truncation, duplicate-detection, semantic-consistency,
+  countability, and cross-column judgment failures in progressively harder
+  paid tiers.
+- Kept exactly one 0G request per evaluation and no automatic retry.
+- Switched countable results to 0G per-unit boolean judgments. The application
+  performs only safe counting and rounding; it never answers a buyer question
+  from the CSV.
+- Forced structured function output, retained model reasoning for cross-row
+  checks, isolated each question to its referenced columns, and normalized
+  persisted prose to aggregate-only summaries.
+- Added seeded adversarial generators and a maximum-size, five-question stress
+  case containing prompt-injection text.
+
+Acceptance:
+
+- Baseline: 3/3 datasets and 6/6 independently expected scores matched.
+- Hard: 3/3 datasets and 6/6 expected scores matched.
+- Seeded adversarial: 3/3 datasets and 9/9 expected scores matched.
+- Maximum-size stress: 1/1 dataset and 5/5 expected scores matched.
+- Combined accepted accuracy evidence: 26/26 exact question scores. Every
+  scenario used one verified 0G request and no retry.
+- A final real-browser seller-to-buyer run packed two questions into one
+  verified request and displayed the independently expected 75/100 and 50/100
+  results. The buyer view exposed neither raw cell values nor sample size,
+  labeled both results “Evaluated by 0G,” and produced no browser errors.
+- The synthetic browser evaluation was deleted from Supabase after the check.
+- The free suite passes with 108 tests; six paid/live suites remain skipped by
+  default. Lint, TypeScript, and the production build pass.

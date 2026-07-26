@@ -41,8 +41,10 @@ valid all-question set? ---- no ----> failed + results:null
 complete + safe aggregate results
 ```
 
-The model decides how to evaluate each question and returns the score. The
-application validates the response but does not answer questions from the CSV.
+The model decides how to evaluate each question and makes every semantic or
+per-unit judgment. For countable questions, the application only counts the
+model's booleans and applies the published rounding rule. It never reads the
+CSV to make or replace a judgment.
 
 ## 3. Review
 
@@ -63,8 +65,9 @@ Scored results require:
 - exact score definitions for 0 and 100;
 - an allowed evaluation-basis unit;
 - integer confidence from 0–100;
-- paired numerator and denominator when arithmetic applies;
-- `round(numerator / denominator × 100)` consistency; and
+- one 0G boolean judgment per countable unit;
+- application-derived numerator, denominator, and
+  `round(numerator / denominator × 100)` for countable results; and
 - bounded, aggregate-only evidence.
 
 Unable results require `score`, `numerator`, and `denominator` to be `null`.
@@ -102,7 +105,7 @@ displayable. Existing hybrid rows fail closed.
 |---|---|---|
 | Partial/extra IDs | Exact one-to-one ID validator | Scoring tests |
 | Wrong evaluation | Required top-level evaluation ID | Parser tests |
-| Bad arithmetic | Validate, never recalculate a replacement | Arithmetic test |
+| Bad arithmetic | Derive only mechanical arithmetic from 0G judgments | Arithmetic test |
 | Missing TEE | Client rejects absent/false verification | Client and scoring tests |
 | Request failure | Submission calls `fail`, never `complete` | Submission tests |
 | Cell leakage | Reject persisted text containing private cell values | Privacy test |
@@ -156,7 +159,7 @@ No paid live request is part of this milestone.
 - [x] 401/403, timeout, invalid JSON, and missing TEE fail the whole run.
 - [x] Failed runs publish and display zero scores.
 - [x] Every successful result maps to one original question ID.
-- [x] Arithmetic is checked without creating a replacement score.
+- [x] Count arithmetic is derived from 0G judgments without local question answering.
 - [x] No local question-answering fallback is reachable.
 - [x] No raw CSV, prompt, response, or copied cell value reaches persistence.
 - [x] Every displayed result says “Evaluated by 0G.”
