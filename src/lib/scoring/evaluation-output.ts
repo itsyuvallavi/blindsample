@@ -8,6 +8,7 @@ import {
   type SafeAggregateCount,
   type SafeResultEvidence,
 } from "./types";
+import { requiresScoredResult } from "./evaluation-prompt";
 
 const BASIS_UNITS = new Set<EvaluationBasisUnit>([
   "events",
@@ -47,7 +48,8 @@ export type EvaluationOutputFailureCode =
   | "invalid_unable_arithmetic"
   | "missing_count_arithmetic"
   | "missing_or_duplicate_question"
-  | "private_value_copy";
+  | "private_value_copy"
+  | "unexpected_unable";
 
 export class EvaluationOutputError extends Error {
   constructor(
@@ -93,6 +95,9 @@ export function parseEvaluationOutput(input: {
   const expectedIds = new Set(
     input.questions.map((question) => question.id),
   );
+  const questionsById = new Map(
+    input.questions.map((question) => [question.id, question]),
+  );
   const seenIds = new Set<string>();
   const forbiddenValues = privateCellValues(
     input.sample,
@@ -102,6 +107,7 @@ export function parseEvaluationOutput(input: {
     parseResult(
       value,
       expectedIds,
+      questionsById,
       seenIds,
       input.sample,
       forbiddenValues,
@@ -125,6 +131,7 @@ export function parseEvaluationOutput(input: {
 function parseResult(
   value: unknown,
   expectedIds: Set<string>,
+  questionsById: Map<string, EvaluationQuestion>,
   seenIds: Set<string>,
   sample: ParsedCsvSample,
   forbiddenValues: string[],
@@ -175,6 +182,18 @@ function parseResult(
   };
 
   if (status === "unable") {
+    const question = questionsById.get(questionId);
+
+    if (
+      question &&
+      requiresScoredResult(question, sample.columns)
+    ) {
+      throw new EvaluationOutputError(
+        "unexpected_unable",
+        "0G marked a structurally answerable aggregate question as unable.",
+      );
+    }
+
     if (score !== null || numerator !== null || denominator !== null) {
       throw new EvaluationOutputError(
         "invalid_unable_arithmetic",

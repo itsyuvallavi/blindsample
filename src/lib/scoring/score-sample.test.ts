@@ -241,6 +241,45 @@ describe("scorePrivateCsvSample", () => {
     });
   });
 
+  it("rejects unable for an aggregate question tied to real columns", async () => {
+    const output = validOutput();
+    const unableOutput = {
+      ...output,
+      results: [
+        {
+          ...output.results[0],
+          denominator: null,
+          numerator: null,
+          score: null,
+          status: "unable",
+        },
+        output.results[1],
+      ],
+    };
+
+    await expect(
+      scorePrivateCsvSample(
+        {
+          evaluationId: "evaluation-1",
+          questions: QUESTIONS,
+          sample: SAMPLE,
+        },
+        {
+          requestCompletion: vi
+            .fn()
+            .mockResolvedValue(completion(unableOutput)),
+        },
+      ),
+    ).rejects.toMatchObject({
+      diagnostics: {
+        outputValidation: {
+          failureCode: "unexpected_unable",
+          status: "failed",
+        },
+      },
+    });
+  });
+
   it("records a safe failure code without retaining invalid output", async () => {
     const rejected = scorePrivateCsvSample(
       {

@@ -90,6 +90,7 @@ export function buildEvaluationMessages(input: {
 }
 
 export function buildEvaluationFunctionTool(input: {
+  columns: string[];
   evaluationId: string;
   questions: EvaluationQuestion[];
   rowCount: number;
@@ -106,10 +107,15 @@ export function buildEvaluationFunctionTool(input: {
           type: "string",
         },
         results: {
-          items: resultSchema(
-            input.questions.map((question) => question.id),
-            input.rowCount,
-          ),
+          items: {
+            oneOf: input.questions.map((question) =>
+              resultSchema(
+                question,
+                input.columns,
+                input.rowCount,
+              ),
+            ),
+          },
           maxItems: input.questions.length,
           minItems: input.questions.length,
           type: "array",
@@ -121,7 +127,38 @@ export function buildEvaluationFunctionTool(input: {
   };
 }
 
-function resultSchema(questionIds: string[], rowCount: number) {
+export function requiresScoredResult(
+  question: EvaluationQuestion,
+  columns: string[],
+) {
+  const normalizedQuestion = normalizeWords(question.question);
+  const asksForAggregate =
+    /\bwhat percentage\b/.test(normalizedQuestion) ||
+    /\bpercentage of\b/.test(normalizedQuestion) ||
+    /\bwhat fraction\b/.test(normalizedQuestion) ||
+    /\bhow many\b/.test(normalizedQuestion) ||
+    /\bdoes each\b/.test(normalizedQuestion) ||
+    /\bis each\b/.test(normalizedQuestion) ||
+    /\bare all\b/.test(normalizedQuestion) ||
+    /\bcalculate (?:the )?score\b/.test(normalizedQuestion);
+
+  return (
+    asksForAggregate &&
+    columns.some((column) =>
+      mentionsColumn(normalizedQuestion, normalizeWords(column)),
+    )
+  );
+}
+
+function resultSchema(
+  question: EvaluationQuestion,
+  columns: string[],
+  rowCount: number,
+) {
+  const statusValues = requiresScoredResult(question, columns)
+    ? ["scored"]
+    : ["scored", "unable"];
+
   return {
     additionalProperties: false,
     properties: {
@@ -204,7 +241,7 @@ function resultSchema(questionIds: string[], rowCount: number) {
       },
       numerator: nullableInteger(0),
       question_id: {
-        enum: questionIds,
+        enum: [question.id],
         type: "string",
       },
       score: nullableInteger(0, 100),
@@ -226,7 +263,7 @@ function resultSchema(questionIds: string[], rowCount: number) {
         type: "object",
       },
       status: {
-        enum: ["scored", "unable"],
+        enum: statusValues,
         type: "string",
       },
     },
@@ -244,6 +281,27 @@ function resultSchema(questionIds: string[], rowCount: number) {
     ],
     type: "object",
   };
+}
+
+function mentionsColumn(question: string, column: string) {
+  if (!column) {
+    return false;
+  }
+
+  const escaped = column.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const plural =
+    /^[a-z0-9]+$/.test(column) && !column.endsWith("s")
+      ? "s?"
+      : "";
+
+  return new RegExp(`\\b${escaped}${plural}\\b`).test(question);
+}
+
+function normalizeWords(value: string) {
+  return value
+    .toLocaleLowerCase("en-US")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function nullableInteger(minimum: number, maximum?: number) {
