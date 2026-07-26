@@ -34,9 +34,7 @@ export type ResultEvidence = {
   recordsEvaluated: number;
   recordsSubmitted: number;
   zeroG: {
-    model: string;
-    provider: string;
-    requestIds: string[];
+    requests: ZeroGTrace[];
     teeVerified: true;
   } | null;
 };
@@ -68,9 +66,7 @@ export function zeroGEvidence(traces: ZeroGTrace[]) {
   }
 
   return {
-    model: first.model,
-    provider: first.provider,
-    requestIds: traces.map((trace) => trace.requestId),
+    requests: traces,
     teeVerified: true as const,
   };
 }
