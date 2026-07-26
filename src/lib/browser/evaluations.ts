@@ -1,7 +1,4 @@
-import type {
-  EvaluationQuestion,
-  GeneratedEvaluationPlan,
-} from "../evaluation-plans/types";
+import type { EvaluationQuestion } from "../evaluation-plans/types";
 import type { EvaluationRunDiagnostics } from "../scoring/run-diagnostics";
 import type { EvaluationResult } from "../scoring/types";
 
@@ -15,7 +12,6 @@ export type SellerEvaluation = {
   approvedAt: string;
   expiresAt: string;
   id: string;
-  plans: GeneratedEvaluationPlan[] | null;
   questions: EvaluationQuestion[];
   status: EvaluationStatus;
   title: string;

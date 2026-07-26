@@ -1,35 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { compileEvaluationContracts } from "./compile";
-import { hashEvaluationContracts } from "./hash";
+import { hashEvaluationQuestions } from "./hash";
 
-const DRAFT = {
-  columns: ["description"],
-  controls: {
-    intermediate: "A general product question.",
-    negative: "A weather report.",
-    positive: "A customer asks an agent to fix a billing error.",
+const QUESTIONS = [
+  {
+    id: "relevance",
+    question: "Is this relevant?",
   },
-  id: "relevance",
-  kind: "semantic_relevance",
-  question: "Is this relevant?",
-  target: "Customer support requests requiring an agent response.",
-} as const;
+];
 
-describe("hashEvaluationContracts", () => {
-  it("binds approval to the exact reviewed contract set", () => {
-    const contracts = compileEvaluationContracts([DRAFT]);
-    const sameContracts = compileEvaluationContracts([DRAFT]);
-    const changedContracts = compileEvaluationContracts([
-      { ...DRAFT, target: `${DRAFT.target} Urgent requests only.` },
-    ]);
-
-    expect(hashEvaluationContracts(contracts)).toBe(
-      hashEvaluationContracts(sameContracts),
+describe("hashEvaluationQuestions", () => {
+  it("binds approval to the exact plain-language question set", () => {
+    expect(hashEvaluationQuestions(QUESTIONS)).toBe(
+      hashEvaluationQuestions([...QUESTIONS]),
     );
-    expect(hashEvaluationContracts(changedContracts)).not.toBe(
-      hashEvaluationContracts(contracts),
+    expect(
+      hashEvaluationQuestions([
+        { ...QUESTIONS[0], question: "Is this complete?" },
+      ]),
+    ).not.toBe(hashEvaluationQuestions(QUESTIONS));
+    expect(hashEvaluationQuestions(QUESTIONS)).toMatch(
+      /^[0-9a-f]{64}$/,
     );
-    expect(hashEvaluationContracts(contracts)).toMatch(/^[0-9a-f]{64}$/);
   });
 });

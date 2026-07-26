@@ -5,17 +5,15 @@ import {
   hashCapabilityToken,
   issueEvaluationCapabilities,
 } from "../access/capabilities";
-import { hashCanonicalValue } from "../evaluation-contracts/hash";
-import type { EvaluationContract } from "../evaluation-contracts/types";
-import type {
-  EvaluationQuestion,
-  GeneratedEvaluationPlan,
-} from "../evaluation-plans/types";
+import type { EvaluationQuestion } from "../evaluation-plans/types";
 import {
   emptyEvaluationRunDiagnostics,
   type EvaluationRunDiagnostics,
 } from "../scoring/run-diagnostics";
-import type { EvaluationResult } from "../scoring/types";
+import {
+  isAtomicVerifiedResultSet,
+  type EvaluationResult,
+} from "../scoring/types";
 
 import { getSupabaseServerClient } from "./client";
 import type {
@@ -62,7 +60,6 @@ export type SellerEvaluationView = {
   approvedAt: string;
   expiresAt: string;
   id: string;
-  plans: GeneratedEvaluationPlan[] | null;
   questions: EvaluationQuestion[];
   status: EvaluationStatus;
   title: string;
@@ -79,7 +76,7 @@ export type BuyerEvaluationView = SellerEvaluationView & {
 
 export type CompletedEvaluationResult = {
   inferenceDiagnostics: EvaluationRunDiagnostics;
-  plans: GeneratedEvaluationPlan[];
+  questionIds: string[];
   results: EvaluationResult[];
   sampleColumnCount: number;
   sampleRowCount: number;
@@ -170,14 +167,11 @@ export async function getSellerEvaluation(
     return null;
   }
 
-  const stored = readStoredEvaluation(data.contracts);
-
   return {
     approvedAt: data.approved_at,
     expiresAt: data.expires_at,
     id: data.id,
-    plans: stored.plans,
-    questions: stored.questions,
+    questions: readStoredQuestions(data.contracts),
     status: data.status as EvaluationStatus,
     title: data.title,
   };
@@ -214,8 +208,6 @@ export async function getBuyerEvaluation(
     return null;
   }
 
-  const stored = readStoredEvaluation(data.contracts);
-
   return {
     approvedAt: data.approved_at,
     completedAt: data.completed_at,
@@ -224,11 +216,10 @@ export async function getBuyerEvaluation(
     id: data.id,
     inferenceDiagnostics:
       data.inference_diagnostics as EvaluationRunDiagnostics,
+    questions: readStoredQuestions(data.contracts),
     results: data.results as EvaluationResult[] | null,
     sampleColumnCount: data.sample_column_count,
     sampleRowCount: data.sample_row_count,
-    plans: stored.plans,
-    questions: stored.questions,
     status: data.status as EvaluationStatus,
     title: data.title,
   };
@@ -253,9 +244,11 @@ export async function beginSellerSubmission(
   const { data, error } = await client
     .from("evaluations")
     .update({
+      completed_at: null,
       error_code: null,
       inference_diagnostics:
         emptyEvaluationRunDiagnostics() as unknown as Json,
+      results: null,
       sample_column_count: input.sampleColumnCount,
       sample_row_count: input.sampleRowCount,
       status: "processing",
@@ -285,13 +278,28 @@ export async function completeEvaluation(
   const environment =
     options.environment ?? getEvaluationEnvironment();
   const now = options.now ?? new Date();
+  const questions = result.questionIds.map((questionId) => ({
+    id: questionId,
+    question: "",
+  }));
+
+  if (
+    !isAtomicVerifiedResultSet(
+      questions,
+      result.results,
+      result.inferenceDiagnostics,
+    )
+  ) {
+    throw new EvaluationRepositoryError(
+      "Only a complete, verified 0G result set can be published.",
+      "conflict",
+    );
+  }
 
   const { data, error } = await client
     .from("evaluations")
     .update({
       completed_at: now.toISOString(),
-      contract_set_hash: hashCanonicalValue(result.plans),
-      contracts: result.plans as unknown as Json,
       error_code: null,
       inference_diagnostics:
         result.inferenceDiagnostics as unknown as Json,
@@ -359,52 +367,31 @@ export async function failEvaluation(
   }
 }
 
-function databaseError(message: string, cause: unknown) {
-  return new EvaluationRepositoryError(message, "database_error", {
-    cause,
-  });
-}
-
-function readStoredEvaluation(value: Json): {
-  plans: GeneratedEvaluationPlan[] | null;
-  questions: EvaluationQuestion[];
-} {
+function readStoredQuestions(value: Json): EvaluationQuestion[] {
   if (!Array.isArray(value)) {
-    return { plans: null, questions: [] };
-  }
-
-  if (value.every(isGeneratedEvaluationPlan)) {
-    const plans = value as unknown as GeneratedEvaluationPlan[];
-
-    return {
-      plans,
-      questions: plans.map((plan) => ({
-        id: plan.questionId,
-        question: plan.originalQuestion,
-      })),
-    };
+    return [];
   }
 
   if (value.every(isEvaluationQuestion)) {
-    return {
-      plans: null,
-      questions: value as unknown as EvaluationQuestion[],
-    };
+    return value as unknown as EvaluationQuestion[];
   }
 
-  if (value.every(isLegacyContract)) {
-    const contracts = value as unknown as EvaluationContract[];
+  return value.flatMap((item) => {
+    if (
+      isRecord(item) &&
+      typeof item.questionId === "string" &&
+      typeof item.originalQuestion === "string"
+    ) {
+      return [
+        {
+          id: item.questionId,
+          question: item.originalQuestion,
+        },
+      ];
+    }
 
-    return {
-      plans: null,
-      questions: contracts.map((contract) => ({
-        id: contract.questionId,
-        question: contract.originalQuestion,
-      })),
-    };
-  }
-
-  return { plans: null, questions: [] };
+    return [];
+  });
 }
 
 function isEvaluationQuestion(value: Json) {
@@ -416,28 +403,16 @@ function isEvaluationQuestion(value: Json) {
   );
 }
 
-function isGeneratedEvaluationPlan(value: Json) {
-  return (
-    isRecord(value) &&
-    value.planVersion === "2.0.0" &&
-    typeof value.questionId === "string" &&
-    typeof value.originalQuestion === "string"
-  );
-}
-
-function isLegacyContract(value: Json) {
-  return (
-    isRecord(value) &&
-    typeof value.questionId === "string" &&
-    typeof value.originalQuestion === "string" &&
-    (value.method === "deterministic" || value.method === "semantic")
-  );
-}
-
 function isRecord(value: Json): value is Record<string, Json> {
   return (
     typeof value === "object" &&
     value !== null &&
     !Array.isArray(value)
   );
+}
+
+function databaseError(message: string, cause: unknown) {
+  return new EvaluationRepositoryError(message, "database_error", {
+    cause,
+  });
 }

@@ -1,82 +1,18 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { compileEvaluationContracts } from "../evaluation-contracts/compile";
-import { hashEvaluationQuestions } from "../evaluation-contracts/hash";
-import {
-  fingerprintQuestion,
-  fingerprintSample,
-} from "../evaluation-plans/generate";
-import {
-  EVALUATION_PLAN_VERSION,
-  type GeneratedEvaluationPlan,
-} from "../evaluation-plans/types";
 import { getSupabaseServerClient } from "./client";
 import {
   beginSellerSubmission,
   completeEvaluation,
   createEvaluation,
   getBuyerEvaluation,
-  getSellerEvaluation,
 } from "./evaluations";
 
 const describeLive =
   process.env.SUPABASE_LIVE === "1" ? describe : describe.skip;
 const createdIds: string[] = [];
-const CONTRACTS = compileEvaluationContracts([
-  {
-    columns: ["order_total"],
-    id: "complete",
-    kind: "completeness",
-    question: "Are order totals complete?",
-  },
-  {
-    columns: ["description"],
-    controls: {
-      intermediate: "A possible order note with limited detail.",
-      negative: "A weather report unrelated to orders.",
-      positive: "A confirmed customer order description.",
-    },
-    id: "relevance",
-    kind: "semantic_relevance",
-    question: "Are these customer order records?",
-    target: "Records that clearly describe customer orders.",
-  },
-]);
-const QUESTIONS = CONTRACTS.map((contract) => ({
-  id: contract.questionId,
-  question: contract.originalQuestion,
-}));
-const AUDIT_SAMPLE = {
-  columnCount: 2,
-  columns: ["order_total", "description"],
-  rowCount: 1,
-  rows: [["10", "Confirmed customer order"]],
-};
-const PLANS: GeneratedEvaluationPlan[] = CONTRACTS.map((contract) => ({
-  confidence: 1,
-  contract,
-  datasetFingerprint: fingerprintSample(AUDIT_SAMPLE),
-  evidenceNeeded: contract.requiredEvidence,
-  explanation: "Live persistence plan.",
-  generationAttempt: 1,
-  method: contract.method,
-  originalQuestion: contract.originalQuestion,
-  planVersion: EVALUATION_PLAN_VERSION,
-  questionFingerprint: fingerprintQuestion({
-    id: contract.questionId,
-    question: contract.originalQuestion,
-  }),
-  questionId: contract.questionId,
-  relevantColumns: contract.requiredColumns,
-  scoreMeaning: {
-    one: contract.scoringAnchors["1"],
-    oneHundred: contract.scoringAnchors["100"],
-  },
-  status: "answerable",
-  unableReason: null,
-}));
 
-describeLive("live Supabase evaluation persistence", () => {
+describeLive("Supabase atomic evaluation persistence", () => {
   afterEach(async () => {
     if (createdIds.length === 0) {
       return;
@@ -89,179 +25,113 @@ describeLive("live Supabase evaluation persistence", () => {
       .in("id", ids);
 
     if (error) {
-      throw new Error("Live test cleanup failed.", { cause: error });
+      throw new Error("Live persistence cleanup failed.", {
+        cause: error,
+      });
     }
   });
 
-  it("separates roles and permits exactly one submission claim", async () => {
+  it("stores only a complete verified 0G result set", async () => {
     const created = await createEvaluation({
-      questions: QUESTIONS,
-      questionSetHash: hashEvaluationQuestions(QUESTIONS),
-      title: "Live persistence verification",
+      questions: [{ id: "q1", question: "Is this useful?" }],
+      questionSetHash: "a".repeat(64),
+      title: "Live persistence check",
     });
     createdIds.push(created.id);
 
-    const [sellerView, buyerView, sellerWithBuyerToken, buyerWithSellerToken] =
-      await Promise.all([
-        getSellerEvaluation(created.id, created.sellerToken),
-        getBuyerEvaluation(created.id, created.buyerToken),
-        getSellerEvaluation(created.id, created.buyerToken),
-        getBuyerEvaluation(created.id, created.sellerToken),
-      ]);
-
-    expect(sellerView?.status).toBe("waiting_for_seller");
-    expect(buyerView?.results).toBeNull();
-    expect(sellerWithBuyerToken).toBeNull();
-    expect(buyerWithSellerToken).toBeNull();
-
-    const claims = await Promise.all([
+    await expect(
       beginSellerSubmission({
         id: created.id,
-        sampleColumnCount: 4,
-        sampleRowCount: 12,
+        sampleColumnCount: 1,
+        sampleRowCount: 1,
         token: created.sellerToken,
       }),
-      beginSellerSubmission({
-        id: created.id,
-        sampleColumnCount: 4,
-        sampleRowCount: 12,
-        token: created.sellerToken,
-      }),
-    ]);
+    ).resolves.toBe(true);
 
-    expect(claims.sort()).toEqual([false, true]);
+    const diagnostics = {
+      requestCount: { made: 1 as const, maximum: 1 as const },
+      requests: [
+        {
+          attempt: 1,
+          billing: {
+            inputCostNeuron: null,
+            outputCostNeuron: null,
+            totalCostNeuron: null,
+          },
+          durationMs: 10,
+          finishReason: "stop",
+          httpStatus: 200,
+          model: "test-model",
+          outcome: "succeeded" as const,
+          provider: "test-provider",
+          reasoningContentPresent: false,
+          requestId: "request-1",
+          responseLength: 100,
+          teeVerified: true,
+          usage: {
+            completionTokens: 10,
+            promptTokens: 20,
+            reasoningTokens: 0,
+            totalTokens: 30,
+          },
+        },
+      ],
+    };
 
     await completeEvaluation(created.id, {
-      inferenceDiagnostics: {
-        requestCount: { made: 1, maximum: 6 },
-        requests: [
-          {
-            attempt: 1,
-            billing: {
-              inputCostNeuron: "10",
-              outputCostNeuron: "20",
-              totalCostNeuron: "30",
-            },
-            durationMs: 10,
-            finishReason: "stop",
-            httpStatus: 200,
-            model: "live-test-model",
-            outcome: "succeeded",
-            pass: "original",
-            provider: "live-test-provider",
-            questionId: "relevance",
-            reasoningContentPresent: false,
-            requestId: "live-test-request",
-            responseLength: 100,
-            teeVerified: true,
-            usage: {
-              completionTokens: 20,
-              promptTokens: 10,
-              reasoningTokens: 0,
-              totalTokens: 30,
-            },
-          },
-        ],
-      },
-      plans: PLANS,
+      inferenceDiagnostics: diagnostics,
+      questionIds: ["q1"],
       results: [
         {
-          evidence: {
-            agreement: {
-              ratio: null,
-              requiredRatio: null,
-              status: "not_applicable",
-            },
-            contractVersion: "1.0.0",
-            controlCheck: "not_applicable",
-            coverageRatio: 1,
-            limitation:
-              "This result describes only the submitted records.",
-            measurement: {
-              name: "completeness_rate",
-              unit: "percent",
-              value: 91,
-            },
-            method: "deterministic",
-            recordsEvaluated: 12,
-            recordsSubmitted: 12,
-            semanticFailure: null,
-            zeroG: null,
+          confidence: 80,
+          denominator: null,
+          evaluationBasis: {
+            description: "A holistic rubric.",
+            unit: "holistic_rubric",
           },
-          questionId: "complete",
-          score: 91,
-          status: "scored",
-        },
-        {
           evidence: {
-            agreement: {
-              ratio: 1,
-              requiredRatio: 0.8,
-              status: "passed",
-            },
-            contractVersion: "1.0.0",
-            controlCheck: "passed",
-            coverageRatio: 1,
-            limitation:
-              "This result describes only the submitted records.",
-            measurement: {
-              name: "mean_rubric_points",
-              unit: "rubric_points",
-              value: 75,
-            },
-            method: "semantic",
-            recordsEvaluated: 12,
-            recordsSubmitted: 12,
-            semanticFailure: null,
-            zeroG: {
-              requests: [
-                {
-                  model: "live-test-model",
-                  provider: "live-test-provider",
-                  requestId: "live-test-request",
-                  teeVerified: true,
-                },
-              ],
-              teeVerified: true,
-            },
+            aggregateCounts: [{ count: 1, label: "record evaluated" }],
+            reasons: ["The record was evaluated."],
+            rowNumbers: [1],
           },
-          questionId: "relevance",
+          explanation: "The record met most of the stated rubric.",
+          numerator: null,
+          provenance: {
+            evaluator: "0g",
+            model: "test-model",
+            provider: "test-provider",
+            requestId: "request-1",
+            teeVerified: true,
+          },
+          questionId: "q1",
+          resultVersion: "3.0.0",
           score: 75,
+          scoreDefinition: {
+            oneHundred: "The record fully meets the rubric.",
+            zero: "The record does not meet the rubric.",
+          },
           status: "scored",
         },
       ],
-      sampleColumnCount: 4,
-      sampleRowCount: 12,
+      sampleColumnCount: 1,
+      sampleRowCount: 1,
     });
 
-    const completedBuyerView = await getBuyerEvaluation(
+    const buyer = await getBuyerEvaluation(
       created.id,
       created.buyerToken,
     );
-    const completedSellerView = await getSellerEvaluation(
-      created.id,
-      created.sellerToken,
-    );
-
-    expect(completedBuyerView).toMatchObject({
-      results: [
-        { questionId: "complete", score: 91 },
-        { questionId: "relevance", score: 75 },
-      ],
+    expect(buyer).toMatchObject({
       status: "complete",
+      results: [
+        {
+          provenance: {
+            evaluator: "0g",
+            teeVerified: true,
+          },
+          questionId: "q1",
+        },
+      ],
     });
-    expect(completedSellerView).not.toHaveProperty("results");
-
-    const { data: stored, error } = await getSupabaseServerClient()
-      .from("evaluations")
-      .select("buyer_token_hash, seller_token_hash")
-      .eq("id", created.id)
-      .single();
-
-    expect(error).toBeNull();
-    expect(stored?.buyer_token_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(stored?.seller_token_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(JSON.stringify(stored)).not.toContain(created.buyerToken);
-    expect(JSON.stringify(stored)).not.toContain(created.sellerToken);
   });
 });

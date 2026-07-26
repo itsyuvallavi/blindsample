@@ -1,182 +1,197 @@
-import type { EvaluationContract } from "../evaluation-contracts/types";
-import { EVALUATION_PLAN_VERSION } from "../evaluation-plans/types";
-import type { ZeroGTrace } from "../zero-g/client";
-import type { RubricLabel } from "./semantic-output";
+import type { EvaluationQuestion } from "../evaluation-plans/types";
+import type {
+  EvaluationRunDiagnostics,
+  InferenceRequestAudit,
+} from "./run-diagnostics";
 
-export const SUBMITTED_DATA_LIMITATION =
-  "This result describes only the submitted records. BlindSample cannot prove that they represent the seller's complete dataset.";
+export const ZERO_G_RESULT_VERSION = "3.0.0" as const;
 
-export const ONE_RECORD_LIMITATION =
-  "Only one submitted record was evaluated, so coverage is extremely limited. BlindSample cannot prove that it represents the seller's complete dataset.";
+export type EvaluationBasisUnit =
+  | "events"
+  | "expected_intervals"
+  | "fields"
+  | "holistic_rubric"
+  | "records";
 
-export type UnableToScoreReason =
-  | "control_check_failed"
-  | "insufficient_coverage"
-  | "insufficient_records"
-  | "ambiguous_question"
-  | "information_not_present"
-  | "invalid_generated_plan"
-  | "missing_required_columns"
-  | "model_or_verification_failed"
-  | "semantic_output_empty"
-  | "semantic_output_invalid_json"
-  | "semantic_output_invalid_shape"
-  | "semantic_output_truncated"
-  | "unstable_classification";
-
-export type EvaluationExecutionErrorCode =
-  | "private_compute_authentication_failed"
-  | "private_compute_configuration_failed"
-  | "private_compute_execution_failed"
-  | "private_compute_invalid_response"
-  | "private_compute_rate_limited"
-  | "private_compute_unavailable"
-  | "private_compute_verification_failed";
-
-export type EvaluationExecutionError = {
-  code: EvaluationExecutionErrorCode;
-  httpStatus: number | null;
-  outcome:
-    | "http_error"
-    | "invalid_response"
-    | "network_error"
-    | "unverified_response"
-    | null;
-  requestMade: boolean;
+export type SafeAggregateCount = {
+  count: number;
+  label: string;
 };
 
-export type SemanticOutputFailure = {
-  kind: "empty" | "invalid_json" | "invalid_shape" | "truncated";
-  pass: "original" | "repeat";
+export type SafeResultEvidence = {
+  aggregateCounts: SafeAggregateCount[];
+  reasons: string[];
+  rowNumbers: number[];
 };
 
-export type SemanticControlClassification = {
-  controlId: string;
-  expectedLabel: RubricLabel;
-  originalLabel: RubricLabel;
-  repeatedLabel: RubricLabel;
+export type ZeroGResultProvenance = {
+  evaluator: "0g";
+  model: string;
+  provider: string;
+  requestId: string;
+  teeVerified: true;
 };
 
-export type ResultEvidence = {
-  agreement: {
-    ratio: number | null;
-    requiredRatio: number | null;
-    status: "failed" | "not_applicable" | "passed";
+type EvaluationResultBase = {
+  confidence: number;
+  evaluationBasis: {
+    description: string;
+    unit: EvaluationBasisUnit;
   };
-  contractVersion:
-    | EvaluationContract["contractVersion"]
-    | typeof EVALUATION_PLAN_VERSION;
-  controlCheck: "failed" | "not_applicable" | "passed";
-  controlClassifications?: SemanticControlClassification[];
-  coverageRatio: number | null;
-  limitation: string;
-  measurement: {
-    name: string;
-    unit: "percent" | "rubric_points";
-    value: number;
-  } | null;
-  method: EvaluationContract["method"] | "unable";
-  recordsEvaluated: number | null;
-  recordsSubmitted: number;
-  semanticFailure: SemanticOutputFailure | null;
-  zeroG: {
-    requests: ZeroGTrace[];
-    teeVerified: true;
-  } | null;
+  evidence: SafeResultEvidence;
+  explanation: string;
+  numerator: number | null;
+  denominator: number | null;
+  provenance: ZeroGResultProvenance;
+  questionId: string;
+  resultVersion: typeof ZERO_G_RESULT_VERSION;
+  scoreDefinition: {
+    oneHundred: string;
+    zero: string;
+  };
 };
 
-export type ScoredEvaluationResult = {
-  evidence: ResultEvidence;
-  questionId: string;
+export type ScoredEvaluationResult = EvaluationResultBase & {
+  denominator: number | null;
+  numerator: number | null;
   score: number;
   status: "scored";
 };
 
-export type UnableEvaluationResult = {
-  evidence: ResultEvidence;
-  questionId: string;
-  reason: UnableToScoreReason;
+export type UnableEvaluationResult = EvaluationResultBase & {
+  denominator: null;
+  numerator: null;
   score: null;
-  status: "unable_to_score";
-};
-
-export type ErroredEvaluationResult = {
-  error: EvaluationExecutionError;
-  evidence: ResultEvidence;
-  questionId: string;
-  score: null;
-  status: "error";
+  status: "unable";
 };
 
 export type EvaluationResult =
   | ScoredEvaluationResult
-  | UnableEvaluationResult
-  | ErroredEvaluationResult;
+  | UnableEvaluationResult;
 
-export function zeroGEvidence(traces: ZeroGTrace[]) {
-  const first = traces[0];
-
-  if (!first || traces.some((trace) => trace.teeVerified !== true)) {
-    throw new Error("Verified 0G traces are required.");
+export function isAtomicVerifiedResultSet(
+  questions: EvaluationQuestion[],
+  results: EvaluationResult[] | null,
+  diagnostics: EvaluationRunDiagnostics,
+): results is EvaluationResult[] {
+  if (
+    !results ||
+    results.length !== questions.length ||
+    diagnostics.requestCount.made !== 1 ||
+    diagnostics.requestCount.maximum !== 1 ||
+    diagnostics.requests.length !== 1
+  ) {
+    return false;
   }
 
-  return {
-    requests: traces,
-    teeVerified: true as const,
-  };
-}
+  const request = diagnostics.requests[0];
 
-export function unableReasonExplanation(reason: UnableToScoreReason) {
-  switch (reason) {
-    case "ambiguous_question":
-      return "The question was too ambiguous to interpret safely. No score was attempted.";
-    case "information_not_present":
-      return "The submitted CSV did not contain the information needed to answer this question.";
-    case "invalid_generated_plan":
-      return "BlindSample could not create a safe plan from the submitted headers. No score was attempted.";
-    case "missing_required_columns":
-      return "The submitted CSV did not contain every field required by the evaluation plan.";
-    case "insufficient_coverage":
-      return "Too few submitted records contained usable evidence for a reliable score.";
-    case "insufficient_records":
-      return "The submitted sample did not contain enough usable records for a reliable score.";
-    case "control_check_failed":
-      return "The private model did not classify the internal reliability checks consistently.";
-    case "unstable_classification":
-      return "Repeated private evaluations did not agree closely enough to publish a score.";
-    case "model_or_verification_failed":
-      return "The private model request or its verification failed, so no score was published.";
-    case "semantic_output_empty":
-      return "The private model returned no usable classifications.";
-    case "semantic_output_invalid_json":
-    case "semantic_output_invalid_shape":
-      return "The private model response could not be safely parsed into record-level judgments.";
-    case "semantic_output_truncated":
-      return "The private model response ended before all record-level judgments were returned.";
+  if (!isSuccessfulVerifiedRequest(request)) {
+    return false;
   }
+
+  if (
+    !results.every(
+      (result) =>
+        isRecord(result) && typeof result.questionId === "string",
+    )
+  ) {
+    return false;
+  }
+
+  const expectedIds = new Set(questions.map((question) => question.id));
+  const resultIds = new Set(results.map((result) => result.questionId));
+
+  return (
+    resultIds.size === expectedIds.size &&
+    [...expectedIds].every((questionId) => resultIds.has(questionId)) &&
+    results.every((result) =>
+      isVerifiedPersistedResult(result, request),
+    )
+  );
 }
 
-export function executionErrorExplanation(
-  error: EvaluationExecutionError,
+function isSuccessfulVerifiedRequest(
+  request: InferenceRequestAudit,
 ) {
-  switch (error.code) {
-    case "private_compute_authentication_failed":
-      return `0G rejected BlindSample's production credential${statusSuffix(error.httpStatus)}. The model did not evaluate this question.`;
-    case "private_compute_configuration_failed":
-      return "BlindSample's private-compute configuration is incomplete or invalid. The model did not evaluate this question.";
-    case "private_compute_rate_limited":
-      return `0G temporarily refused the request because its request limit was reached${statusSuffix(error.httpStatus)}.`;
-    case "private_compute_verification_failed":
-      return "The private-compute response could not be verified, so BlindSample refused to publish a score.";
-    case "private_compute_invalid_response":
-      return `0G returned a response BlindSample could not verify or parse${statusSuffix(error.httpStatus)}.`;
-    case "private_compute_unavailable":
-      return `The private-compute service did not complete the request${statusSuffix(error.httpStatus)}.`;
-    case "private_compute_execution_failed":
-      return "BlindSample encountered an internal execution error before it could publish this question's score.";
-  }
+  return (
+    request.outcome === "succeeded" &&
+    request.teeVerified === true &&
+    typeof request.requestId === "string" &&
+    typeof request.model === "string" &&
+    typeof request.provider === "string"
+  );
 }
 
-function statusSuffix(httpStatus: number | null) {
-  return httpStatus === null ? "" : ` (HTTP ${httpStatus})`;
+function isVerifiedPersistedResult(
+  value: unknown,
+  request: InferenceRequestAudit,
+): value is EvaluationResult {
+  if (
+    !isRecord(value) ||
+    value.resultVersion !== ZERO_G_RESULT_VERSION ||
+    typeof value.questionId !== "string" ||
+    !Number.isInteger(value.confidence) ||
+    Number(value.confidence) < 0 ||
+    Number(value.confidence) > 100 ||
+    !isRecord(value.provenance) ||
+    value.provenance.evaluator !== "0g" ||
+    value.provenance.teeVerified !== true ||
+    value.provenance.requestId !== request.requestId ||
+    value.provenance.model !== request.model ||
+    value.provenance.provider !== request.provider ||
+    !isRecord(value.scoreDefinition) ||
+    typeof value.scoreDefinition.zero !== "string" ||
+    typeof value.scoreDefinition.oneHundred !== "string" ||
+    !isRecord(value.evaluationBasis) ||
+    typeof value.evaluationBasis.description !== "string" ||
+    typeof value.evaluationBasis.unit !== "string" ||
+    typeof value.explanation !== "string" ||
+    !isRecord(value.evidence) ||
+    !Array.isArray(value.evidence.rowNumbers) ||
+    !Array.isArray(value.evidence.aggregateCounts) ||
+    !Array.isArray(value.evidence.reasons)
+  ) {
+    return false;
+  }
+
+  if (value.status === "unable") {
+    return (
+      value.score === null &&
+      value.numerator === null &&
+      value.denominator === null
+    );
+  }
+
+  if (
+    value.status !== "scored" ||
+    !Number.isInteger(value.score) ||
+    Number(value.score) < 0 ||
+    Number(value.score) > 100
+  ) {
+    return false;
+  }
+
+  if (value.numerator === null && value.denominator === null) {
+    return true;
+  }
+
+  return (
+    Number.isSafeInteger(value.numerator) &&
+    Number(value.numerator) >= 0 &&
+    Number.isSafeInteger(value.denominator) &&
+    Number(value.denominator) > 0 &&
+    Number(value.numerator) <= Number(value.denominator) &&
+    Math.round(
+      (Number(value.numerator) / Number(value.denominator)) * 100,
+    ) === value.score
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
 }

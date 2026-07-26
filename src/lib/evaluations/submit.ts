@@ -2,11 +2,6 @@ import {
   parseCsvSample,
   type ParsedCsvSample,
 } from "../csv/parse-sample";
-import { generateFreshEvaluationPlans } from "../evaluation-plans/generate";
-import type {
-  EvaluationQuestion,
-  GeneratedEvaluationPlan,
-} from "../evaluation-plans/types";
 import { emitInferenceRunEvents } from "../observability/inference";
 import {
   PrivateScoringError,
@@ -17,6 +12,7 @@ import {
   emptyEvaluationRunDiagnostics,
   type EvaluationRunDiagnostics,
 } from "../scoring/run-diagnostics";
+import { EvaluationOutputError } from "../scoring/evaluation-output";
 import {
   beginSellerSubmission,
   completeEvaluation,
@@ -48,10 +44,6 @@ type SubmissionDependencies = {
     id: string,
     token: string,
   ) => Promise<SellerEvaluationView | null>;
-  planQuestions: (
-    questions: EvaluationQuestion[],
-    sample: ParsedCsvSample,
-  ) => GeneratedEvaluationPlan[];
   parseSample: (bytes: Uint8Array) => ParsedCsvSample;
   scoreSample: typeof scorePrivateCsvSample;
 };
@@ -62,7 +54,6 @@ const DEFAULT_DEPENDENCIES: SubmissionDependencies = {
   emitInferenceEvents: emitInferenceRunEvents,
   fail: failEvaluation,
   getSellerView: getSellerEvaluation,
-  planQuestions: generateFreshEvaluationPlans,
   parseSample: parseCsvSample,
   scoreSample: scorePrivateCsvSample,
 };
@@ -120,17 +111,14 @@ export async function submitPrivateSample(
   let result: CompletedEvaluationResult;
 
   try {
-    const plans = dependencies.planQuestions(
-      sellerView.questions,
+    const scoring = await dependencies.scoreSample({
+      evaluationId: input.evaluationId,
+      questions: sellerView.questions,
       sample,
-    );
-    const scoring = await dependencies.scoreSample(
-      plans,
-      sample,
-    );
+    });
     result = {
       inferenceDiagnostics: scoring.diagnostics,
-      plans,
+      questionIds: sellerView.questions.map((question) => question.id),
       results: scoring.results,
       sampleColumnCount: sample.columnCount,
       sampleRowCount: sample.rowCount,
@@ -215,8 +203,15 @@ function scoringFailureCode(error: unknown) {
       case "configuration_error":
         return "service_misconfigured";
       case "request_failed":
+        if (cause.status === 401 || cause.status === 403) {
+          return "zero_g_authentication_failed";
+        }
         return "zero_g_unavailable";
     }
+  }
+
+  if (cause instanceof EvaluationOutputError) {
+    return "zero_g_invalid_response";
   }
 
   return "scoring_failed";

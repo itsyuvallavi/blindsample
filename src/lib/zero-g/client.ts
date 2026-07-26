@@ -150,6 +150,16 @@ export function getZeroGConfig(
     );
   }
 
+  if (
+    environment.VERCEL_ENV === "production" &&
+    baseUrl !== DEFAULT_BASE_URL
+  ) {
+    throw new ZeroGClientError(
+      "Production must use the 0G mainnet Router base URL.",
+      "configuration_error",
+    );
+  }
+
   return { apiKey, baseUrl, model };
 }
 

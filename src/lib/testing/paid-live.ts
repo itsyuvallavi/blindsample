@@ -4,8 +4,6 @@ export function paidLiveEnabled(
   suiteFlag:
     | "END_TO_END_LIVE"
     | "SCORING_LIVE"
-    | "SCENARIO_MATRIX_LIVE"
-    | "SEMANTIC_DIAGNOSTIC_LIVE"
     | "ZERO_G_LIVE",
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ) {

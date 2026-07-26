@@ -122,7 +122,7 @@ export async function handlePreviewEvaluationContracts(
   return apiError(
     410,
     "question_only_workflow",
-    "Scoring plans are generated from the seller's CSV. Buyers provide plain-text questions only.",
+    "Buyers provide plain-text questions only. Every question is evaluated by 0G after seller submission.",
   );
 }
 
@@ -249,7 +249,7 @@ export async function handleSubmitEvaluation(
           return apiError(
             502,
             error.code,
-            "Private scoring failed. The seller can retry.",
+            "Evaluation failed — no scores were produced. The seller can retry.",
           );
         case "result_persistence_failed":
           return apiError(

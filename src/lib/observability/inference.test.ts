@@ -1,59 +1,50 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { EvaluationRunDiagnostics } from "../scoring/run-diagnostics";
 import { emitInferenceRunEvents } from "./inference";
 
-describe("emitInferenceRunEvents", () => {
-  it("logs only the bounded diagnostic allowlist", () => {
-    const diagnostics: EvaluationRunDiagnostics = {
-      requestCount: { made: 1, maximum: 2 },
+describe("inference observability", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("logs only sanitized request metadata", () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    emitInferenceRunEvents("evaluation-1", "complete", {
+      requestCount: { made: 1, maximum: 1 },
       requests: [
         {
           attempt: 1,
           billing: {
-            inputCostNeuron: "10",
-            outputCostNeuron: "20",
-            totalCostNeuron: "30",
+            inputCostNeuron: null,
+            outputCostNeuron: null,
+            totalCostNeuron: null,
           },
           durationMs: 12,
           finishReason: "stop",
           httpStatus: 200,
-          model: "test-model",
+          model: "model",
           outcome: "succeeded",
-          pass: "original",
-          provider: "test-provider",
-          questionId: "relevance",
+          provider: "provider",
           reasoningContentPresent: false,
-          requestId: "request-1",
-          responseLength: 80,
+          requestId: "request",
+          responseLength: 400,
           teeVerified: true,
           usage: {
             completionTokens: 20,
-            promptTokens: 10,
+            promptTokens: 30,
             reasoningTokens: 0,
-            totalTokens: 30,
+            totalTokens: 50,
           },
         },
       ],
-    };
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-
-    emitInferenceRunEvents("evaluation-1", "complete", diagnostics);
-
-    expect(info).toHaveBeenCalledTimes(1);
-    const logged = String(info.mock.calls[0]?.[0]);
-    expect(JSON.parse(logged)).toMatchObject({
-      evaluationId: "evaluation-1",
-      event: "private_inference_request",
-      finishReason: "stop",
-      status: "complete",
-      usage: { totalTokens: 30 },
     });
-    expect(logged).not.toContain("messages");
-    expect(logged).not.toContain("promptContent");
-    expect(logged).not.toContain("responseContent");
-    expect(JSON.parse(logged)).not.toHaveProperty("reasoningContent");
 
-    info.mockRestore();
+    const logged = String(info.mock.calls[0]?.[0]);
+    expect(logged).toContain("private_inference_request");
+    expect(logged).not.toContain("csv");
+    expect(logged).not.toContain('"messages"');
+    expect(logged).not.toContain("private submitted cell");
+    expect(logged).not.toContain("responseContent");
   });
 });

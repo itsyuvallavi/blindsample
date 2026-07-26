@@ -8,13 +8,9 @@ import {
   readEvaluation,
   type BuyerEvaluation,
 } from "../lib/browser/evaluations";
-import type { GeneratedEvaluationPlan } from "../lib/evaluation-plans/types";
-import { normalizeLegacyExecutionErrors } from "../lib/scoring/execution-error";
-import { completedResultPresentation } from "../lib/results/presentation";
 import {
-  executionErrorExplanation,
+  isAtomicVerifiedResultSet,
   type EvaluationResult,
-  unableReasonExplanation,
 } from "../lib/scoring/types";
 import {
   CommandLine,
@@ -119,8 +115,7 @@ export function BuyerResults({
         <p className="terminal-copy">
           {evaluation.questions.length} plain-language question
           {evaluation.questions.length === 1 ? "" : "s"} ready. The seller
-          has not submitted records yet. BlindSample will create fresh plans
-          only after reading the submitted CSV.
+          has not submitted records yet.
         </p>
         <StatusMessage>
           Share only the separate seller capability URL.
@@ -133,156 +128,129 @@ export function BuyerResults({
     return (
       <ResultIntro
         status="RUNNING"
-        command="evaluation watch --private"
+        command="evaluation watch --0g"
         title={evaluation.title}
       >
+        <StatusMessage>0G evaluation in progress.</StatusMessage>
         <p className="terminal-copy">
-          BlindSample is matching each question to the submitted headers,
-          validating a fresh plan, and running exact calculations or private
-          record-level judgments as needed.
+          The sample and all buyer questions are being evaluated together in
+          one private, TEE-verified request.
         </p>
-        <StatusMessage>
-          Unstable or insufficient evidence resolves to unable to score.
-        </StatusMessage>
       </ResultIntro>
     );
   }
 
   if (evaluation.status === "failed") {
+    return <FailedEvaluation evaluation={evaluation} />;
+  }
+
+  if (
+    !isAtomicVerifiedResultSet(
+      evaluation.questions,
+      evaluation.results,
+      evaluation.inferenceDiagnostics,
+    )
+  ) {
     return (
       <ResultIntro
         status="FAILED SAFE"
-        command="evaluation inspect --failure"
-        title="No results were published"
+        command="evaluation inspect --invalid-result"
+        title="Evaluation failed — no scores were produced."
       >
-        <p className="terminal-copy">
-          The protected evaluation did not complete. The seller may retry
-          with the same capability.
-        </p>
         <StatusMessage tone="error">
-          {failureMessage(evaluation.errorCode)}
+          The stored result is not a complete verified 0G evaluation, so
+          BlindSample will not display it.
         </StatusMessage>
-        <p className="terminal-copy">
-          Recorded 0G attempts:{" "}
-          {evaluation.inferenceDiagnostics.requestCount.made}.
-        </p>
       </ResultIntro>
     );
   }
 
-  return <CompletedResults evaluation={evaluation} />;
+  return (
+    <CompletedResults
+      evaluation={evaluation}
+      results={evaluation.results}
+    />
+  );
 }
 
-function CompletedResults({
+function FailedEvaluation({
   evaluation,
 }: {
   evaluation: BuyerEvaluation;
 }) {
-  const inferenceDiagnostics = evaluation.inferenceDiagnostics;
-  const displayResults = normalizeLegacyExecutionErrors(
-    evaluation.results ?? [],
-    inferenceDiagnostics.requests,
-  );
-  const resultByQuestion = new Map(
-    displayResults.map((result) => [result.questionId, result]),
-  );
-  const resultsAreComplete =
-    resultByQuestion.size === evaluation.questions.length &&
-    evaluation.questions.every((question) =>
-      resultByQuestion.has(question.id),
-    );
-
-  if (
-    !evaluation.results ||
-    !evaluation.plans ||
-    !resultsAreComplete
-  ) {
-    return (
+  return (
+    <ResultIntro
+      status="FAILED SAFE"
+      command="evaluation inspect --failure"
+      title="Evaluation failed — no scores were produced."
+    >
       <StatusMessage tone="error">
-        The stored result set is incomplete and cannot be displayed.
+        {failureMessage(evaluation.errorCode)}
       </StatusMessage>
-    );
-  }
+      <p className="terminal-copy">
+        Recorded 0G requests:{" "}
+        {evaluation.inferenceDiagnostics.requestCount.made}. No local,
+        partial, or previous score was published.
+      </p>
+    </ResultIntro>
+  );
+}
 
-  const presentation = completedResultPresentation(
-    displayResults,
+function CompletedResults({
+  evaluation,
+  results,
+}: {
+  evaluation: BuyerEvaluation;
+  results: EvaluationResult[];
+}) {
+  const resultByQuestion = new Map(
+    results.map((result) => [result.questionId, result]),
   );
-  const { allUnable, hasErrors } = presentation;
-  const planByQuestion = new Map(
-    evaluation.plans.map((plan) => [plan.questionId, plan]),
-  );
-  const aiRequestMade =
-    inferenceDiagnostics.requests.length > 0;
-  const finishReasons = [
-    ...new Set(
-      inferenceDiagnostics.requests
-        .map((request) => request.finishReason)
-        .filter((reason): reason is string => reason !== null),
-    ),
-  ];
+  const request = evaluation.inferenceDiagnostics.requests[0];
 
   return (
     <section className="terminal-window">
-      <TerminalBar
-        path="~/blindsample/results"
-        status={presentation.status}
-      />
+      <TerminalBar path="~/blindsample/results" status="COMPLETE" />
       <div className="terminal-body">
         <CommandLine>
-          results read --questions {evaluation.questions.length}
+          results read --source 0g --questions{" "}
+          {evaluation.questions.length}
         </CommandLine>
         <div className="results-header">
           <div>
-            <p
-              className={
-                allUnable ? "terminal-copy" : "terminal-success"
-              }
-            >
-              {presentation.headline}
+            <p className="terminal-success">
+              Evaluation complete — all questions evaluated by 0G.
             </p>
             <h1 className="terminal-title">{evaluation.title}</h1>
             <p className="terminal-copy">
-              {hasErrors
-                ? "An execution error is not a zero score and does not mean the dataset failed. Successfully published question scores remain independent."
-                : allUnable
-                ? "The explanations below describe why BlindSample could not safely answer the questions. They do not mean the dataset failed."
-                : `No overall score is calculated. Every result applies only to the ${evaluation.sampleRowCount ?? 0} submitted records.`}
-            </p>
-            <p className="terminal-copy">
-              AI request made: {aiRequestMade ? "yes" : "no"}.
+              No overall dataset score is calculated. Each result applies
+              only to its original question and the submitted sample.
             </p>
           </div>
           <span className="verification-badge">
-            {presentation.badge}
+            0G · TEE VERIFIED
           </span>
         </div>
 
         <div className="score-list">
-          {evaluation.questions.map((question, index) => {
-            const result = resultByQuestion.get(
-              question.id,
-            ) as EvaluationResult;
-            const plan = planByQuestion.get(question.id);
-
-            return (
-              <ResultRecord
-                key={question.id}
-                index={index}
-                plan={plan}
-                question={question.question}
-                result={result}
-              />
-            );
-          })}
+          {evaluation.questions.map((question, index) => (
+            <ResultRecord
+              key={question.id}
+              index={index}
+              question={question.question}
+              result={
+                resultByQuestion.get(question.id) as EvaluationResult
+              }
+            />
+          ))}
         </div>
 
         <details className="verification-trace">
-          <summary>How this evaluation was verified</summary>
+          <summary>0G verification metadata</summary>
           <p className="verification-copy">
-            TEE verification proves protected execution for the listed 0G
-            requests. It does not prove judgment accuracy. BlindSample stores
-            the generated plan with the result and calculates final scores in
-            application code.
+            TEE verification proves that the single response came from the
+            requested protected 0G execution path. It does not by itself
+            guarantee that a model judgment is correct.
           </p>
           <dl className="trace-grid">
             <TraceItem
@@ -293,33 +261,26 @@ function CompletedResults({
               label="submitted columns"
               value={String(evaluation.sampleColumnCount ?? 0)}
             />
+            <TraceItem label="0G requests" value="1/1" />
             <TraceItem
-              label="AI request made"
-              value={aiRequestMade ? "yes" : "no"}
+              label="model"
+              value={request.model ?? "not reported"}
             />
             <TraceItem
-              label="0G attempts"
-              value={`${inferenceDiagnostics.requestCount.made}/${inferenceDiagnostics.requestCount.maximum}`}
+              label="provider"
+              value={request.provider ?? "not reported"}
             />
             <TraceItem
-              label="router finish"
-              value={
-                finishReasons.length > 0
-                  ? finishReasons.join(", ")
-                  : "not reported"
-              }
+              label="request ID"
+              value={request.requestId ?? "not reported"}
             />
             <TraceItem
               label="reported tokens"
-              value={reportedTokens(inferenceDiagnostics)}
+              value={reportedTokens(evaluation.inferenceDiagnostics)}
             />
             <TraceItem
               label="reported cost"
-              value={reportedCost(inferenceDiagnostics)}
-            />
-            <TraceItem
-              label="overall score"
-              value="not calculated"
+              value={reportedCost(evaluation.inferenceDiagnostics)}
             />
           </dl>
         </details>
@@ -330,12 +291,10 @@ function CompletedResults({
 
 function ResultRecord({
   index,
-  plan,
   question,
   result,
 }: {
   index: number;
-  plan: GeneratedEvaluationPlan | undefined;
   question: string;
   result: EvaluationResult;
 }) {
@@ -344,8 +303,7 @@ function ResultRecord({
       <header>
         <div>
           <p className="question-index">
-            result[{String(index).padStart(2, "0")}] ·{" "}
-            {result.evidence.method}
+            result[{String(index).padStart(2, "0")}] · Evaluated by 0G
           </p>
           <h3 className="score-question">{question}</h3>
         </div>
@@ -353,11 +311,6 @@ function ResultRecord({
           <div className="score-value">
             <span>{result.score}</span>
             <small>/100</small>
-          </div>
-        ) : result.status === "error" ? (
-          <div className="unable-value">
-            error
-            <small>not scored</small>
           </div>
         ) : (
           <div className="unable-value">
@@ -367,124 +320,67 @@ function ResultRecord({
         )}
       </header>
 
-      {result.status === "unable_to_score" ? (
-        <p className="terminal-copy">
-          {unableReasonExplanation(result.reason)}
-        </p>
-      ) : null}
-
-      {result.status === "error" ? (
-        <p className="terminal-copy">
-          {executionErrorExplanation(result.error)}
-        </p>
-      ) : null}
+      <p className="terminal-copy">{result.explanation}</p>
 
       <details className="result-audit">
-        <summary>View audit evidence</summary>
+        <summary>View safe audit evidence</summary>
         <dl className="result-evidence-grid">
           <TraceItem
-            label="records"
-            value={
-              result.evidence.recordsEvaluated === null
-                ? `n/a (${result.evidence.recordsSubmitted} submitted)`
-                : `${result.evidence.recordsEvaluated}/${result.evidence.recordsSubmitted}`
-            }
+            label="evaluated by"
+            value="0G · TEE verified"
           />
           <TraceItem
-            label="coverage"
-            value={
-              result.evidence.coverageRatio === null
-                ? "n/a"
-                : `${Math.round(result.evidence.coverageRatio * 100)}%`
-            }
-          />
-          <TraceItem
-            label="plan"
-            value={plan?.planVersion ?? result.evidence.contractVersion}
+            label="basis"
+            value={`${result.evaluationBasis.unit.replaceAll("_", " ")} · ${result.evaluationBasis.description}`}
           />
           <TraceItem
             label="confidence"
+            value={`${result.confidence}%`}
+          />
+          <TraceItem
+            label="arithmetic"
             value={
-              plan ? `${Math.round(plan.confidence * 100)}%` : "not stored"
+              result.numerator === null ||
+              result.denominator === null
+                ? "not applicable"
+                : `${result.numerator}/${result.denominator}`
             }
           />
           <TraceItem
-            label="relevant fields"
+            label="0 means"
+            value={result.scoreDefinition.zero}
+          />
+          <TraceItem
+            label="100 means"
+            value={result.scoreDefinition.oneHundred}
+          />
+          <TraceItem
+            label="row evidence"
             value={
-              plan?.relevantColumns.length
-                ? plan.relevantColumns.join(", ")
+              result.evidence.rowNumbers.length > 0
+                ? result.evidence.rowNumbers.join(", ")
                 : "none"
             }
           />
           <TraceItem
-            label="controls"
+            label="aggregate counts"
             value={
-              result.status === "error"
-                ? "not evaluated"
-                : result.evidence.controlCheck
+              result.evidence.aggregateCounts.length > 0
+                ? result.evidence.aggregateCounts
+                    .map((item) => `${item.label}: ${item.count}`)
+                    .join("; ")
+                : "none"
             }
           />
           <TraceItem
-            label="agreement"
+            label="sanitized reasons"
             value={
-              result.evidence.agreement.ratio === null
-                ? "n/a"
-                : `${Math.round(result.evidence.agreement.ratio * 100)}%`
+              result.evidence.reasons.length > 0
+                ? result.evidence.reasons.join("; ")
+                : "none"
             }
           />
-          <TraceItem
-            label="measurement"
-            value={
-              result.evidence.measurement
-                ? `${result.evidence.measurement.value} ${result.evidence.measurement.unit.replace("_", " ")}`
-                : "not published"
-              }
-          />
-          {result.evidence.semanticFailure ? (
-            <TraceItem
-              label="semantic failure"
-              value={`${result.evidence.semanticFailure.pass} · ${result.evidence.semanticFailure.kind.replaceAll("_", " ")}`}
-            />
-          ) : null}
         </dl>
-
-        {result.evidence.zeroG ? (
-          <div className="zero-g-requests">
-            <p>
-              0G private trace · {result.evidence.zeroG.requests.length}{" "}
-              verified request
-              {result.evidence.zeroG.requests.length === 1 ? "" : "s"}
-            </p>
-            <dl>
-              {result.evidence.zeroG.requests.map(
-                (request, requestIndex) => (
-                  <div key={request.requestId}>
-                    <dt>request[{requestIndex}]</dt>
-                    <dd>
-                      {request.model} · {request.provider} ·{" "}
-                      {request.requestId}
-                    </dd>
-                  </div>
-                ),
-              )}
-            </dl>
-          </div>
-        ) : result.status === "error" ? (
-          <p className="local-method-note">
-            {result.error.requestMade
-              ? `A 0G request was attempted but failed before a verified result was returned${result.error.httpStatus === null ? "." : ` (HTTP ${result.error.httpStatus}).`}`
-              : "No request reached the model because private-compute execution failed before a verified response."}
-          </p>
-        ) : (
-          <p className="local-method-note">
-            No 0G call was needed for this deterministic or preflight-unable
-            result.
-          </p>
-        )}
-
-        <p className="result-limitation">
-          {result.evidence.limitation}
-        </p>
       </details>
     </article>
   );
@@ -577,13 +473,18 @@ function errorMessage(caught: unknown) {
 function failureMessage(errorCode: string | null) {
   switch (errorCode) {
     case "tee_verification_failed":
-      return "0G verification did not pass. No semantic result was published.";
+      return "0G TEE verification did not pass.";
+    case "zero_g_authentication_failed":
+      return "0G rejected the configured production credential.";
+    case "zero_g_invalid_response":
+      return "0G returned output that failed strict validation.";
     case "service_misconfigured":
+      return "The production 0G configuration is incomplete.";
     case "zero_g_unavailable":
-      return "Private 0G inference is temporarily unavailable.";
+      return "0G did not complete the evaluation request.";
     case "result_persistence_failed":
-      return "The result set could not be stored atomically.";
+      return "The verified result set could not be stored atomically.";
     default:
-      return "The evaluation stopped without publishing a partial result.";
+      return "The evaluation stopped before a complete verified 0G result was available.";
   }
 }

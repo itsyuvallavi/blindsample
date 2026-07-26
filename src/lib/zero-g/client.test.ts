@@ -42,6 +42,18 @@ describe("getZeroGConfig", () => {
       }),
     ).toThrowError(ZeroGClientError);
   });
+
+  it("rejects a non-mainnet Router URL in production", () => {
+    expect(() =>
+      getZeroGConfig({
+        VERCEL_ENV: "production",
+        ZERO_G_API_KEY: "sk-test-only",
+        ZERO_G_BASE_URL:
+          "https://router-api-testnet.integratenetwork.work/v1",
+        ZERO_G_MODEL: "test-model",
+      }),
+    ).toThrowError("Production must use the 0G mainnet Router base URL.");
+  });
 });
 
 describe("requestVerifiedPrivateCompletion", () => {

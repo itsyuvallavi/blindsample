@@ -7,12 +7,26 @@ const SOURCE = readFileSync(
   "utf8",
 );
 
-describe("buyer result error presentation", () => {
-  it("renders execution errors as not scored with unavailable evidence", () => {
-    expect(SOURCE).toContain("not scored");
-    expect(SOURCE).toContain("coverageRatio === null");
-    expect(SOURCE).toContain("recordsEvaluated === null");
-    expect(SOURCE).toContain("A 0G request was attempted");
-    expect(SOURCE).toContain("executionErrorExplanation");
+describe("buyer result presentation", () => {
+  it("uses the required atomic 0G states", () => {
+    expect(SOURCE).toContain("0G evaluation in progress.");
+    expect(SOURCE).toContain(
+      "Evaluation complete — all questions evaluated by 0G.",
+    );
+    expect(SOURCE).toContain(
+      "Evaluation failed — no scores were produced.",
+    );
+    expect(SOURCE).toContain("Evaluated by 0G");
+  });
+
+  it("never presents partial or local scores", () => {
+    expect(SOURCE).toContain("isAtomicVerifiedResultSet");
+    expect(SOURCE).toContain("No local,");
+    expect(SOURCE).toContain(
+      "partial, or previous score was published.",
+    );
+    expect(SOURCE).not.toContain("AUDIT COMPLETE");
+    expect(SOURCE).not.toContain("PARTIAL RESULTS");
+    expect(SOURCE).not.toContain("deterministic");
   });
 });

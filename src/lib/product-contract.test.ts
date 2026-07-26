@@ -10,7 +10,8 @@ describe("BlindSample product contract", () => {
   });
 
   it("rejects out-of-range and non-integer scores", () => {
-    expect(isValidScore(0)).toBe(false);
+    expect(isValidScore(0)).toBe(true);
+    expect(isValidScore(-1)).toBe(false);
     expect(isValidScore(101)).toBe(false);
     expect(isValidScore(42.5)).toBe(false);
     expect(isValidScore("88")).toBe(false);

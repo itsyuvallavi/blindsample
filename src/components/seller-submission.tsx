@@ -144,13 +144,12 @@ export function SellerSubmission({
     return (
       <PageIntro
         label="Submission complete"
-        title="The buyer can now view the audit results."
+        title="Evaluation complete — all questions evaluated by 0G."
         description="BlindSample evaluated only the submitted records and did not save the CSV or expose its rows to the buyer."
       >
         <StatusMessage tone="success">
-          Every numeric semantic result requires private, TEE-verified 0G
-          classification. Insufficient evidence is published only as unable
-          to score.
+          One private, TEE-verified 0G response produced the complete result
+          set.
         </StatusMessage>
       </PageIntro>
     );
@@ -159,9 +158,9 @@ export function SellerSubmission({
   if (evaluation.status === "processing") {
     return (
       <PageIntro
-        label="Private scoring"
-        title="This sample is already processing."
-        description="The buyer result will update when verified scoring finishes."
+        label="0G evaluation"
+        title="0G evaluation in progress."
+        description="The buyer result will update only after every question has a valid result from one verified response."
       >
         <StatusMessage>
           Keep this page open or return later with the same seller link.
@@ -191,8 +190,8 @@ export function SellerSubmission({
                 <span>
                   <strong>{question.question}</strong>
                   <small>
-                    BlindSample creates a fresh internal plan from this
-                    question and the submitted CSV.
+                    This question is included in the single 0G evaluation
+                    request.
                   </small>
                 </span>
               </li>
@@ -212,8 +211,8 @@ export function SellerSubmission({
           <h2 className="terminal-title">Submit a CSV sample</h2>
           <p className="terminal-copy">
             1–50 parsed data records, maximum 200 KB and 20 columns. The header
-            is excluded from the record count. BlindSample reads the actual
-            headers before deciding how each question should be tested.
+            is excluded from the record count. All parsed records and buyer
+            questions are evaluated together by 0G.
           </p>
           <p className="cost-boundary">
             Selecting a file is free. 0G tokens are spent only when you start
@@ -243,12 +242,12 @@ export function SellerSubmission({
           ) : null}
 
           <div className="privacy-note">
-            <h3>Protected transit. Private semantic execution.</h3>
+            <h3>Protected transit. Private 0G execution.</h3>
             <p>
               TLS protects the file in transit. The Vercel function holds it
-              only in memory. Objective metrics run in exact application code;
-              semantic classifications use private 0G and require TEE
-              verification. The CSV is never written to Supabase.
+              only in memory. Every buyer question is evaluated by private 0G
+              compute and requires TEE verification. The CSV is never written
+              to Supabase.
             </p>
             <label className="check-row">
               <input
@@ -286,7 +285,7 @@ export function SellerSubmission({
             className="button-primary button-wide"
           >
             {submitting
-              ? "Evaluating submitted records…"
+              ? "0G evaluation in progress…"
               : "Start private evaluation"}
           </button>
           <p className="readiness-note" aria-live="polite">
@@ -294,7 +293,7 @@ export function SellerSubmission({
               ? "Select a CSV sample to continue."
               : !consent
                 ? "Confirm the submitted-data limitation."
-                : "Ready to create fresh plans and evaluate all parsed records."}
+                : "Ready to evaluate all questions in one 0G request."}
           </p>
         </div>
       </form>

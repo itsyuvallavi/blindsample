@@ -1,23 +1,12 @@
 import { createHash } from "node:crypto";
 
 import type { EvaluationQuestion } from "../evaluation-plans/types";
-import type { EvaluationContract } from "./types";
-
-export function hashEvaluationContracts(
-  contracts: EvaluationContract[],
-) {
-  return hashCanonicalValue(contracts);
-}
 
 export function hashEvaluationQuestions(
   questions: EvaluationQuestion[],
 ) {
-  return hashCanonicalValue(questions);
-}
-
-export function hashCanonicalValue(value: unknown) {
   return createHash("sha256")
-    .update(canonicalJson(value))
+    .update(canonicalJson(questions))
     .digest("hex");
 }
 

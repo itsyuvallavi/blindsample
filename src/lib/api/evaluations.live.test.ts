@@ -129,10 +129,9 @@ describeLive("live evaluation API flow", () => {
             requests: unknown[];
           };
           results: Array<{
-            evidence: {
-              zeroG: {
-                teeVerified: boolean;
-              } | null;
+            provenance: {
+              evaluator: string;
+              teeVerified: boolean;
             };
             questionId: string;
             status: string;
@@ -149,18 +148,21 @@ describeLive("live evaluation API flow", () => {
       );
       expect(
         buyerView.evaluation.inferenceDiagnostics.requestCount,
-      ).toEqual({ made: 2, maximum: 2 });
+      ).toEqual({ made: 1, maximum: 1 });
       expect(
         buyerView.evaluation.inferenceDiagnostics.requests,
-      ).toHaveLength(2);
+      ).toHaveLength(1);
       expect(
         buyerView.evaluation.results.map((result) => result.questionId),
       ).toEqual(questions.map((question) => question.id));
-      const semanticResult = buyerView.evaluation.results.find(
+      const modelResult = buyerView.evaluation.results.find(
         (result) => result.questionId === "relevance",
       );
-      expect(semanticResult?.status).toBe("scored");
-      expect(semanticResult?.evidence.zeroG?.teeVerified).toBe(true);
+      expect(modelResult?.status).toBe("scored");
+      expect(modelResult?.provenance).toMatchObject({
+        evaluator: "0g",
+        teeVerified: true,
+      });
 
       const sellerResponse = await handleGetEvaluation(
         authorizedRead(created.evaluationId, sellerToken),

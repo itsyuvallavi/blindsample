@@ -1,208 +1,100 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ParsedCsvSample } from "../csv/parse-sample";
-import { compileEvaluationContracts } from "../evaluation-contracts/compile";
-import {
-  fingerprintQuestion,
-  fingerprintSample,
-} from "../evaluation-plans/generate";
-import {
-  EVALUATION_PLAN_VERSION,
-  type GeneratedEvaluationPlan,
-} from "../evaluation-plans/types";
+import { parseCsvSample } from "../csv/parse-sample";
 import {
   ZeroGClientError,
   type VerifiedCompletion,
 } from "../zero-g/client";
-import { prepareSemanticRecords } from "./semantic";
-import { scorePrivateCsvSample } from "./score-sample";
+import {
+  PrivateScoringError,
+  scorePrivateCsvSample,
+} from "./score-sample";
 
-const CONTRACTS = compileEvaluationContracts([
+const SAMPLE = parseCsvSample(
+  new TextEncoder().encode(
+    [
+      "timestamp,price,market_context",
+      "2026-07-26T10:00:00Z,118000,Context one",
+      "2026-07-26T10:01:00Z,118010,Context two",
+    ].join("\n"),
+  ),
+);
+const QUESTIONS = [
   {
-    columns: ["id", "text"],
-    id: "available",
-    kind: "column_availability",
-    question: "Are the required columns available?",
+    id: "complete",
+    question:
+      "What percentage of records contain timestamp and price values?",
   },
   {
-    columns: ["text"],
-    controls: {
-      intermediate: "A general product question.",
-      negative: "A weather report unrelated to customer service.",
-      positive: "A customer asks an agent to fix a billing error.",
-    },
-    id: "relevance",
-    kind: "semantic_relevance",
-    question: "Is this useful for support classification?",
-    target: "Customer support requests requiring an agent response.",
+    id: "context",
+    question: "Is each market context relevant to its record?",
   },
-]);
-
-const SAMPLE: ParsedCsvSample = {
-  columnCount: 2,
-  columns: ["id", "text"],
-  rowCount: 5,
-  rows: [
-    ["1", "billing problem"],
-    ["2", "weather report"],
-    ["3", "product question"],
-    ["4", "account locked"],
-    ["5", "refund request"],
-  ],
-};
-
-const TRACE: VerifiedCompletion["trace"] = {
-  model: "test-model",
-  provider: "test-provider",
-  requestId: "test-request",
-  teeVerified: true,
-};
-
-function plansFor(sample: ParsedCsvSample): GeneratedEvaluationPlan[] {
-  return CONTRACTS.map((contract) => ({
-    confidence: 1,
-    contract,
-    datasetFingerprint: fingerprintSample(sample),
-    evidenceNeeded: contract.requiredEvidence,
-    explanation: "Test plan bound to this exact sample.",
-    generationAttempt: 1,
-    method: contract.method,
-    originalQuestion: contract.originalQuestion,
-    planVersion: EVALUATION_PLAN_VERSION,
-    questionFingerprint: fingerprintQuestion({
-      id: contract.questionId,
-      question: contract.originalQuestion,
-    }),
-    questionId: contract.questionId,
-    relevantColumns: contract.requiredColumns,
-    scoreMeaning: {
-      one: contract.scoringAnchors["1"],
-      oneHundred: contract.scoringAnchors["100"],
-    },
-    status: "answerable",
-    unableReason: null,
-  }));
-}
-
-function semanticCompletion(requestId: string) {
-  const semanticContract = CONTRACTS[1];
-  const ids = prepareSemanticRecords(semanticContract, SAMPLE).map(
-    (record) => record.recordId,
-  );
-
-  return {
-    content: JSON.stringify({
-      classifications: ids.map((recordId) => ({
-        label: "strong",
-        recordId,
-      })),
-      controls: [
-        { controlId: "control_a", label: "negative" },
-        { controlId: "control_b", label: "positive" },
-        { controlId: "control_c", label: "intermediate" },
-      ],
-    }),
-    diagnostics: [
-      {
-        attempt: 1,
-        billing: {
-          inputCostNeuron: "10",
-          outputCostNeuron: "20",
-          totalCostNeuron: "30",
-        },
-        durationMs: 10,
-        finishReason: "stop",
-        httpStatus: 200,
-        outcome: "succeeded" as const,
-        reasoningContentPresent: false,
-        responseLength: 100,
-        usage: {
-          completionTokens: 20,
-          promptTokens: 10,
-          reasoningTokens: 0,
-          totalTokens: 30,
-        },
-      },
-    ],
-    trace: { ...TRACE, requestId },
-  };
-}
+];
 
 describe("scorePrivateCsvSample", () => {
-  it("returns exactly one independent result per approved contract", async () => {
+  it("sends the sample and all questions in exactly one 0G request", async () => {
     const requestCompletion = vi
       .fn()
-      .mockResolvedValueOnce(semanticCompletion("original"))
-      .mockResolvedValueOnce(semanticCompletion("repeat"));
+      .mockResolvedValue(completion(validOutput()));
 
-    const scoring = await scorePrivateCsvSample(plansFor(SAMPLE), SAMPLE, {
-      requestCompletion,
-    });
-
-    expect(scoring.inferenceRequests).toEqual({
-      made: 2,
-      maximum: 6,
-    });
-    expect(scoring.diagnostics).toMatchObject({
-      requestCount: { made: 2, maximum: 6 },
-      requests: [
-        {
-          pass: "original",
-          questionId: "relevance",
-          requestId: "original",
-        },
-        {
-          pass: "repeat",
-          questionId: "relevance",
-          requestId: "repeat",
-        },
-      ],
-    });
-    expect(scoring.semanticVerification).toBe("verified");
-    expect(scoring.results).toHaveLength(CONTRACTS.length);
-    expect(scoring.results.map((result) => result.questionId)).toEqual(
-      CONTRACTS.map((contract) => contract.questionId),
+    const result = await scorePrivateCsvSample(
+      {
+        evaluationId: "evaluation-1",
+        questions: QUESTIONS,
+        sample: SAMPLE,
+      },
+      { requestCompletion },
     );
-    expect(scoring.results).toEqual([
-      expect.objectContaining({
-        questionId: "available",
-        score: 100,
-        status: "scored",
-      }),
-      expect.objectContaining({
-        questionId: "relevance",
-        score: 75,
-        status: "scored",
-      }),
+
+    expect(requestCompletion).toHaveBeenCalledTimes(1);
+    const messages = requestCompletion.mock.calls[0][0];
+    const serialized = JSON.stringify(messages);
+    expect(serialized).toContain(QUESTIONS[0].question);
+    expect(serialized).toContain(QUESTIONS[1].question);
+    expect(serialized).toContain("118000");
+    expect(result.inferenceRequests).toEqual({
+      made: 1,
+      maximum: 1,
+    });
+    expect(result.results.map((item) => item.questionId)).toEqual([
+      "complete",
+      "context",
     ]);
-    expect(scoring).not.toHaveProperty("overallScore");
-    expect(JSON.stringify(scoring)).not.toContain("overallScore");
+    expect(
+      result.results.every(
+        (item) =>
+          item.provenance.evaluator === "0g" &&
+          item.provenance.teeVerified,
+      ),
+    ).toBe(true);
   });
 
-  it("packages all records into each semantic pass instead of requesting per record", async () => {
+  it("still invokes 0G for an exact percentage question", async () => {
     const requestCompletion = vi
       .fn()
-      .mockResolvedValueOnce(semanticCompletion("original"))
-      .mockResolvedValueOnce(semanticCompletion("repeat"));
+      .mockResolvedValue(
+        completion({
+          evaluation_id: "evaluation-1",
+          results: [validOutput().results[0]],
+        }),
+      );
 
-    await scorePrivateCsvSample(plansFor(SAMPLE), SAMPLE, {
-      requestCompletion,
-    });
+    await scorePrivateCsvSample(
+      {
+        evaluationId: "evaluation-1",
+        questions: [QUESTIONS[0]],
+        sample: SAMPLE,
+      },
+      { requestCompletion },
+    );
 
-    expect(requestCompletion).toHaveBeenCalledTimes(2);
-
-    for (const [messages] of requestCompletion.mock.calls) {
-      const serialized = JSON.stringify(messages);
-
-      expect(serialized).toContain("record_001");
-      expect(serialized).toContain("record_005");
-    }
+    expect(requestCompletion).toHaveBeenCalledOnce();
   });
 
-  it("publishes a provider rejection as an error with no zero-valued evidence", async () => {
-    const requestCompletion = vi.fn().mockRejectedValueOnce(
+  it("turns a 401 into an atomic failure with no result set", async () => {
+    const requestCompletion = vi.fn().mockRejectedValue(
       new ZeroGClientError(
-        "0G Router request failed with status 401.",
+        "Unauthorized.",
         "request_failed",
         401,
         [
@@ -213,7 +105,7 @@ describe("scorePrivateCsvSample", () => {
               outputCostNeuron: null,
               totalCostNeuron: null,
             },
-            durationMs: 93,
+            durationMs: 2,
             finishReason: null,
             httpStatus: 401,
             outcome: "http_error",
@@ -230,144 +122,241 @@ describe("scorePrivateCsvSample", () => {
       ),
     );
 
-    const scoring = await scorePrivateCsvSample(
-      plansFor(SAMPLE),
-      SAMPLE,
+    const rejected = scorePrivateCsvSample(
+      {
+        evaluationId: "evaluation-1",
+        questions: QUESTIONS,
+        sample: SAMPLE,
+      },
       { requestCompletion },
     );
 
-    expect(requestCompletion).toHaveBeenCalledTimes(1);
-    expect(scoring.inferenceRequests).toEqual({
-      made: 1,
-      maximum: 6,
-    });
-    expect(scoring.diagnostics.requests).toEqual([
-      expect.objectContaining({
-        httpStatus: 401,
-        outcome: "http_error",
-        pass: "original",
-        questionId: "relevance",
-      }),
-    ]);
-    expect(scoring.results[1]).toMatchObject({
-      error: {
-        code: "private_compute_authentication_failed",
-        httpStatus: 401,
-        requestMade: true,
-      },
-      evidence: {
-        coverageRatio: null,
-        recordsEvaluated: null,
-        recordsSubmitted: 5,
-      },
-      score: null,
-      status: "error",
-    });
-  });
-
-  it("does not call 0G for a preflight semantic unable result", async () => {
-    const tooSmall = {
-      ...SAMPLE,
-      rowCount: 1,
-      rows: [SAMPLE.rows[0]],
-    };
-    const requestCompletion = vi.fn();
-
-    const scoring = await scorePrivateCsvSample(plansFor(tooSmall), tooSmall, {
-      requestCompletion,
-    });
-
-    expect(scoring.semanticVerification).toBe("not_run");
-    expect(scoring.inferenceRequests).toEqual({
-      made: 0,
-      maximum: 6,
-    });
-    expect(scoring.diagnostics.requests).toEqual([]);
-    expect(scoring.results[1]).toMatchObject({
-      reason: "insufficient_records",
-      score: null,
-      status: "unable_to_score",
-    });
-    expect(requestCompletion).not.toHaveBeenCalled();
-  });
-
-  it("retains sanitized diagnostics when the original output is unusable", async () => {
-    const requestCompletion = vi.fn().mockResolvedValueOnce({
-      ...semanticCompletion("invalid-original"),
-      content: "",
-    });
-
-    const scoring = await scorePrivateCsvSample(plansFor(SAMPLE), SAMPLE, {
-      requestCompletion,
-    });
-
-    expect(requestCompletion).toHaveBeenCalledTimes(1);
-    expect(scoring).toMatchObject({
+    await expect(rejected).rejects.toBeInstanceOf(PrivateScoringError);
+    await expect(rejected).rejects.toMatchObject({
       diagnostics: {
-        requestCount: { made: 1, maximum: 6 },
-        requests: [
+        requestCount: { made: 1, maximum: 1 },
+        requests: [expect.objectContaining({ httpStatus: 401 })],
+      },
+    });
+    expect(requestCompletion).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["invalid JSON", completion("not json")],
+    [
+      "missing one question",
+      completion({
+        evaluation_id: "evaluation-1",
+        results: [validOutput().results[0]],
+      }),
+    ],
+    [
+      "invented question",
+      completion({
+        evaluation_id: "evaluation-1",
+        results: [
+          validOutput().results[0],
           {
-            pass: "original",
-            questionId: "relevance",
-            requestId: "invalid-original",
+            ...validOutput().results[1],
+            question_id: "invented",
           },
         ],
-      },
-      inferenceRequests: { made: 1, maximum: 6 },
-      semanticVerification: "verified",
-    });
-    expect(scoring.results[1]).toMatchObject({
-      error: {
-        code: "private_compute_invalid_response",
-        requestMade: true,
-      },
-      evidence: {
-        coverageRatio: null,
-        recordsEvaluated: null,
-        semanticFailure: { kind: "empty", pass: "original" },
-      },
-      score: null,
-      status: "error",
-    });
+      }),
+    ],
+    [
+      "invalid arithmetic",
+      completion({
+        evaluation_id: "evaluation-1",
+        results: [
+          {
+            ...validOutput().results[0],
+            numerator: 1,
+            score: 100,
+          },
+          validOutput().results[1],
+        ],
+      }),
+    ],
+  ])("rejects %s without returning partial scores", async (_, response) => {
+    const requestCompletion = vi.fn().mockResolvedValue(response);
+
+    await expect(
+      scorePrivateCsvSample(
+        {
+          evaluationId: "evaluation-1",
+          questions: QUESTIONS,
+          sample: SAMPLE,
+        },
+        { requestCompletion },
+      ),
+    ).rejects.toBeInstanceOf(PrivateScoringError);
+    expect(requestCompletion).toHaveBeenCalledOnce();
   });
 
-  it("runs an all-deterministic plan set without a 0G request", async () => {
-    const requestCompletion = vi.fn();
-    const scoring = await scorePrivateCsvSample(
-      [plansFor(SAMPLE)[0]],
-      SAMPLE,
-      { requestCompletion },
+  it("rejects output that copies a private cell value into evidence", async () => {
+    const output = validOutput();
+    output.results[1].evidence.reasons = [
+      "Copied Context one from the private sample.",
+    ];
+
+    await expect(
+      scorePrivateCsvSample(
+        {
+          evaluationId: "evaluation-1",
+          questions: QUESTIONS,
+          sample: SAMPLE,
+        },
+        {
+          requestCompletion: vi
+            .fn()
+            .mockResolvedValue(completion(output)),
+        },
+      ),
+    ).rejects.toBeInstanceOf(PrivateScoringError);
+  });
+
+  it("fails when TEE verification is unavailable", async () => {
+    const requestCompletion = vi.fn().mockRejectedValue(
+      new ZeroGClientError(
+        "Unverified.",
+        "unverified_response",
+        200,
+        [
+          {
+            attempt: 1,
+            billing: {
+              inputCostNeuron: null,
+              outputCostNeuron: null,
+              totalCostNeuron: null,
+            },
+            durationMs: 4,
+            finishReason: "stop",
+            httpStatus: 200,
+            outcome: "unverified_response",
+            reasoningContentPresent: false,
+            responseLength: 20,
+            usage: {
+              completionTokens: 5,
+              promptTokens: 10,
+              reasoningTokens: 0,
+              totalTokens: 15,
+            },
+          },
+        ],
+      ),
     );
 
-    expect(scoring.results[0]).toMatchObject({
-      questionId: "available",
-      score: 100,
-      status: "scored",
-    });
-    expect(scoring.inferenceRequests.made).toBe(0);
-    expect(requestCompletion).not.toHaveBeenCalled();
-  });
-
-  it("rejects an over-budget evaluation before making a request", async () => {
-    const requestCompletion = vi.fn();
-
-    const rejected = scorePrivateCsvSample(plansFor(SAMPLE), SAMPLE, {
-      maximumInferenceRequests: 1,
-      requestCompletion,
-    });
-
-    await expect(rejected).rejects.toMatchObject({
-      cause: expect.objectContaining({
-        message: expect.stringContaining(
-          "exceeds its private inference request budget",
-        ),
-      }),
+    await expect(
+      scorePrivateCsvSample(
+        {
+          evaluationId: "evaluation-1",
+          questions: QUESTIONS,
+          sample: SAMPLE,
+        },
+        { requestCompletion },
+      ),
+    ).rejects.toMatchObject({
       diagnostics: {
-        requestCount: { made: 0, maximum: 1 },
-        requests: [],
+        requests: [
+          expect.objectContaining({
+            outcome: "unverified_response",
+            teeVerified: false,
+          }),
+        ],
       },
     });
-
-    expect(requestCompletion).not.toHaveBeenCalled();
   });
 });
+
+function validOutput() {
+  return {
+    evaluation_id: "evaluation-1",
+    results: [
+      {
+        confidence: 100,
+        denominator: 2,
+        evaluation_basis: {
+          description: "Records containing both required fields.",
+          unit: "records",
+        },
+        evidence: {
+          aggregate_counts: [
+            { count: 2, label: "complete records" },
+          ],
+          reasons: ["All required fields were present."],
+          row_numbers: [1, 2],
+        },
+        explanation: "Both submitted records contain the required fields.",
+        numerator: 2,
+        question_id: "complete",
+        score: 100,
+        score_definition: {
+          one_hundred: "Every submitted record contains both fields.",
+          zero: "No submitted record contains both fields.",
+        },
+        status: "scored",
+      },
+      {
+        confidence: 80,
+        denominator: null,
+        evaluation_basis: {
+          description: "A holistic relevance rubric across the records.",
+          unit: "holistic_rubric",
+        },
+        evidence: {
+          aggregate_counts: [
+            { count: 2, label: "records evaluated" },
+          ],
+          reasons: ["The context was relevant to each row."],
+          row_numbers: [1, 2],
+        },
+        explanation: "The submitted context was relevant overall.",
+        numerator: null,
+        question_id: "context",
+        score: 75,
+        score_definition: {
+          one_hundred: "Every context is fully relevant.",
+          zero: "No context is relevant.",
+        },
+        status: "scored",
+      },
+    ],
+  };
+}
+
+function completion(content: unknown): VerifiedCompletion {
+  const serialized =
+    typeof content === "string" ? content : JSON.stringify(content);
+
+  return {
+    content: serialized,
+    diagnostics: [
+      {
+        attempt: 1,
+        billing: {
+          inputCostNeuron: "1",
+          outputCostNeuron: "2",
+          totalCostNeuron: "3",
+        },
+        durationMs: 10,
+        finishReason: "stop",
+        httpStatus: 200,
+        outcome: "succeeded",
+        reasoningContentPresent: false,
+        responseLength: serialized.length,
+        usage: {
+          completionTokens: 100,
+          promptTokens: 200,
+          reasoningTokens: 0,
+          totalTokens: 300,
+        },
+      },
+    ],
+    trace: {
+      model: "test-model",
+      provider: "test-provider",
+      requestId: "request-1",
+      teeVerified: true,
+    },
+  };
+}

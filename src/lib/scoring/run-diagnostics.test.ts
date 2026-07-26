@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { VerifiedCompletion } from "../zero-g/client";
-import { InferenceAuditRecorder } from "./run-diagnostics";
+import { diagnosticsFromCompletion } from "./run-diagnostics";
 
-describe("InferenceAuditRecorder", () => {
-  it("retains only allowlisted metadata from a completion", () => {
+describe("evaluation run diagnostics", () => {
+  it("retains only allowlisted metadata from one completion", () => {
     const completion: VerifiedCompletion = {
       content: "private model response",
       diagnostics: [
@@ -36,16 +36,13 @@ describe("InferenceAuditRecorder", () => {
         teeVerified: true,
       },
     };
-    const recorder = new InferenceAuditRecorder();
 
-    recorder.recordCompletion("relevance", "original", completion);
-    const snapshot = recorder.snapshot({ made: 1, maximum: 2 });
+    const snapshot = diagnosticsFromCompletion(completion);
     const serialized = JSON.stringify(snapshot);
 
+    expect(snapshot.requestCount).toEqual({ made: 1, maximum: 1 });
     expect(snapshot.requests[0]).toMatchObject({
       finishReason: "stop",
-      pass: "original",
-      questionId: "relevance",
       requestId: "request-1",
       usage: { totalTokens: 30 },
     });
