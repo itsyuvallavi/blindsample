@@ -1,19 +1,12 @@
 import type { ParsedCsvSample } from "../csv/parse-sample";
+import type { EvaluationContract } from "../evaluation-contracts/types";
 import type {
-  EvaluationQuestion,
-  EvaluationScore,
-} from "../supabase/evaluations";
-import {
-  requestVerifiedPrivateCompletion,
-  type VerifiedCompletion,
-  type ZeroGMessage,
-  type ZeroGTrace,
+  VerifiedCompletion,
+  ZeroGMessage,
 } from "../zero-g/client";
-import { parseScoringOutput, ScoringOutputError } from "./output";
-import {
-  buildCorrectionMessage,
-  buildScoringMessages,
-} from "./prompt";
+import { evaluateDeterministicContract } from "./deterministic";
+import { evaluateSemanticContract } from "./semantic";
+import type { EvaluationResult } from "./types";
 
 type CompletionRequester = (
   messages: ZeroGMessage[],
@@ -24,43 +17,43 @@ type ScoringOptions = {
 };
 
 export type PrivateScoringResult = {
-  scores: EvaluationScore[];
-  trace: ZeroGTrace;
+  results: EvaluationResult[];
+  semanticVerification: "not_run" | "verified";
 };
 
 export async function scorePrivateCsvSample(
-  questions: EvaluationQuestion[],
+  contracts: EvaluationContract[],
   sample: ParsedCsvSample,
   options: ScoringOptions = {},
 ): Promise<PrivateScoringResult> {
-  const requestCompletion =
-    options.requestCompletion ??
-    ((messages) =>
-      requestVerifiedPrivateCompletion(messages, {
-        maxTokens: Math.min(1_536, 128 + questions.length * 64),
-      }));
-  const messages = buildScoringMessages(questions, sample);
-  const first = await requestCompletion(messages);
-
-  try {
-    return {
-      scores: parseScoringOutput(first.content, questions),
-      trace: first.trace,
-    };
-  } catch (error) {
-    if (!(error instanceof ScoringOutputError)) {
-      throw error;
-    }
+  if (
+    contracts.length < 1 ||
+    !contracts.some((contract) => contract.method === "semantic")
+  ) {
+    throw new Error(
+      "The 0G MVP requires at least one semantic evaluation contract.",
+    );
   }
 
-  const corrected = await requestCompletion([
-    ...messages,
-    { content: first.content, role: "assistant" },
-    buildCorrectionMessage(),
-  ]);
+  const results = await Promise.all(
+    contracts.map((contract) =>
+      contract.method === "deterministic"
+        ? evaluateDeterministicContract(contract, sample)
+        : evaluateSemanticContract(contract, sample, {
+            requestCompletion: options.requestCompletion,
+          }),
+    ),
+  );
+  const semanticResults = results.filter(
+    (result) => result.evidence.method === "semantic",
+  );
+  const verifiedSemanticResults = semanticResults.filter(
+    (result) => result.evidence.zeroG?.teeVerified === true,
+  );
 
   return {
-    scores: parseScoringOutput(corrected.content, questions),
-    trace: corrected.trace,
+    results,
+    semanticVerification:
+      verifiedSemanticResults.length > 0 ? "verified" : "not_run",
   };
 }

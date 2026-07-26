@@ -3,70 +3,118 @@ import { describe, expect, it } from "vitest";
 import { PRODUCT_LIMITS } from "../product-contract";
 import {
   EvaluationInputError,
+  validateContractPreviewDraft,
   validateEvaluationDraft,
-  validateQuestions,
 } from "./validation";
 
+const CRITERIA = [
+  {
+    columns: ["message"],
+    controls: {
+      intermediate: "A general product question.",
+      negative: "A weather report unrelated to support.",
+      positive: "A customer asks an agent to restore account access.",
+    },
+    id: "relevance",
+    kind: "semantic_relevance",
+    question: "Is this useful for support classification?",
+    target: "Customer requests requiring a support agent response.",
+  },
+] as const;
+
 describe("evaluation input validation", () => {
-  it("trims safe human-entered text without changing question IDs", () => {
+  it("binds activation to the exact buyer-reviewed contracts", () => {
+    const preview = validateContractPreviewDraft({
+      criteria: CRITERIA,
+    });
+
     expect(
       validateEvaluationDraft({
-        questions: [{ id: "question_1", text: "  Is it complete?  " }],
-        title: "  Order data  ",
+        approvedContractSetHash: preview.contractSetHash,
+        criteria: CRITERIA,
+        title: "  Support data  ",
       }),
     ).toEqual({
-      questions: [{ id: "question_1", text: "Is it complete?" }],
-      title: "Order data",
+      contracts: preview.contracts,
+      contractSetHash: preview.contractSetHash,
+      title: "Support data",
     });
   });
 
-  it("rejects extra fields and duplicate question IDs", () => {
+  it("rejects activation when criteria change after review", () => {
+    const preview = validateContractPreviewDraft({
+      criteria: CRITERIA,
+    });
+
     expect(() =>
       validateEvaluationDraft({
+        approvedContractSetHash: preview.contractSetHash,
+        criteria: [
+          {
+            ...CRITERIA[0],
+            target: "A materially different target requiring new approval.",
+          },
+        ],
+        title: "Support data",
+      }),
+    ).toThrow("changed after contract review");
+  });
+
+  it("rejects extra fields and duplicate criterion IDs", () => {
+    expect(() =>
+      validateContractPreviewDraft({
+        criteria: CRITERIA,
         overallScore: true,
-        questions: [{ id: "q1", text: "Is it complete?" }],
-        title: "Orders",
       }),
     ).toThrowError(EvaluationInputError);
 
     expect(() =>
-      validateQuestions([
-        { id: "q1", text: "Is it complete?" },
-        { id: "q1", text: "Is it current?" },
-      ]),
+      validateContractPreviewDraft({
+        criteria: [CRITERIA[0], CRITERIA[0]],
+      }),
     ).toThrow("unique");
   });
 
-  it("enforces the question count and text limits", () => {
-    expect(() => validateQuestions([])).toThrow("between 1");
+  it("enforces criterion count and question text limits", () => {
     expect(() =>
-      validateQuestions(
-        Array.from(
-          { length: PRODUCT_LIMITS.maximumQuestions + 1 },
-          (_, index) => ({
-            id: `q${index}`,
-            text: "Question",
-          }),
-        ),
-      ),
+      validateContractPreviewDraft({ criteria: [] }),
     ).toThrow("between 1");
     expect(() =>
-      validateQuestions([
-        {
-          id: "q1",
-          text: "x".repeat(
-            PRODUCT_LIMITS.maximumQuestionCharacters + 1,
-          ),
-        },
-      ]),
+      validateContractPreviewDraft({
+        criteria: Array.from(
+          { length: PRODUCT_LIMITS.maximumQuestions + 1 },
+          (_, index) => ({
+            ...CRITERIA[0],
+            id: `q${index}`,
+          }),
+        ),
+      }),
+    ).toThrow("between 1");
+    expect(() =>
+      validateContractPreviewDraft({
+        criteria: [
+          {
+            ...CRITERIA[0],
+            question: "x".repeat(
+              PRODUCT_LIMITS.maximumQuestionCharacters + 1,
+            ),
+          },
+        ],
+      }),
     ).toThrow("characters");
   });
 
-  it("rejects IDs that are unsafe for exact model matching", () => {
-    for (const id of ["", "contains space", "q/1", "x".repeat(65)]) {
-      expect(() =>
-        validateQuestions([{ id, text: "Is it complete?" }]),
-      ).toThrowError(EvaluationInputError);
-    }
+  it("returns clarification_required for incomplete criteria", () => {
+    expect(() =>
+      validateContractPreviewDraft({
+        criteria: [
+          {
+            id: "vague",
+            kind: "semantic_relevance",
+            question: "Is this good?",
+          },
+        ],
+      }),
+    ).toThrow("needs clarification");
   });
 });

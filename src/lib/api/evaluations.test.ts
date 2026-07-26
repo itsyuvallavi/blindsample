@@ -1,19 +1,55 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { CsvSampleError } from "../csv/parse-sample";
+import { compileEvaluationContracts } from "../evaluation-contracts/compile";
+import { hashEvaluationContracts } from "../evaluation-contracts/hash";
 import { SampleSubmissionError } from "../evaluations/submit";
 import {
   handleCreateEvaluation,
   handleGetEvaluation,
+  handlePreviewEvaluationContracts,
   handleSubmitEvaluation,
 } from "./evaluations";
 
 const EVALUATION_ID = "5f27e1d9-74ac-4f43-93af-f530c2bb08d0";
 const BUYER_TOKEN = "a".repeat(43);
 const SELLER_TOKEN = "b".repeat(43);
+const CRITERIA = [
+  {
+    columns: ["description"],
+    controls: {
+      intermediate: "A general product question.",
+      negative: "A weather report unrelated to support.",
+      positive: "A customer asks an agent to restore account access.",
+    },
+    id: "q1",
+    kind: "semantic_relevance",
+    question: "Is this useful for support classification?",
+    target: "Customer requests requiring a support agent response.",
+  },
+] as const;
+const CONTRACTS = compileEvaluationContracts(CRITERIA);
+const CONTRACT_SET_HASH = hashEvaluationContracts(CONTRACTS);
 
 describe("evaluation API boundary", () => {
-  it("creates separate fragment-only capability paths", async () => {
+  it("previews contracts without activating a seller link", async () => {
+    const response = await handlePreviewEvaluationContracts(
+      jsonRequest("https://example.test/api/evaluation-contracts", {
+        criteria: CRITERIA,
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      contracts: CONTRACTS,
+      contractSetHash: CONTRACT_SET_HASH,
+    });
+    expect(body).not.toHaveProperty("sellerPath");
+    expect(body).not.toHaveProperty("buyerPath");
+  });
+
+  it("creates separate fragment-only paths after exact approval", async () => {
     const create = vi.fn().mockResolvedValue({
       buyerToken: BUYER_TOKEN,
       expiresAt: "2026-07-27T01:00:00.000Z",
@@ -22,7 +58,8 @@ describe("evaluation API boundary", () => {
       status: "waiting_for_seller",
     });
     const request = jsonRequest("https://example.test/api/evaluations", {
-      questions: [{ id: "q1", text: "Is this useful?" }],
+      approvedContractSetHash: CONTRACT_SET_HASH,
+      criteria: CRITERIA,
       title: "Forecast sample",
     });
 
@@ -41,15 +78,17 @@ describe("evaluation API boundary", () => {
     expect(body).not.toHaveProperty("buyerToken");
     expect(body).not.toHaveProperty("sellerToken");
     expect(create).toHaveBeenCalledWith({
-      questions: [{ id: "q1", text: "Is this useful?" }],
+      contracts: CONTRACTS,
+      contractSetHash: CONTRACT_SET_HASH,
       title: "Forecast sample",
     });
   });
 
-  it("rejects extra creation fields before persistence", async () => {
+  it("rejects extra or changed creation fields before persistence", async () => {
     const create = vi.fn();
     const request = jsonRequest("https://example.test/api/evaluations", {
-      questions: [{ id: "q1", text: "Is this useful?" }],
+      approvedContractSetHash: CONTRACT_SET_HASH,
+      criteria: CRITERIA,
       title: "Forecast sample",
       userId: "not-allowed",
     });
@@ -58,12 +97,33 @@ describe("evaluation API boundary", () => {
 
     expect(response.status).toBe(400);
     expect(create).not.toHaveBeenCalled();
+
+    const changedResponse = await handleCreateEvaluation(
+      jsonRequest("https://example.test/api/evaluations", {
+        approvedContractSetHash: CONTRACT_SET_HASH,
+        criteria: [
+          {
+            ...CRITERIA[0],
+            target: "Changed after review and not approved.",
+          },
+        ],
+        title: "Forecast sample",
+      }),
+      { create },
+    );
+
+    expect(changedResponse.status).toBe(400);
+    expect(await changedResponse.json()).toMatchObject({
+      error: { code: "approval_mismatch" },
+    });
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects an oversized declared creation body before parsing", async () => {
     const create = vi.fn();
     const request = jsonRequest("https://example.test/api/evaluations", {
-      questions: [{ id: "q1", text: "Is this useful?" }],
+      approvedContractSetHash: CONTRACT_SET_HASH,
+      criteria: CRITERIA,
       title: "Forecast sample",
     });
     request.headers.set("Content-Length", "20000");
@@ -76,17 +136,17 @@ describe("evaluation API boundary", () => {
 
   it("returns only the buyer view for a buyer capability", async () => {
     const getBuyer = vi.fn().mockResolvedValue({
+      approvedAt: "2026-07-26T00:00:00.000Z",
       completedAt: null,
+      contracts: CONTRACTS,
       errorCode: null,
       expiresAt: "2026-07-27T01:00:00.000Z",
       id: EVALUATION_ID,
-      questions: [{ id: "q1", text: "Is this useful?" }],
+      results: null,
       sampleColumnCount: null,
       sampleRowCount: null,
-      scores: null,
       status: "waiting_for_seller",
       title: "Forecast sample",
-      trace: null,
     });
     const getSeller = vi.fn();
 
@@ -102,16 +162,17 @@ describe("evaluation API boundary", () => {
 
     expect(response.status).toBe(200);
     expect(body.role).toBe("buyer");
-    expect(body.evaluation).toHaveProperty("scores", null);
+    expect(body.evaluation).toHaveProperty("results", null);
     expect(getSeller).not.toHaveBeenCalled();
   });
 
   it("falls back to the restricted seller view", async () => {
     const getBuyer = vi.fn().mockResolvedValue(null);
     const getSeller = vi.fn().mockResolvedValue({
+      approvedAt: "2026-07-26T00:00:00.000Z",
+      contracts: CONTRACTS,
       expiresAt: "2026-07-27T01:00:00.000Z",
       id: EVALUATION_ID,
-      questions: [{ id: "q1", text: "Is this useful?" }],
       status: "waiting_for_seller",
       title: "Forecast sample",
     });
@@ -128,7 +189,7 @@ describe("evaluation API boundary", () => {
 
     expect(response.status).toBe(200);
     expect(body.role).toBe("seller");
-    expect(body.evaluation).not.toHaveProperty("scores");
+    expect(body.evaluation).not.toHaveProperty("results");
   });
 
   it("rejects malformed capabilities without a database read", async () => {

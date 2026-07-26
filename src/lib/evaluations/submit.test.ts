@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { CsvSampleError } from "../csv/parse-sample";
-import { ScoringOutputError } from "../scoring/output";
+import { compileEvaluationContracts } from "../evaluation-contracts/compile";
 import type { SellerEvaluationView } from "../supabase/evaluations";
 import { ZeroGClientError } from "../zero-g/client";
 import {
@@ -12,27 +12,68 @@ import {
 const CSV_BYTES = new TextEncoder().encode(
   "order_id,order_date\n1,2026-07-20\n2,2026-07-21",
 );
+const CONTRACTS = compileEvaluationContracts([
+  {
+    columns: ["order_id"],
+    controls: {
+      intermediate: "A record that may refer to an order.",
+      negative: "A weather observation unrelated to commerce.",
+      positive: "A confirmed customer order identifier.",
+    },
+    id: "q-orders",
+    kind: "semantic_relevance",
+    question: "Are these useful order records?",
+    target: "Records that represent customer orders.",
+  },
+]);
 const SELLER_VIEW: SellerEvaluationView = {
+  approvedAt: "2026-07-26T00:00:00.000Z",
+  contracts: CONTRACTS,
   expiresAt: "2099-01-01T00:00:00.000Z",
   id: "evaluation-1",
-  questions: [
-    { id: "q-complete", text: "Is the sample complete?" },
-    { id: "q-current", text: "Is the sample current?" },
-  ],
   status: "waiting_for_seller",
   title: "Orders",
 };
 const VERIFIED_RESULT = {
-  scores: [
-    { questionId: "q-complete", score: 84 },
-    { questionId: "q-current", score: 92 },
+  results: [
+    {
+      evidence: {
+        agreement: {
+          ratio: 1,
+          requiredRatio: 0.8,
+          status: "passed",
+        },
+        contractVersion: "1.0.0",
+        controlCheck: "passed",
+        coverageRatio: 1,
+        limitation:
+          "This result describes only the submitted records.",
+        measurement: {
+          name: "mean_rubric_points",
+          unit: "rubric_points",
+          value: 75,
+        },
+        method: "semantic",
+        recordsEvaluated: 2,
+        recordsSubmitted: 2,
+        zeroG: {
+          requests: [
+            {
+              model: "test-model",
+              provider: "test-provider",
+              requestId: "test-request",
+              teeVerified: true,
+            },
+          ],
+          teeVerified: true,
+        },
+      },
+      questionId: "q-orders",
+      score: 75,
+      status: "scored",
+    },
   ],
-  trace: {
-    model: "test-model",
-    provider: "test-provider",
-    requestId: "test-request",
-    teeVerified: true as const,
-  },
+  semanticVerification: "verified" as const,
 };
 
 function dependencies(
@@ -59,7 +100,7 @@ function dependencies(
 }
 
 describe("submitPrivateSample", () => {
-  it("persists only counts, scores, and safe verification metadata", async () => {
+  it("persists only counts, results, and safe aggregate evidence", async () => {
     const deps = dependencies();
 
     await expect(
@@ -82,7 +123,7 @@ describe("submitPrivateSample", () => {
     expect(deps.complete).toHaveBeenCalledWith("evaluation-1", {
       sampleColumnCount: 2,
       sampleRowCount: 2,
-      ...VERIFIED_RESULT,
+      results: VERIFIED_RESULT.results,
     });
 
     const persistenceCalls = JSON.stringify([
@@ -133,10 +174,6 @@ describe("submitPrivateSample", () => {
   });
 
   it.each([
-    [
-      new ScoringOutputError("Invalid scores."),
-      "invalid_model_output",
-    ],
     [
       new ZeroGClientError(
         "TEE verification failed.",

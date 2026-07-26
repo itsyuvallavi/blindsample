@@ -1,52 +1,69 @@
 import { describe, expect, it } from "vitest";
 
 import { parseCsvSample } from "../csv/parse-sample";
+import { compileEvaluationContracts } from "../evaluation-contracts/compile";
 import { scorePrivateCsvSample } from "./score-sample";
 
 const describeLive =
   process.env.SCORING_LIVE === "1" ? describe : describe.skip;
 
-describeLive("live private question scoring", () => {
+describeLive("live defensible private evaluation", () => {
   it(
-    "returns one verified integer score for every question",
+    "returns contract-level results with verified semantic traces",
     async () => {
-      const questions = [
+      const contracts = compileEvaluationContracts([
         {
-          id: "q-required-fields",
-          text: "Does the sample contain the fields needed to analyze order value by currency?",
+          columns: ["message"],
+          id: "available",
+          kind: "column_availability",
+          question: "Is the message field available?",
         },
         {
-          id: "q-recent-orders",
-          text: "Is the sample recent enough to inspect orders from the last seven days?",
+          columns: ["message"],
+          controls: {
+            intermediate:
+              "Could you tell me more about your subscription options?",
+            negative:
+              "Today will be sunny with a light wind from the west.",
+            positive:
+              "My account is locked and I need an agent to restore access.",
+          },
+          id: "support_relevance",
+          kind: "semantic_relevance",
+          question:
+            "Are these useful examples of customer requests needing support?",
+          target:
+            "Customer requests that require a support agent to take action.",
         },
-      ];
+      ]);
       const sample = parseCsvSample(
         new TextEncoder().encode(
           [
-            "order_id,order_total,currency,order_date",
-            "1001,84.50,EUR,2026-07-22",
-            "1002,112.00,EUR,2026-07-23",
-            "1003,39.90,GBP,2026-07-24",
+            "message",
+            "My invoice has the wrong amount.",
+            "Please help me reset my account password.",
+            "I need a refund for a duplicate charge.",
+            "The dashboard will not load.",
+            "Please update the email on my account.",
           ].join("\n"),
         ),
       );
 
-      const result = await scorePrivateCsvSample(questions, sample);
-
-      expect(result.scores).toHaveLength(questions.length);
-      expect(result.scores.map((score) => score.questionId)).toEqual(
-        questions.map((question) => question.id),
+      const result = await scorePrivateCsvSample(contracts, sample);
+      const semantic = result.results.find(
+        (item) => item.questionId === "support_relevance",
       );
-      for (const score of result.scores) {
-        expect(Number.isInteger(score.score)).toBe(true);
-        expect(score.score).toBeGreaterThanOrEqual(1);
-        expect(score.score).toBeLessThanOrEqual(100);
+
+      expect(result.results).toHaveLength(contracts.length);
+      expect(result.semanticVerification).toBe("verified");
+      expect(semantic?.evidence.zeroG?.teeVerified).toBe(true);
+      expect(semantic?.evidence.zeroG?.requests).toHaveLength(2);
+      for (const request of semantic?.evidence.zeroG?.requests ?? []) {
+        expect(request.model).toBeTruthy();
+        expect(request.provider).toBeTruthy();
+        expect(request.requestId).toBeTruthy();
       }
-      expect(result.trace).toMatchObject({ teeVerified: true });
-      expect(result.trace.model).toBeTruthy();
-      expect(result.trace.provider).toBeTruthy();
-      expect(result.trace.requestId).toBeTruthy();
     },
-    60_000,
+    90_000,
   );
 });

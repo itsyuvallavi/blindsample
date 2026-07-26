@@ -6,6 +6,7 @@ import {
 } from "../evaluations/submit";
 import {
   EvaluationInputError,
+  validateContractPreviewDraft,
   validateEvaluationDraft,
 } from "../evaluations/validation";
 import { PRODUCT_LIMITS } from "../product-contract";
@@ -15,6 +16,7 @@ import {
   getBuyerEvaluation,
   getSellerEvaluation,
   type BuyerEvaluationView,
+  type CreateEvaluationInput,
   type CreatedEvaluation,
   type SellerEvaluationView,
 } from "../supabase/evaluations";
@@ -26,10 +28,7 @@ const MAXIMUM_MULTIPART_BODY_BYTES =
   PRODUCT_LIMITS.maximumFileBytes + 100_000;
 
 type CreateDependencies = {
-  create: (input: {
-    questions: { id: string; text: string }[];
-    title: string;
-  }) => Promise<CreatedEvaluation>;
+  create: (input: CreateEvaluationInput) => Promise<CreatedEvaluation>;
 };
 
 type ReadDependencies = {
@@ -111,6 +110,44 @@ export async function handleCreateEvaluation(
   } catch (error) {
     if (error instanceof EvaluationInputError) {
       return apiError(400, error.code, error.message);
+    }
+
+    return serviceFailure(error);
+  }
+}
+
+export async function handlePreviewEvaluationContracts(
+  request: Request,
+) {
+  if (declaredSizeExceeds(request, MAXIMUM_CREATE_BODY_BYTES)) {
+    return apiError(
+      413,
+      "request_too_large",
+      "The contract preview request is too large.",
+    );
+  }
+
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return apiError(
+      400,
+      "invalid_json",
+      "Provide a valid JSON request body.",
+    );
+  }
+
+  try {
+    return json(validateContractPreviewDraft(body));
+  } catch (error) {
+    if (error instanceof EvaluationInputError) {
+      return apiError(
+        error.code === "clarification_required" ? 422 : 400,
+        error.code,
+        error.message,
+      );
     }
 
     return serviceFailure(error);

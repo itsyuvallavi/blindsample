@@ -5,6 +5,8 @@ import {
   hashCapabilityToken,
   issueEvaluationCapabilities,
 } from "../access/capabilities";
+import type { EvaluationContract } from "../evaluation-contracts/types";
+import type { EvaluationResult } from "../scoring/types";
 
 import { getSupabaseServerClient } from "./client";
 import type {
@@ -18,16 +20,6 @@ import {
 } from "./environment";
 
 const DEFAULT_LIFETIME_MS = 24 * 60 * 60 * 1_000;
-
-export type EvaluationQuestion = {
-  id: string;
-  text: string;
-};
-
-export type EvaluationScore = {
-  questionId: string;
-  score: number;
-};
 
 export type EvaluationStatus =
   | "waiting_for_seller"
@@ -43,8 +35,9 @@ type RepositoryOptions = {
 };
 
 export type CreateEvaluationInput = {
+  contracts: EvaluationContract[];
+  contractSetHash: string;
   expiresAt?: Date;
-  questions: EvaluationQuestion[];
   title: string;
 };
 
@@ -57,9 +50,10 @@ export type CreatedEvaluation = {
 };
 
 export type SellerEvaluationView = {
+  approvedAt: string;
+  contracts: EvaluationContract[];
   expiresAt: string;
   id: string;
-  questions: EvaluationQuestion[];
   status: EvaluationStatus;
   title: string;
 };
@@ -67,27 +61,15 @@ export type SellerEvaluationView = {
 export type BuyerEvaluationView = SellerEvaluationView & {
   completedAt: string | null;
   errorCode: string | null;
+  results: EvaluationResult[] | null;
   sampleColumnCount: number | null;
   sampleRowCount: number | null;
-  scores: EvaluationScore[] | null;
-  trace: {
-    model: string;
-    provider: string;
-    requestId: string;
-    teeVerified: true;
-  } | null;
 };
 
-export type VerifiedEvaluationResult = {
+export type CompletedEvaluationResult = {
+  results: EvaluationResult[];
   sampleColumnCount: number;
   sampleRowCount: number;
-  scores: EvaluationScore[];
-  trace: {
-    model: string;
-    provider: string;
-    requestId: string;
-    teeVerified: true;
-  };
 };
 
 export class EvaluationRepositoryError extends Error {
@@ -116,10 +98,12 @@ export async function createEvaluation(
     new Date(now.getTime() + DEFAULT_LIFETIME_MS);
 
   const row: EvaluationInsert = {
+    approved_at: now.toISOString(),
     buyer_token_hash: capabilities.buyer.hash,
+    contract_set_hash: input.contractSetHash,
+    contracts: input.contracts as Json,
     environment,
     expires_at: expiresAt.toISOString(),
-    questions: input.questions as Json,
     seller_token_hash: capabilities.seller.hash,
     title: input.title,
     updated_at: now.toISOString(),
@@ -158,7 +142,7 @@ export async function getSellerEvaluation(
 
   const { data, error } = await client
     .from("evaluations")
-    .select("id, title, status, questions, expires_at")
+    .select("id, title, status, contracts, approved_at, expires_at")
     .eq("id", id)
     .eq("environment", environment)
     .eq("seller_token_hash", tokenHash)
@@ -174,9 +158,10 @@ export async function getSellerEvaluation(
   }
 
   return {
+    approvedAt: data.approved_at,
+    contracts: data.contracts as EvaluationContract[],
     expiresAt: data.expires_at,
     id: data.id,
-    questions: data.questions as EvaluationQuestion[],
     status: data.status as EvaluationStatus,
     title: data.title,
   };
@@ -197,7 +182,7 @@ export async function getBuyerEvaluation(
   const { data, error } = await client
     .from("evaluations")
     .select(
-      "id, title, status, questions, scores, sample_row_count, sample_column_count, zero_g_model, zero_g_provider, zero_g_request_id, tee_verified, error_code, completed_at, expires_at",
+      "id, title, status, contracts, results, sample_row_count, sample_column_count, error_code, completed_at, approved_at, expires_at",
     )
     .eq("id", id)
     .eq("environment", environment)
@@ -213,31 +198,18 @@ export async function getBuyerEvaluation(
     return null;
   }
 
-  const hasVerifiedTrace =
-    data.tee_verified === true &&
-    typeof data.zero_g_model === "string" &&
-    typeof data.zero_g_provider === "string" &&
-    typeof data.zero_g_request_id === "string";
-
   return {
+    approvedAt: data.approved_at,
     completedAt: data.completed_at,
+    contracts: data.contracts as EvaluationContract[],
     errorCode: data.error_code,
     expiresAt: data.expires_at,
     id: data.id,
-    questions: data.questions as EvaluationQuestion[],
+    results: data.results as EvaluationResult[] | null,
     sampleColumnCount: data.sample_column_count,
     sampleRowCount: data.sample_row_count,
-    scores: data.scores as EvaluationScore[] | null,
     status: data.status as EvaluationStatus,
     title: data.title,
-    trace: hasVerifiedTrace
-      ? {
-          model: data.zero_g_model as string,
-          provider: data.zero_g_provider as string,
-          requestId: data.zero_g_request_id as string,
-          teeVerified: true,
-        }
-      : null,
   };
 }
 
@@ -265,9 +237,6 @@ export async function beginSellerSubmission(
       sample_row_count: input.sampleRowCount,
       status: "processing",
       updated_at: now.toISOString(),
-      zero_g_model: null,
-      zero_g_provider: null,
-      zero_g_request_id: null,
     })
     .eq("id", input.id)
     .eq("environment", environment)
@@ -286,7 +255,7 @@ export async function beginSellerSubmission(
 
 export async function completeEvaluation(
   id: string,
-  result: VerifiedEvaluationResult,
+  result: CompletedEvaluationResult,
   options: RepositoryOptions = {},
 ) {
   const client = options.client ?? getSupabaseServerClient();
@@ -299,15 +268,11 @@ export async function completeEvaluation(
     .update({
       completed_at: now.toISOString(),
       error_code: null,
+      results: result.results as Json,
       sample_column_count: result.sampleColumnCount,
       sample_row_count: result.sampleRowCount,
-      scores: result.scores as Json,
       status: "complete",
-      tee_verified: true,
       updated_at: now.toISOString(),
-      zero_g_model: result.trace.model,
-      zero_g_provider: result.trace.provider,
-      zero_g_request_id: result.trace.requestId,
     })
     .eq("id", id)
     .eq("environment", environment)
@@ -342,13 +307,9 @@ export async function failEvaluation(
     .update({
       completed_at: null,
       error_code: errorCode,
-      scores: null,
+      results: null,
       status: "failed",
-      tee_verified: false,
       updated_at: now.toISOString(),
-      zero_g_model: null,
-      zero_g_provider: null,
-      zero_g_request_id: null,
     })
     .eq("id", id)
     .eq("environment", environment)

@@ -1,92 +1,107 @@
+import {
+  compileEvaluationContracts,
+  EvaluationContractError,
+} from "../evaluation-contracts/compile";
+import { hashEvaluationContracts } from "../evaluation-contracts/hash";
+import type {
+  CriterionDraft,
+  EvaluationContractPreview,
+} from "../evaluation-contracts/types";
 import { PRODUCT_LIMITS } from "../product-contract";
-import type { EvaluationQuestion } from "../supabase/evaluations";
+import type { CreateEvaluationInput } from "../supabase/evaluations";
 
-const QUESTION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const HASH_PATTERN = /^[0-9a-f]{64}$/;
 
-export type ValidatedEvaluationDraft = {
-  questions: EvaluationQuestion[];
-  title: string;
-};
+export type ValidatedEvaluationDraft = CreateEvaluationInput;
 
 export class EvaluationInputError extends Error {
   constructor(
     message: string,
     readonly code:
+      | "approval_mismatch"
+      | "clarification_required"
+      | "invalid_contract"
       | "invalid_evaluation"
-      | "invalid_question"
-      | "invalid_title",
+      | "invalid_title"
+      | "semantic_criterion_required",
   ) {
     super(message);
     this.name = "EvaluationInputError";
   }
 }
 
-export function validateEvaluationDraft(
+export function validateContractPreviewDraft(
   value: unknown,
-): ValidatedEvaluationDraft {
-  if (!isRecord(value) || !hasExactKeys(value, ["questions", "title"])) {
+): EvaluationContractPreview {
+  if (!isRecord(value) || !hasExactKeys(value, ["criteria"])) {
     throw new EvaluationInputError(
-      "Evaluation input must contain only a title and questions.",
+      "Contract preview input must contain only criteria.",
       "invalid_evaluation",
     );
   }
 
+  const contracts = compileCriteria(value.criteria);
+
   return {
-    questions: validateQuestions(value.questions),
+    contracts,
+    contractSetHash: hashEvaluationContracts(contracts),
+  };
+}
+
+export function validateEvaluationDraft(
+  value: unknown,
+): ValidatedEvaluationDraft {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      "approvedContractSetHash",
+      "criteria",
+      "title",
+    ])
+  ) {
+    throw new EvaluationInputError(
+      "Evaluation input must contain only a title, criteria, and the approved contract-set hash.",
+      "invalid_evaluation",
+    );
+  }
+
+  if (
+    typeof value.approvedContractSetHash !== "string" ||
+    !HASH_PATTERN.test(value.approvedContractSetHash)
+  ) {
+    throw new EvaluationInputError(
+      "Approve the reviewed evaluation contracts before activation.",
+      "approval_mismatch",
+    );
+  }
+
+  const contracts = compileCriteria(value.criteria);
+  const contractSetHash = hashEvaluationContracts(contracts);
+
+  if (contractSetHash !== value.approvedContractSetHash) {
+    throw new EvaluationInputError(
+      "The criteria changed after contract review. Review and approve the updated contracts.",
+      "approval_mismatch",
+    );
+  }
+
+  return {
+    contracts,
+    contractSetHash,
     title: validateTitle(value.title),
   };
 }
 
-export function validateQuestions(value: unknown): EvaluationQuestion[] {
-  if (
-    !Array.isArray(value) ||
-    value.length < 1 ||
-    value.length > PRODUCT_LIMITS.maximumQuestions
-  ) {
-    throw new EvaluationInputError(
-      `Provide between 1 and ${PRODUCT_LIMITS.maximumQuestions} questions.`,
-      "invalid_question",
-    );
+function compileCriteria(value: unknown) {
+  try {
+    return compileEvaluationContracts(value as CriterionDraft[]);
+  } catch (error) {
+    if (error instanceof EvaluationContractError) {
+      throw new EvaluationInputError(error.message, error.code);
+    }
+
+    throw error;
   }
-
-  const ids = new Set<string>();
-
-  return value.map((question, index) => {
-    if (
-      !isRecord(question) ||
-      !hasExactKeys(question, ["id", "text"]) ||
-      typeof question.id !== "string" ||
-      !QUESTION_ID_PATTERN.test(question.id) ||
-      typeof question.text !== "string"
-    ) {
-      throw new EvaluationInputError(
-        `Question ${index + 1} has an invalid shape.`,
-        "invalid_question",
-      );
-    }
-
-    if (ids.has(question.id)) {
-      throw new EvaluationInputError(
-        "Question IDs must be unique.",
-        "invalid_question",
-      );
-    }
-
-    const text = question.text.trim();
-
-    if (
-      text.length < 1 ||
-      text.length > PRODUCT_LIMITS.maximumQuestionCharacters
-    ) {
-      throw new EvaluationInputError(
-        `Question ${index + 1} must contain 1–${PRODUCT_LIMITS.maximumQuestionCharacters} characters.`,
-        "invalid_question",
-      );
-    }
-
-    ids.add(question.id);
-    return { id: question.id, text };
-  });
 }
 
 function validateTitle(value: unknown) {

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { compileEvaluationContracts } from "../evaluation-contracts/compile";
+import { hashEvaluationContracts } from "../evaluation-contracts/hash";
 import { getSupabaseServerClient } from "./client";
 import {
   beginSellerSubmission,
@@ -12,6 +14,26 @@ import {
 const describeLive =
   process.env.SUPABASE_LIVE === "1" ? describe : describe.skip;
 const createdIds: string[] = [];
+const CONTRACTS = compileEvaluationContracts([
+  {
+    columns: ["order_total"],
+    id: "complete",
+    kind: "completeness",
+    question: "Are order totals complete?",
+  },
+  {
+    columns: ["description"],
+    controls: {
+      intermediate: "A possible order note with limited detail.",
+      negative: "A weather report unrelated to orders.",
+      positive: "A confirmed customer order description.",
+    },
+    id: "relevance",
+    kind: "semantic_relevance",
+    question: "Are these customer order records?",
+    target: "Records that clearly describe customer orders.",
+  },
+]);
 
 describeLive("live Supabase evaluation persistence", () => {
   afterEach(async () => {
@@ -32,16 +54,8 @@ describeLive("live Supabase evaluation persistence", () => {
 
   it("separates roles and permits exactly one submission claim", async () => {
     const created = await createEvaluation({
-      questions: [
-        {
-          id: "question-1",
-          text: "Does this sample contain complete order totals?",
-        },
-        {
-          id: "question-2",
-          text: "Is the sample recent enough for a weekly forecast?",
-        },
-      ],
+      contracts: CONTRACTS,
+      contractSetHash: hashEvaluationContracts(CONTRACTS),
       title: "Live persistence verification",
     });
     createdIds.push(created.id);
@@ -55,7 +69,7 @@ describeLive("live Supabase evaluation persistence", () => {
       ]);
 
     expect(sellerView?.status).toBe("waiting_for_seller");
-    expect(buyerView?.scores).toBeNull();
+    expect(buyerView?.results).toBeNull();
     expect(sellerWithBuyerToken).toBeNull();
     expect(buyerWithSellerToken).toBeNull();
 
@@ -77,18 +91,72 @@ describeLive("live Supabase evaluation persistence", () => {
     expect(claims.sort()).toEqual([false, true]);
 
     await completeEvaluation(created.id, {
+      results: [
+        {
+          evidence: {
+            agreement: {
+              ratio: null,
+              requiredRatio: null,
+              status: "not_applicable",
+            },
+            contractVersion: "1.0.0",
+            controlCheck: "not_applicable",
+            coverageRatio: 1,
+            limitation:
+              "This result describes only the submitted records.",
+            measurement: {
+              name: "completeness_rate",
+              unit: "percent",
+              value: 91,
+            },
+            method: "deterministic",
+            recordsEvaluated: 12,
+            recordsSubmitted: 12,
+            zeroG: null,
+          },
+          questionId: "complete",
+          score: 91,
+          status: "scored",
+        },
+        {
+          evidence: {
+            agreement: {
+              ratio: 1,
+              requiredRatio: 0.8,
+              status: "passed",
+            },
+            contractVersion: "1.0.0",
+            controlCheck: "passed",
+            coverageRatio: 1,
+            limitation:
+              "This result describes only the submitted records.",
+            measurement: {
+              name: "mean_rubric_points",
+              unit: "rubric_points",
+              value: 75,
+            },
+            method: "semantic",
+            recordsEvaluated: 12,
+            recordsSubmitted: 12,
+            zeroG: {
+              requests: [
+                {
+                  model: "live-test-model",
+                  provider: "live-test-provider",
+                  requestId: "live-test-request",
+                  teeVerified: true,
+                },
+              ],
+              teeVerified: true,
+            },
+          },
+          questionId: "relevance",
+          score: 75,
+          status: "scored",
+        },
+      ],
       sampleColumnCount: 4,
       sampleRowCount: 12,
-      scores: [
-        { questionId: "question-1", score: 91 },
-        { questionId: "question-2", score: 77 },
-      ],
-      trace: {
-        model: "live-test-model",
-        provider: "live-test-provider",
-        requestId: "live-test-request",
-        teeVerified: true,
-      },
     });
 
     const completedBuyerView = await getBuyerEvaluation(
@@ -101,19 +169,13 @@ describeLive("live Supabase evaluation persistence", () => {
     );
 
     expect(completedBuyerView).toMatchObject({
-      scores: [
-        { questionId: "question-1", score: 91 },
-        { questionId: "question-2", score: 77 },
+      results: [
+        { questionId: "complete", score: 91 },
+        { questionId: "relevance", score: 75 },
       ],
       status: "complete",
-      trace: {
-        model: "live-test-model",
-        provider: "live-test-provider",
-        requestId: "live-test-request",
-        teeVerified: true,
-      },
     });
-    expect(completedSellerView).not.toHaveProperty("scores");
+    expect(completedSellerView).not.toHaveProperty("results");
 
     const { data: stored, error } = await getSupabaseServerClient()
       .from("evaluations")

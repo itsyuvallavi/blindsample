@@ -3,17 +3,15 @@ import {
   type ParsedCsvSample,
 } from "../csv/parse-sample";
 import { scorePrivateCsvSample } from "../scoring/score-sample";
-import { ScoringOutputError } from "../scoring/output";
 import {
   beginSellerSubmission,
   completeEvaluation,
+  type CompletedEvaluationResult,
   failEvaluation,
   getSellerEvaluation,
   type SellerEvaluationView,
-  type VerifiedEvaluationResult,
 } from "../supabase/evaluations";
 import { ZeroGClientError } from "../zero-g/client";
-import { validateQuestions } from "./validation";
 
 type SubmissionDependencies = {
   beginSubmission: (input: {
@@ -24,7 +22,7 @@ type SubmissionDependencies = {
   }) => Promise<boolean>;
   complete: (
     id: string,
-    result: VerifiedEvaluationResult,
+    result: CompletedEvaluationResult,
   ) => Promise<void>;
   fail: (id: string, errorCode: string) => Promise<void>;
   getSellerView: (
@@ -79,7 +77,6 @@ export async function submitPrivateSample(
     );
   }
 
-  const questions = validateQuestions(sellerView.questions);
   const sample = dependencies.parseSample(input.bytes);
   const claimed = await dependencies.beginSubmission({
     id: input.evaluationId,
@@ -95,15 +92,17 @@ export async function submitPrivateSample(
     );
   }
 
-  let result: VerifiedEvaluationResult;
+  let result: CompletedEvaluationResult;
 
   try {
-    const scoring = await dependencies.scoreSample(questions, sample);
+    const scoring = await dependencies.scoreSample(
+      sellerView.contracts,
+      sample,
+    );
     result = {
+      results: scoring.results,
       sampleColumnCount: sample.columnCount,
       sampleRowCount: sample.rowCount,
-      scores: scoring.scores,
-      trace: scoring.trace,
     };
   } catch (error) {
     return recordFailure(
@@ -160,10 +159,6 @@ async function recordFailure(
 }
 
 function scoringFailureCode(error: unknown) {
-  if (error instanceof ScoringOutputError) {
-    return "invalid_model_output";
-  }
-
   if (error instanceof ZeroGClientError) {
     switch (error.code) {
       case "unverified_response":
