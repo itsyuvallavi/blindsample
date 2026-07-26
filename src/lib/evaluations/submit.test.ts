@@ -34,7 +34,39 @@ const SELLER_VIEW: SellerEvaluationView = {
   status: "waiting_for_seller",
   title: "Orders",
 };
+const INFERENCE_DIAGNOSTICS = {
+  requestCount: { made: 1, maximum: 2 },
+  requests: [
+    {
+      attempt: 1,
+      billing: {
+        inputCostNeuron: "10",
+        outputCostNeuron: "20",
+        totalCostNeuron: "30",
+      },
+      durationMs: 10,
+      finishReason: "stop",
+      httpStatus: 200,
+      model: "test-model",
+      outcome: "succeeded" as const,
+      pass: "original" as const,
+      provider: "test-provider",
+      questionId: "q-orders",
+      requestId: "test-request",
+      responseLength: 100,
+      teeVerified: true,
+      usage: {
+        completionTokens: 20,
+        promptTokens: 10,
+        reasoningTokens: 0,
+        totalTokens: 30,
+      },
+    },
+  ],
+};
 const VERIFIED_RESULT = {
+  diagnostics: INFERENCE_DIAGNOSTICS,
+  inferenceRequests: { made: 1, maximum: 2 },
   results: [
     {
       evidence: {
@@ -56,6 +88,7 @@ const VERIFIED_RESULT = {
         method: "semantic",
         recordsEvaluated: 2,
         recordsSubmitted: 2,
+        semanticFailure: null,
         zeroG: {
           requests: [
             {
@@ -82,6 +115,7 @@ function dependencies(
   return {
     beginSubmission: vi.fn().mockResolvedValue(true),
     complete: vi.fn().mockResolvedValue(undefined),
+    emitInferenceEvents: vi.fn(),
     fail: vi.fn().mockResolvedValue(undefined),
     getSellerView: vi.fn().mockResolvedValue(SELLER_VIEW),
     parseSample: vi.fn((bytes: Uint8Array) => ({
@@ -121,6 +155,7 @@ describe("submitPrivateSample", () => {
       token: "seller-token",
     });
     expect(deps.complete).toHaveBeenCalledWith("evaluation-1", {
+      inferenceDiagnostics: INFERENCE_DIAGNOSTICS,
       sampleColumnCount: 2,
       sampleRowCount: 2,
       results: VERIFIED_RESULT.results,
@@ -132,6 +167,11 @@ describe("submitPrivateSample", () => {
     ]);
     expect(persistenceCalls).not.toContain("2026-07-20");
     expect(persistenceCalls).not.toContain("order_id,order_date");
+    expect(deps.emitInferenceEvents).toHaveBeenCalledWith(
+      "evaluation-1",
+      "complete",
+      INFERENCE_DIAGNOSTICS,
+    );
   });
 
   it("does not claim an evaluation when CSV validation fails", async () => {
@@ -203,6 +243,10 @@ describe("submitPrivateSample", () => {
     expect(deps.fail).toHaveBeenCalledWith(
       "evaluation-1",
       errorCode,
+      expect.objectContaining({
+        requestCount: expect.any(Object),
+        requests: expect.any(Array),
+      }),
     );
     expect(deps.complete).not.toHaveBeenCalled();
   });

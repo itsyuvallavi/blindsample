@@ -24,6 +24,7 @@ export type Database = {
           error_code: string | null;
           expires_at: string;
           id: string;
+          inference_diagnostics: Json;
           results: Json | null;
           sample_column_count: number | null;
           sample_row_count: number | null;
@@ -43,6 +44,7 @@ export type Database = {
           error_code?: string | null;
           expires_at: string;
           id?: string;
+          inference_diagnostics?: Json;
           results?: Json | null;
           sample_column_count?: number | null;
           sample_row_count?: number | null;
@@ -62,6 +64,7 @@ export type Database = {
           error_code?: string | null;
           expires_at?: string;
           id?: string;
+          inference_diagnostics?: Json;
           results?: Json | null;
           sample_column_count?: number | null;
           sample_row_count?: number | null;

@@ -65,6 +65,27 @@ function semanticCompletion(requestId: string) {
         { controlId: "control_c", label: "intermediate" },
       ],
     }),
+    diagnostics: [
+      {
+        attempt: 1,
+        billing: {
+          inputCostNeuron: "10",
+          outputCostNeuron: "20",
+          totalCostNeuron: "30",
+        },
+        durationMs: 10,
+        finishReason: "stop",
+        httpStatus: 200,
+        outcome: "succeeded" as const,
+        responseLength: 100,
+        usage: {
+          completionTokens: 20,
+          promptTokens: 10,
+          reasoningTokens: 0,
+          totalTokens: 30,
+        },
+      },
+    ],
     trace: { ...TRACE, requestId },
   };
 }
@@ -83,6 +104,21 @@ describe("scorePrivateCsvSample", () => {
     expect(scoring.inferenceRequests).toEqual({
       made: 2,
       maximum: 6,
+    });
+    expect(scoring.diagnostics).toMatchObject({
+      requestCount: { made: 2, maximum: 6 },
+      requests: [
+        {
+          pass: "original",
+          questionId: "relevance",
+          requestId: "original",
+        },
+        {
+          pass: "repeat",
+          questionId: "relevance",
+          requestId: "repeat",
+        },
+      ],
     });
     expect(scoring.semanticVerification).toBe("verified");
     expect(scoring.results).toHaveLength(CONTRACTS.length);
@@ -122,6 +158,7 @@ describe("scorePrivateCsvSample", () => {
       made: 0,
       maximum: 6,
     });
+    expect(scoring.diagnostics.requests).toEqual([]);
     expect(scoring.results[1]).toMatchObject({
       reason: "insufficient_records",
       score: null,
@@ -139,14 +176,22 @@ describe("scorePrivateCsvSample", () => {
   it("rejects an over-budget evaluation before making a request", async () => {
     const requestCompletion = vi.fn();
 
-    await expect(
-      scorePrivateCsvSample(CONTRACTS, SAMPLE, {
-        maximumInferenceRequests: 1,
-        requestCompletion,
+    const rejected = scorePrivateCsvSample(CONTRACTS, SAMPLE, {
+      maximumInferenceRequests: 1,
+      requestCompletion,
+    });
+
+    await expect(rejected).rejects.toMatchObject({
+      cause: expect.objectContaining({
+        message: expect.stringContaining(
+          "exceeds its private inference request budget",
+        ),
       }),
-    ).rejects.toThrow(
-      "exceeds its private inference request budget",
-    );
+      diagnostics: {
+        requestCount: { made: 0, maximum: 1 },
+        requests: [],
+      },
+    });
 
     expect(requestCompletion).not.toHaveBeenCalled();
   });

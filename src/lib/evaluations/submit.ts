@@ -2,7 +2,16 @@ import {
   parseCsvSample,
   type ParsedCsvSample,
 } from "../csv/parse-sample";
-import { scorePrivateCsvSample } from "../scoring/score-sample";
+import { emitInferenceRunEvents } from "../observability/inference";
+import {
+  PrivateScoringError,
+  scorePrivateCsvSample,
+} from "../scoring/score-sample";
+import {
+  diagnosticsFromClientError,
+  emptyEvaluationRunDiagnostics,
+  type EvaluationRunDiagnostics,
+} from "../scoring/run-diagnostics";
 import {
   beginSellerSubmission,
   completeEvaluation,
@@ -24,7 +33,12 @@ type SubmissionDependencies = {
     id: string,
     result: CompletedEvaluationResult,
   ) => Promise<void>;
-  fail: (id: string, errorCode: string) => Promise<void>;
+  emitInferenceEvents: typeof emitInferenceRunEvents;
+  fail: (
+    id: string,
+    errorCode: string,
+    diagnostics: EvaluationRunDiagnostics,
+  ) => Promise<void>;
   getSellerView: (
     id: string,
     token: string,
@@ -36,6 +50,7 @@ type SubmissionDependencies = {
 const DEFAULT_DEPENDENCIES: SubmissionDependencies = {
   beginSubmission: beginSellerSubmission,
   complete: completeEvaluation,
+  emitInferenceEvents: emitInferenceRunEvents,
   fail: failEvaluation,
   getSellerView: getSellerEvaluation,
   parseSample: parseCsvSample,
@@ -100,6 +115,7 @@ export async function submitPrivateSample(
       sample,
     );
     result = {
+      inferenceDiagnostics: scoring.diagnostics,
       results: scoring.results,
       sampleColumnCount: sample.columnCount,
       sampleRowCount: sample.rowCount,
@@ -109,17 +125,24 @@ export async function submitPrivateSample(
       dependencies,
       input.evaluationId,
       scoringFailureCode(error),
+      scoringDiagnostics(error),
       error,
     );
   }
 
   try {
     await dependencies.complete(input.evaluationId, result);
+    dependencies.emitInferenceEvents(
+      input.evaluationId,
+      "complete",
+      result.inferenceDiagnostics,
+    );
   } catch (error) {
     try {
       await dependencies.fail(
         input.evaluationId,
         "result_persistence_failed",
+        result.inferenceDiagnostics,
       );
     } catch {
       // The original persistence failure is the actionable error.
@@ -139,10 +162,16 @@ async function recordFailure(
   dependencies: SubmissionDependencies,
   evaluationId: string,
   errorCode: string,
+  diagnostics: EvaluationRunDiagnostics,
   cause: unknown,
 ): Promise<never> {
   try {
-    await dependencies.fail(evaluationId, errorCode);
+    await dependencies.fail(evaluationId, errorCode, diagnostics);
+    dependencies.emitInferenceEvents(
+      evaluationId,
+      "failed",
+      diagnostics,
+    );
   } catch (failureError) {
     throw new SampleSubmissionError(
       "Scoring failed and its status could not be stored.",
@@ -159,8 +188,11 @@ async function recordFailure(
 }
 
 function scoringFailureCode(error: unknown) {
-  if (error instanceof ZeroGClientError) {
-    switch (error.code) {
+  const cause =
+    error instanceof PrivateScoringError ? error.cause : error;
+
+  if (cause instanceof ZeroGClientError) {
+    switch (cause.code) {
       case "unverified_response":
         return "tee_verification_failed";
       case "invalid_response":
@@ -173,4 +205,16 @@ function scoringFailureCode(error: unknown) {
   }
 
   return "scoring_failed";
+}
+
+function scoringDiagnostics(error: unknown) {
+  if (error instanceof PrivateScoringError) {
+    return error.diagnostics;
+  }
+
+  if (error instanceof ZeroGClientError) {
+    return diagnosticsFromClientError(error);
+  }
+
+  return emptyEvaluationRunDiagnostics();
 }

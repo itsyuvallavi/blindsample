@@ -6,6 +6,10 @@ import {
   issueEvaluationCapabilities,
 } from "../access/capabilities";
 import type { EvaluationContract } from "../evaluation-contracts/types";
+import {
+  emptyEvaluationRunDiagnostics,
+  type EvaluationRunDiagnostics,
+} from "../scoring/run-diagnostics";
 import type { EvaluationResult } from "../scoring/types";
 
 import { getSupabaseServerClient } from "./client";
@@ -61,12 +65,14 @@ export type SellerEvaluationView = {
 export type BuyerEvaluationView = SellerEvaluationView & {
   completedAt: string | null;
   errorCode: string | null;
+  inferenceDiagnostics: EvaluationRunDiagnostics;
   results: EvaluationResult[] | null;
   sampleColumnCount: number | null;
   sampleRowCount: number | null;
 };
 
 export type CompletedEvaluationResult = {
+  inferenceDiagnostics: EvaluationRunDiagnostics;
   results: EvaluationResult[];
   sampleColumnCount: number;
   sampleRowCount: number;
@@ -182,7 +188,7 @@ export async function getBuyerEvaluation(
   const { data, error } = await client
     .from("evaluations")
     .select(
-      "id, title, status, contracts, results, sample_row_count, sample_column_count, error_code, completed_at, approved_at, expires_at",
+      "id, title, status, contracts, results, inference_diagnostics, sample_row_count, sample_column_count, error_code, completed_at, approved_at, expires_at",
     )
     .eq("id", id)
     .eq("environment", environment)
@@ -205,6 +211,8 @@ export async function getBuyerEvaluation(
     errorCode: data.error_code,
     expiresAt: data.expires_at,
     id: data.id,
+    inferenceDiagnostics:
+      data.inference_diagnostics as EvaluationRunDiagnostics,
     results: data.results as EvaluationResult[] | null,
     sampleColumnCount: data.sample_column_count,
     sampleRowCount: data.sample_row_count,
@@ -233,6 +241,8 @@ export async function beginSellerSubmission(
     .from("evaluations")
     .update({
       error_code: null,
+      inference_diagnostics:
+        emptyEvaluationRunDiagnostics() as unknown as Json,
       sample_column_count: input.sampleColumnCount,
       sample_row_count: input.sampleRowCount,
       status: "processing",
@@ -268,6 +278,8 @@ export async function completeEvaluation(
     .update({
       completed_at: now.toISOString(),
       error_code: null,
+      inference_diagnostics:
+        result.inferenceDiagnostics as unknown as Json,
       results: result.results as Json,
       sample_column_count: result.sampleColumnCount,
       sample_row_count: result.sampleRowCount,
@@ -295,6 +307,7 @@ export async function completeEvaluation(
 export async function failEvaluation(
   id: string,
   errorCode: string,
+  inferenceDiagnostics: EvaluationRunDiagnostics,
   options: RepositoryOptions = {},
 ) {
   const client = options.client ?? getSupabaseServerClient();
@@ -307,6 +320,8 @@ export async function failEvaluation(
     .update({
       completed_at: null,
       error_code: errorCode,
+      inference_diagnostics:
+        inferenceDiagnostics as unknown as Json,
       results: null,
       status: "failed",
       updated_at: now.toISOString(),

@@ -155,6 +155,10 @@ export function BuyerResults({
         <StatusMessage tone="error">
           {failureMessage(evaluation.errorCode)}
         </StatusMessage>
+        <p className="terminal-copy">
+          Recorded 0G attempts:{" "}
+          {evaluation.inferenceDiagnostics.requestCount.made}.
+        </p>
       </ResultIntro>
     );
   }
@@ -184,9 +188,14 @@ function CompletedResults({
     );
   }
 
-  const semanticRequests = evaluation.results.flatMap(
-    (result) => result.evidence.zeroG?.requests ?? [],
-  );
+  const inferenceDiagnostics = evaluation.inferenceDiagnostics;
+  const finishReasons = [
+    ...new Set(
+      inferenceDiagnostics.requests
+        .map((request) => request.finishReason)
+        .filter((reason): reason is string => reason !== null),
+    ),
+  ];
 
   return (
     <section className="terminal-window">
@@ -247,8 +256,24 @@ function CompletedResults({
               value={String(evaluation.sampleColumnCount ?? 0)}
             />
             <TraceItem
-              label="0G requests"
-              value={String(semanticRequests.length)}
+              label="0G attempts"
+              value={`${inferenceDiagnostics.requestCount.made}/${inferenceDiagnostics.requestCount.maximum}`}
+            />
+            <TraceItem
+              label="router finish"
+              value={
+                finishReasons.length > 0
+                  ? finishReasons.join(", ")
+                  : "not reported"
+              }
+            />
+            <TraceItem
+              label="reported tokens"
+              value={reportedTokens(inferenceDiagnostics)}
+            />
+            <TraceItem
+              label="reported cost"
+              value={reportedCost(inferenceDiagnostics)}
             />
             <TraceItem
               label="overall score"
@@ -326,8 +351,14 @@ function ResultRecord({
               result.evidence.measurement
                 ? `${result.evidence.measurement.value} ${result.evidence.measurement.unit.replace("_", " ")}`
                 : "not published"
-            }
+              }
           />
+          {result.evidence.semanticFailure ? (
+            <TraceItem
+              label="semantic failure"
+              value={`${result.evidence.semanticFailure.pass} · ${result.evidence.semanticFailure.kind.replaceAll("_", " ")}`}
+            />
+          ) : null}
         </dl>
 
         {result.evidence.zeroG ? (
@@ -364,6 +395,35 @@ function ResultRecord({
       </details>
     </article>
   );
+}
+
+function reportedTokens(
+  diagnostics: BuyerEvaluation["inferenceDiagnostics"],
+) {
+  const counts = diagnostics.requests
+    .map((request) => request.usage.totalTokens)
+    .filter((value): value is number => value !== null);
+
+  return counts.length > 0
+    ? String(counts.reduce((sum, value) => sum + value, 0))
+    : "not reported";
+}
+
+function reportedCost(
+  diagnostics: BuyerEvaluation["inferenceDiagnostics"],
+) {
+  const costs = diagnostics.requests
+    .map((request) => request.billing.totalCostNeuron)
+    .filter((value): value is string => value !== null);
+
+  if (costs.length === 0) {
+    return "not reported";
+  }
+
+  return `${costs.reduce(
+    (sum, value) => sum + BigInt(value),
+    BigInt(0),
+  )} neuron`;
 }
 
 function TraceItem({ label, value }: { label: string; value: string }) {

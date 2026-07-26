@@ -27,6 +27,7 @@ import {
   type UnableToScoreReason,
   zeroGEvidence,
 } from "./types";
+import type { SemanticInferencePass } from "./run-diagnostics";
 
 export const SEMANTIC_RELIABILITY = {
   repeatAgreementRatio: 0.8,
@@ -55,6 +56,14 @@ type CompletionRequester = (
 ) => Promise<VerifiedCompletion>;
 
 type SemanticOptions = {
+  onCompletion?: (
+    pass: SemanticInferencePass,
+    completion: VerifiedCompletion,
+  ) => void;
+  onRequestError?: (
+    pass: SemanticInferencePass,
+    error: unknown,
+  ) => void;
   requestBudget?: InferenceRequestBudget;
   requestCompletion?: CompletionRequester;
 };
@@ -113,13 +122,25 @@ export async function evaluateSemanticContract(
         maxTokens: Math.min(2_048, 320 + records.length * 28),
         responseFormat: "json_object",
       }));
-  const guardedRequest = (messages: ZeroGMessage[]) => {
+  const guardedRequest = async (
+    messages: ZeroGMessage[],
+    pass: SemanticInferencePass,
+  ) => {
     options.requestBudget?.consume();
-    return requestCompletion(messages);
+
+    try {
+      const completion = await requestCompletion(messages);
+      options.onCompletion?.(pass, completion);
+      return completion;
+    } catch (error) {
+      options.onRequestError?.(pass, error);
+      throw error;
+    }
   };
 
   const original = await guardedRequest(
     buildSemanticClassificationMessages(contract, records, controls),
+    "original",
   );
   const traces = [verifiedTrace(original)];
   const parsedOriginal = parseCompletion(
@@ -151,6 +172,7 @@ export async function evaluateSemanticContract(
       repeatRecords,
       controls,
     ),
+    "repeat",
   );
   traces.push(verifiedTrace(repeated));
   const parsedRepeated = parseCompletion(

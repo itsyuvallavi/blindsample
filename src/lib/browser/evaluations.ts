@@ -3,6 +3,7 @@ import type {
   EvaluationContract,
   EvaluationContractPreview,
 } from "../evaluation-contracts/types";
+import type { EvaluationRunDiagnostics } from "../scoring/run-diagnostics";
 import type { EvaluationResult } from "../scoring/types";
 
 export type EvaluationStatus =
@@ -23,6 +24,7 @@ export type SellerEvaluation = {
 export type BuyerEvaluation = SellerEvaluation & {
   completedAt: string | null;
   errorCode: string | null;
+  inferenceDiagnostics: EvaluationRunDiagnostics;
   results: EvaluationResult[] | null;
   sampleColumnCount: number | null;
   sampleRowCount: number | null;

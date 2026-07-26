@@ -91,6 +91,36 @@ describeLive("live Supabase evaluation persistence", () => {
     expect(claims.sort()).toEqual([false, true]);
 
     await completeEvaluation(created.id, {
+      inferenceDiagnostics: {
+        requestCount: { made: 1, maximum: 6 },
+        requests: [
+          {
+            attempt: 1,
+            billing: {
+              inputCostNeuron: "10",
+              outputCostNeuron: "20",
+              totalCostNeuron: "30",
+            },
+            durationMs: 10,
+            finishReason: "stop",
+            httpStatus: 200,
+            model: "live-test-model",
+            outcome: "succeeded",
+            pass: "original",
+            provider: "live-test-provider",
+            questionId: "relevance",
+            requestId: "live-test-request",
+            responseLength: 100,
+            teeVerified: true,
+            usage: {
+              completionTokens: 20,
+              promptTokens: 10,
+              reasoningTokens: 0,
+              totalTokens: 30,
+            },
+          },
+        ],
+      },
       results: [
         {
           evidence: {

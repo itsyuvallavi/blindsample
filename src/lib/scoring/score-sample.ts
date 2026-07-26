@@ -9,6 +9,10 @@ import {
   InferenceRequestBudget,
 } from "../zero-g/request-budget";
 import { evaluateDeterministicContract } from "./deterministic";
+import {
+  type EvaluationRunDiagnostics,
+  InferenceAuditRecorder,
+} from "./run-diagnostics";
 import { evaluateSemanticContract } from "./semantic";
 import type { EvaluationResult } from "./types";
 
@@ -22,6 +26,7 @@ type ScoringOptions = {
 };
 
 export type PrivateScoringResult = {
+  diagnostics: EvaluationRunDiagnostics;
   inferenceRequests: {
     made: number;
     maximum: number;
@@ -29,6 +34,16 @@ export type PrivateScoringResult = {
   results: EvaluationResult[];
   semanticVerification: "not_run" | "verified";
 };
+
+export class PrivateScoringError extends Error {
+  constructor(
+    readonly diagnostics: EvaluationRunDiagnostics,
+    options: ErrorOptions,
+  ) {
+    super("Private scoring did not complete.", options);
+    this.name = "PrivateScoringError";
+  }
+}
 
 export async function scorePrivateCsvSample(
   contracts: EvaluationContract[],
@@ -50,18 +65,36 @@ export async function scorePrivateCsvSample(
   const plannedSemanticRequests =
     contracts.filter((contract) => contract.method === "semantic")
       .length * 2;
-  budget.assertCanPlan(plannedSemanticRequests);
+  const recorder = new InferenceAuditRecorder();
+  const results: EvaluationResult[] = [];
 
-  const results = await Promise.all(
-    contracts.map((contract) =>
-      contract.method === "deterministic"
-        ? evaluateDeterministicContract(contract, sample)
-        : evaluateSemanticContract(contract, sample, {
-            requestBudget: budget,
-            requestCompletion: options.requestCompletion,
-          }),
-    ),
-  );
+  try {
+    budget.assertCanPlan(plannedSemanticRequests);
+
+    for (const contract of contracts) {
+      results.push(
+        contract.method === "deterministic"
+          ? evaluateDeterministicContract(contract, sample)
+          : await evaluateSemanticContract(contract, sample, {
+              onCompletion: (pass, completion) =>
+                recorder.recordCompletion(
+                  contract.questionId,
+                  pass,
+                  completion,
+                ),
+              onRequestError: (pass, error) =>
+                recorder.recordError(contract.questionId, pass, error),
+              requestBudget: budget,
+              requestCompletion: options.requestCompletion,
+            }),
+      );
+    }
+  } catch (error) {
+    throw new PrivateScoringError(
+      recorder.snapshot(budget.snapshot()),
+      { cause: error },
+    );
+  }
   const semanticResults = results.filter(
     (result) => result.evidence.method === "semantic",
   );
@@ -70,6 +103,7 @@ export async function scorePrivateCsvSample(
   );
 
   return {
+    diagnostics: recorder.snapshot(budget.snapshot()),
     inferenceRequests: budget.snapshot(),
     results,
     semanticVerification:
