@@ -1191,4 +1191,7 @@ Acceptance:
   remained skipped.
 - Lint, TypeScript, and the production build pass.
 - The production dependency audit reports zero vulnerabilities.
+- A mocked localhost seller flow accepted JSONL and Parquet, displayed the
+  expected format, two records, two columns, and local validation status, with
+  no error overlay and zero submission requests.
 - No live or paid 0G request was made.
