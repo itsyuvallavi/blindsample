@@ -927,4 +927,5 @@ Acceptance so far:
 - The production build passes with Next.js 16.2.12 using webpack. External
   Google Fonts were removed so builds no longer depend on font-network access;
   the Terminal UI uses explicit local system font stacks.
+- Commits `a3b72d3`, `d4abd98`, and `1217e87` were pushed to `main`.
 - No live or paid 0G request was made.

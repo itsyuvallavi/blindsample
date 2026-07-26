@@ -137,7 +137,7 @@ Status: complete.
 
 ### Milestone C — documentation and acceptance
 
-Status: in progress.
+Status: complete.
 
 - Align README, plan, and build log.
 - Run source scans for removed paths and forbidden environment fallbacks.
@@ -169,8 +169,8 @@ No paid live request is part of this milestone.
 - [x] `npm test`
 - [x] `npm run build`
 - [x] source and secret scans
-- [ ] clean Git status
-- [ ] commits pushed to `main`
+- [x] clean Git status
+- [x] commits pushed to `main`
 
 Live 0G, scoring, and end-to-end suites remain opt-in and require explicit
 paid approval.
