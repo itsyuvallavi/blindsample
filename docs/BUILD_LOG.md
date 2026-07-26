@@ -880,3 +880,51 @@ Acceptance:
   intermittent Google Fonts DNS failure. One immediate standalone production
   build completed successfully.
 - No live 0G request or paid inference test was run.
+
+## 2026-07-26 — Atomic 0G-only evaluation
+
+Inspection:
+
+- Identified the local deterministic executor, pre-inference unable path,
+  two-request semantic executor, partial publication behavior, generated-plan
+  persistence, and legacy partial-result UI.
+- Confirmed production logging already retained only allowlisted request
+  metadata and never request or response content.
+
+Mapping and review:
+
+- Replaced the hybrid flow with one request containing the evaluation ID, all
+  buyer questions, CSV headers, and every bounded parsed row.
+- The model now returns one strict result per question. Application code only
+  validates schema, IDs, arithmetic, privacy, and verification.
+- Supabase keeps the original questions and stores only safe aggregate results
+  after complete validation.
+
+Pre-mortem and mitigation:
+
+- Partial, duplicate, invented, wrong-evaluation, arithmetically inconsistent,
+  unverified, or cell-copying output rejects the entire result set.
+- A failed request writes `failed` and `results: null`; no local, partial, or
+  previous score is displayable.
+- Removed retry/fan-out configuration and hard-coded one request per
+  evaluation.
+- Production now rejects any 0G base URL other than the mainnet Router.
+
+Planning and implementation:
+
+- Commit `a3b72d3` removes the deterministic, plan-generation, two-pass,
+  fallback, partial-presentation, and obsolete diagnostic paths.
+- Added a versioned atomic result schema, one-request prompt, strict validator,
+  safe persistence guard, and required 0G provenance UI.
+
+Acceptance so far:
+
+- Lint and TypeScript pass.
+- 79 non-live tests pass; four opt-in live suites remain skipped.
+- Exact percentage, multi-question single-call, 401, invalid JSON, missing TEE,
+  arithmetic, evidence privacy, one-to-one IDs, safe logging, and production
+  endpoint tests pass.
+- The production build passes with Next.js 16.2.12 using webpack. External
+  Google Fonts were removed so builds no longer depend on font-network access;
+  the Terminal UI uses explicit local system font stacks.
+- No live or paid 0G request was made.

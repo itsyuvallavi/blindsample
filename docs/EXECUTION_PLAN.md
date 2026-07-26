@@ -1,383 +1,176 @@
 # BlindSample Execution Plan
 
-This is the single current plan for BlindSample. It follows the required
-sequence:
+Current architecture plan, following:
 
 **Inspection → Mapping → Review → Pre-mortem → Mitigation → Planning → Acceptance**
 
 ## 1. Inspection
 
-### Repository
+The former implementation had five paths that conflicted with the product
+decision:
 
-- Public repository: `https://github.com/itsyuvallavi/blindsample`
-- Implementation branch: `build/mvp`
-- Pull request: draft review from `build/mvp` into `main`
-- Application: Next.js App Router, TypeScript, Node.js 22
-- Persistence: one private Supabase `evaluations` table
-- Hosting: Vercel preview connected to the repository
-- Sponsor integration: server-side 0G Private Computer
+- a local deterministic executor answered exact questions without 0G;
+- a plan generator could mark a question unable before inference;
+- semantic questions ran independently and could consume two requests each;
+- semantic failures were converted into partial per-question results; and
+- the result UI could display local scores beside a failed 0G question.
 
-### Current implementation
-
-- Buyer contract creation, preview, review, and explicit approval
-- Independent buyer and seller capability links
-- In-memory CSV parsing with 1–50 parsed-record, 20-column, and 200-KB limits
-- Deterministic objective metrics
-- Private 0G semantic classifications
-- Server-calculated scores with calibration and consistency checks
-- One stored result per approved contract
-- Explicit `unable_to_score` state
-- Buyer, seller, API, Supabase, and UI tests
-- Clean Terminal-inspired interface
-
-### Fixed product decisions
-
-- No overall score, average, recommendation, marketplace, payment, or dataset
-  delivery
-- No raw CSV, prompts, or capability tokens stored
-- Results apply only to the submitted records
-- A sample cannot prove completeness or representativeness of a larger dataset
-- TEE verification proves protected execution, not judgment accuracy
-
-### Hackathon fit
-
-BlindSample targets **Best AI Product on 0G**. The final submission needs a
-public repository, a working demo, a sub-three-minute video, clear 0G usage,
-setup instructions, team details, and an explicit statement that no custom
-smart contract was deployed.
+Persistence replaced buyer questions with generated plans containing an
+ordinary dataset fingerprint. Production logging was already metadata-only,
+and the raw CSV was already memory-only.
 
 ## 2. Mapping
 
-### User flow
+The evaluation boundary is now one atomic server operation:
 
 ```text
-Buyer defines criteria
+parse bounded CSV in memory
         |
-        v
-BlindSample compiles versioned evaluation contracts
+package evaluation ID + all questions + all records
         |
-        v
-Buyer reviews and approves exact contract-set hash
+make exactly one private 0G request, with no retry
         |
-        +--------------------+
-        |                    |
-        v                    v
-Seller capability       Buyer capability
-submit only             results only
+require TEE verification
         |
-        v
-CSV parsed in memory, all 1–50 records retained
+validate the complete response
         |
-        +-----------------------------+
-        |                             |
-        v                             v
-deterministic objective code     private 0G classification
-                                      |
-                               controls + repeat pass
-        |                             |
-        +--------------+--------------+
-                       v
-             one safe result per contract
-                       |
-                       v
-                    Supabase
-                       |
-                       v
-                 buyer result view
+valid all-question set? ---- no ----> failed + results:null
+        |
+       yes
+        |
+complete + safe aggregate results
 ```
 
-### Evaluation contracts
-
-Each buyer criterion is compiled into a versioned contract containing:
-
-- question ID and original wording
-- normalized criterion
-- deterministic or semantic method
-- required evidence and columns
-- all-submitted-records population rule
-- meanings for scores 1, 25, 50, 75, and 100
-- aggregation method
-- minimum records and coverage
-- unable-to-score conditions
-- contract version
-
-The canonical contract set is SHA-256 hashed. The seller link is created only
-after the buyer approves that exact hash.
-
-### Evaluation engine
-
-Deterministic criteria:
-
-- completeness
-- format validity
-- uniqueness
-- date freshness
-- numeric range
-- column availability
-- category coverage
-
-Semantic criteria:
-
-- relevance or suitability against a buyer-approved target
-
-The 0G model returns only validated per-record rubric labels. Application code
-maps labels to `1`, `25`, `50`, `75`, or `100` and calculates the integer
-aggregate.
-
-### Sponsor tension
-
-Purely deterministic evaluations would bypass 0G and weaken sponsor fit. The
-MVP resolves this by requiring at least one semantic contract before
-activation, while still using exact code for arithmetic.
-
-If a semantic contract lacks enough submitted evidence, it may fail during
-preflight without spending a 0G request. This yields `unable_to_score`, never a
-numeric semantic result. Every published numeric semantic result requires two
-private, TEE-verified 0G requests.
-
-### Capability boundary
-
-| Capability | Read contracts | Submit CSV | Read results |
-|---|---:|---:|---:|
-| Seller | yes | yes | no |
-| Buyer | yes | no | yes |
-
-Tokens are independent 256-bit values, expire, remain in URL fragments, move
-to the API as bearer credentials, and are stored only as HMAC-SHA256 hashes.
-
-### Persistence boundary
-
-Supabase may store:
-
-- approved contracts and contract-set hash
-- state and timestamps
-- safe row and column counts
-- scored or unable result records
-- aggregate measurements
-- control and agreement status
-- model, provider, request ID, and TEE status for 0G calls
-
-Supabase must not store:
-
-- CSV contents or individual rows
-- raw prompts or model chain-of-thought
-- raw capability tokens
-- credentials or direct personal/payment identifiers
+The model decides how to evaluate each question and returns the score. The
+application validates the response but does not answer questions from the CSV.
 
 ## 3. Review
 
-### Product
+### Execution
 
-- The product answers a real pre-purchase question: whether a private sample
-  suits the buyer's stated use.
-- Contract review makes the score interpretable before the seller submits.
-- Per-question results avoid a misleading universal dataset-quality number.
-- `unable_to_score` is more trustworthy than fabricated certainty.
+- Every question, including exact percentages, reaches 0G.
+- One evaluation always makes at most one inference request.
+- `requestVerifiedPrivateCompletion` has no retry loop.
+- The response must belong to the submitted evaluation ID.
+- Every original question ID must occur exactly once.
+- `unable` is a valid model result; request-level failure is not.
 
-### Technical
+### Validation
 
-- Supabase is justified for asynchronous two-party coordination.
-- Server-only 0G calls keep the inference key out of the browser.
-- Capability links avoid account scope while preserving strict role
-  separation.
-- Deterministic code removes avoidable model arithmetic.
-- Two 0G passes, human-reviewed controls, and explicit thresholds improve
-  repeatability without claiming model agreement is ground truth.
+Scored results require:
 
-### Scope
+- integer score from 0–100;
+- exact score definitions for 0 and 100;
+- an allowed evaluation-basis unit;
+- integer confidence from 0–100;
+- paired numerator and denominator when arithmetic applies;
+- `round(numerator / denominator × 100)` consistency; and
+- bounded, aggregate-only evidence.
 
-Included:
+Unable results require `score`, `numerator`, and `denominator` to be `null`.
+Any invalid item rejects the entire response.
 
-- CSV evaluation
-- approved contracts
-- hybrid scoring
-- 0G Private Computer
-- safe persistence
-- separate links
-- Vercel preview
-- automated and live checks
+### Persistence
 
-Excluded:
+Supabase retains the original buyer questions. Completion writes only safe
+results, safe diagnostics, counts, and timestamps. Failure atomically writes
+`results: null`.
 
-- 0G Storage
-- custom contracts
-- wallet connection
-- payments
-- accounts
-- analytics
-- emails
-- arbitrary file formats
-- proof that a sample represents a complete dataset
+### UI
+
+Only a version `3.0.0` result set with one successful verified 0G request is
+displayable. Existing hybrid rows fail closed.
 
 ## 4. Pre-mortem
 
 | Failure | Impact |
 |---|---|
-| Model directly invents the score | Result is not defensible |
-| Controls fail but a number is published | Known unreliable judgment appears valid |
-| Repeated labels are unstable | Result cannot be reproduced |
-| TEE verification is absent or false | Sponsor and privacy claims fail |
-| Semantic path is optional | Core demo can bypass 0G |
-| CSV is truncated or sampled silently | Score describes hidden, changing evidence |
-| Quoted newlines inflate row count | Valid CSV is rejected or limits are wrong |
-| Seller reads results or buyer submits | Capability model is broken |
-| Duplicate submissions overwrite results | State and cost become inconsistent |
-| Raw rows enter Supabase or logs | Privacy promise is false |
-| UI presents too much technical detail | Real users cannot understand the product |
-| Docs still describe the old model-scoring path | Reviewers cannot trust the repository |
-| Router has no testnet balance | Live semantic demo fails |
-| Preview deploy is behind the branch | Judges see an obsolete product |
+| Partial or duplicate output | Some questions appear complete when they are not |
+| Invented question ID | Model answers a question the buyer did not ask |
+| Arithmetic mismatch | Published score contradicts its evidence |
+| Missing TEE trace | Privacy and sponsor claims fail |
+| 401/403 or timeout | Stale/local score may be mistaken for a result |
+| Model copies a cell into evidence | Seller data leaks through persistence or UI |
+| Retry or per-question fan-out | Unexpected inference cost |
+| Failed retry retains old results | Buyer sees a previous run |
+| Legacy hybrid result is rendered | Product violates the 0G-only decision |
+| Raw prompt/response reaches logs | Private data is retained |
 
 ## 5. Mitigation
 
-| Risk | Mitigation | Acceptance evidence |
+| Risk | Mitigation | Evidence |
 |---|---|---|
-| Invented model score | Model output schema forbids scores; server calculates | Override test |
-| Bad controls | Require 100% control accuracy | Control-failure test |
-| Instability | Repeat canonical subset; require 80% agreement | Unstable-output test |
-| Weak evidence | Require 3 usable records and 80% coverage | Missing-evidence test |
-| Unverified 0G | Require private mode, TeeML, `verify_tee`, and true trace | False/missing TEE tests |
-| 0G bypass | Require a semantic contract to activate | Compiler test |
-| Input drift | Parse full CSV; 1–50 records; reject 0 and 51; no truncation | CSV boundary tests |
-| Role leak | Server-side bearer authorization and role-specific views | Permission tests |
-| Overwrite | Atomic processing claim and immutable complete state | Concurrent claim test |
-| Raw-data leak | In-memory handling and aggregate-only schema | Repository/schema/live checks |
-| Dense UI | Progressive disclosure and one primary action per state | Browser review |
-| Documentation drift | One README, one execution plan, one build log | Repository review |
-| Live dependency failure | Fund testnet key and keep completed verified demo evidence | Live 0G and scoring tests |
-| Stale deployment | Deploy the exact pushed commit to Preview | Vercel inspection |
+| Partial/extra IDs | Exact one-to-one ID validator | Scoring tests |
+| Wrong evaluation | Required top-level evaluation ID | Parser tests |
+| Bad arithmetic | Validate, never recalculate a replacement | Arithmetic test |
+| Missing TEE | Client rejects absent/false verification | Client and scoring tests |
+| Request failure | Submission calls `fail`, never `complete` | Submission tests |
+| Cell leakage | Reject persisted text containing private cell values | Privacy test |
+| Cost fan-out | One call site, no retry, hard `1/1` diagnostics | Request-count test |
+| Stale results | Claim and failure clear `results` and `completed_at` | Repository code |
+| Legacy rows | Runtime atomic-result guard | Buyer source test |
+| Logging leak | Allowlisted request metadata only | Observability test |
+| Wrong production endpoint | Production requires mainnet Router URL | Config test |
 
 ## 6. Planning
 
-### Phase 1 — Repository and services
+### Milestone A — atomic evaluator
 
 Status: complete.
 
-- Publish the repository and branch.
-- Configure 0G testnet, Supabase, and Vercel.
-- Add `.gitignore`, `.env.example`, CI, and Node.js 22.
-- Store secrets only in local/Vercel environments.
+- Add one batch prompt for all questions and records.
+- Add strict response parsing and safe evidence validation.
+- Remove deterministic, plan, two-pass, and partial-result executors.
+- Keep the 0G client non-retrying.
 
-Commits:
+Commit: `a3b72d3 refactor: make 0G evaluation atomic`
 
-- `chore: scaffold the verified web application`
-- service-specific follow-up commits recorded in the build log
-
-### Phase 2 — Private coordination
+### Milestone B — atomic persistence and UI
 
 Status: complete.
 
-- Add the locked Supabase table and migration.
-- Add independent capability creation and hashing.
-- Add role-scoped reads, atomic claim, completion, failure, and retry.
-- Verify RLS, revoked browser grants, live role separation, and cleanup.
+- Keep original questions in Supabase.
+- Clear stale results when a retry begins.
+- Require verified `3.0.0` results before completing or displaying.
+- Use the required running, success, and failure messages.
+- Display “Evaluated by 0G” on every result.
 
-### Phase 3 — Defensible evaluation
-
-Status: complete.
-
-Small commits:
-
-- `fix: enforce the 50-record sample contract`
-- `feat: define defensible evaluation contracts`
-- `feat: calculate objective scores deterministically`
-- `feat: calibrate private semantic classifications`
-- `feat: persist approved contracts and audit results`
-
-### Phase 4 — Product UI
-
-Status: complete.
-
-- Buyer creation and approval
-- Seller contract review and CSV submission
-- Buyer wait, failure, and result states
-- Question-level evidence with advanced detail collapsed by default
-- Terminal-inspired, clean, inviting presentation
-
-Commit:
-
-- `feat: simplify the private terminal workflow`
-
-### Phase 5 — Documentation and acceptance
+### Milestone C — documentation and acceptance
 
 Status: in progress.
 
-1. Align README, this plan, and build log.
-2. Run lint, typecheck, 78 unit tests, and production build.
-3. Run live Supabase authorization and cleanup verification.
-4. Run live 0G private inference and semantic scoring.
-5. Complete one end-to-end evaluation with synthetic data.
-6. Deploy the exact pushed commit to Vercel Preview.
-7. Inspect runtime logs and browser security headers.
-8. Commit and push documentation and acceptance evidence.
+- Align README, plan, and build log.
+- Run source scans for removed paths and forbidden environment fallbacks.
+- Run lint, TypeScript, non-live tests, and production build.
+- Commit documentation separately.
+- Push both commits to `main`.
 
-Acceptance run:
-
-- Steps 1–4, 6, and 7 passed on 2026-07-26.
-- The current testnet key completed a private TEE-verified request and the
-  calibrated semantic test, then the remaining Router balance was exhausted.
-- Step 5 fails closed with HTTP 402 from 0G and removes the synthetic
-  evaluation during cleanup. It requires a testnet balance top-up, not a code
-  change.
-
-### Commit discipline
-
-- One coherent concern per commit.
-- Commit after each verified milestone.
-- Push `build/mvp` after every milestone.
-- Explain what changed and why in the commit subject or build log.
-- Stage explicit files; never use broad staging around secrets or diagnostics.
-- Do not commit `.env.local`, `.vercel`, build output, live CSVs, or temporary
-  diagnostic tests.
-- Do not merge to `main` or create a production deployment during MVP review.
+No paid live request is part of this milestone.
 
 ## 7. Acceptance
 
-### Product
+### Required behavior
 
-- [x] Buyer reviews exact contracts before seller-link activation.
-- [x] Seller and buyer links are separate and role restricted.
-- [x] Seller submits 1–50 parsed CSV records with no truncation.
-- [x] One accepted contract yields one result.
-- [x] No overall score exists.
-- [x] Insufficient or unreliable evidence yields `unable_to_score`.
-- [x] Results state the submitted-data-only limitation.
+- [x] Exact percentage questions invoke 0G.
+- [x] Multiple questions produce exactly one 0G request.
+- [x] 401/403, timeout, invalid JSON, and missing TEE fail the whole run.
+- [x] Failed runs publish and display zero scores.
+- [x] Every successful result maps to one original question ID.
+- [x] Arithmetic is checked without creating a replacement score.
+- [x] No local question-answering fallback is reachable.
+- [x] No raw CSV, prompt, response, or copied cell value reaches persistence.
+- [x] Every displayed result says “Evaluated by 0G.”
+- [x] Production rejects a non-mainnet 0G Router URL.
 
-### Reliability
+### Final checks
 
-- [x] Objective fixtures match known mathematics.
-- [x] Model output cannot override the calculated score.
-- [x] Controls are human reviewed and fail closed.
-- [x] Repeat agreement uses a documented 80% threshold.
-- [x] Row order and irrelevant columns do not materially alter valid results.
-- [x] Prompt-injection cells remain untrusted data.
-- [x] Missing or false TEE verification blocks semantic publication.
+- [x] `npm run lint`
+- [x] `npm run typecheck`
+- [x] `npm test`
+- [x] `npm run build`
+- [x] source and secret scans
+- [ ] clean Git status
+- [ ] commits pushed to `main`
 
-### Privacy and persistence
-
-- [x] CSV rows and prompts are absent from the schema.
-- [x] Only HMAC capability hashes are stored.
-- [x] Browser roles have no direct table grants.
-- [x] Completed results cannot be overwritten.
-- [x] Live Supabase role and concurrency checks passed with cleanup.
-
-### Repository
-
-- [x] Meaningful, focused commit history exists.
-- [x] `.gitignore` excludes secrets and generated output.
-- [x] README identifies the 0G integration and limitations.
-- [x] One execution plan and one build log remain.
-- [x] Unit suite, lint, typecheck, and production build pass.
-
-### Final live gates
-
-- [x] Current testnet key completes a private, TEE-verified 0G request.
-- [x] Current testnet key completes the calibrated semantic scoring test.
-- [ ] One browser evaluation completes end to end with synthetic data.
-- [x] Current pushed commit is available on Vercel Preview.
-- [x] Preview health, security headers, and runtime logs pass inspection.
-- [ ] Demo video, project description, team details, and submission form are
-  complete.
-
-The MVP is acceptance-complete only when all final live gates are checked or a
-specific external blocker is documented honestly.
+Live 0G, scoring, and end-to-end suites remain opt-in and require explicit
+paid approval.

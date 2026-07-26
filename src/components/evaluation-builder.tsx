@@ -225,9 +225,9 @@ export function EvaluationBuilder() {
             Share one link. Keep one link.
           </h2>
           <p className="terminal-copy">
-            BlindSample will build a fresh evaluation plan only after the
-            seller submits a CSV. Creating these links did not spend 0G
-            tokens.
+            BlindSample will send the seller&apos;s sample and all questions
+            together in one 0G request. Creating these links did not spend
+            0G tokens.
           </p>
 
           <div className="capability-stack">
@@ -467,8 +467,8 @@ function ExperiencePreviews({ question }: { question?: string }) {
           </p>
           <h3>Review the questions, then choose one CSV.</h3>
           <p>
-            BlindSample reads the actual headers and builds a fresh internal
-            plan for every question. The buyer never receives the sample rows.
+            BlindSample sends the parsed sample and all questions together to
+            private 0G compute. The buyer never receives the sample rows.
           </p>
         </div>
       </details>
@@ -488,8 +488,8 @@ function ExperiencePreviews({ question }: { question?: string }) {
             82<small>/100</small>
           </p>
           <p>
-            Every answer is shown separately. BlindSample never calculates
-            an overall dataset score.
+            Every answer is evaluated by 0G and shown separately.
+            BlindSample never calculates an overall dataset score.
           </p>
         </div>
       </details>
