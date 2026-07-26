@@ -20,6 +20,7 @@ import type {
   SemanticOutputFailure,
   UnableToScoreReason,
 } from "../scoring/types";
+import type { RubricLabel } from "../scoring/semantic-output";
 
 const SINGLE_REQUEST_LIMIT = 1;
 
@@ -33,6 +34,12 @@ export type OriginalSemanticDiagnostic = {
     received: number | null;
   };
   controlCheck: "failed" | "not_applicable" | "passed";
+  controlClassifications: {
+    controlId: string;
+    expectedLabel: RubricLabel;
+    passed: boolean;
+    returnedLabel: RubricLabel;
+  }[] | null;
   coverageRatio: number | null;
   inferenceRequests: {
     made: number;
@@ -88,6 +95,7 @@ export async function runOriginalSemanticDiagnostic(
         received: null,
       },
       controlCheck: "not_applicable",
+      controlClassifications: null,
       coverageRatio: null,
       inferenceRequests: {
         made: snapshot.requestCount.made,
@@ -118,6 +126,7 @@ export async function runOriginalSemanticDiagnostic(
         received: null,
       },
       controlCheck: "not_applicable",
+      controlClassifications: null,
       coverageRatio: null,
       inferenceRequests: {
         made: snapshot.requestCount.made,
@@ -148,6 +157,22 @@ export async function runOriginalSemanticDiagnostic(
     (control) =>
       expectedControls.get(control.controlId) === control.label,
   );
+  const controlClassifications = parsed.output.controls.map(
+    (control) => {
+      const expectedLabel = expectedControls.get(control.controlId);
+
+      if (!expectedLabel) {
+        throw new Error("Parsed semantic controls are incomplete.");
+      }
+
+      return {
+        controlId: control.controlId,
+        expectedLabel,
+        passed: expectedLabel === control.label,
+        returnedLabel: control.label,
+      };
+    },
+  );
   const evaluableRecords = parsed.output.classifications.filter(
     (classification) => classification.label !== "insufficient",
   ).length;
@@ -158,6 +183,7 @@ export async function runOriginalSemanticDiagnostic(
       received: parsed.output.classifications.length,
     },
     controlCheck: controlsPassed ? "passed" : "failed",
+    controlClassifications,
     coverageRatio:
       records.length === 0 ? 0 : evaluableRecords / records.length,
     inferenceRequests: {

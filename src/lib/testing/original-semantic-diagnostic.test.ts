@@ -102,6 +102,26 @@ describe("runOriginalSemanticDiagnostic", () => {
     expect(result).toMatchObject({
       classificationCount: { expected: 3, received: 3 },
       controlCheck: "passed",
+      controlClassifications: [
+        {
+          controlId: "control_a",
+          expectedLabel: "negative",
+          passed: true,
+          returnedLabel: "negative",
+        },
+        {
+          controlId: "control_b",
+          expectedLabel: "positive",
+          passed: true,
+          returnedLabel: "positive",
+        },
+        {
+          controlId: "control_c",
+          expectedLabel: "intermediate",
+          passed: true,
+          returnedLabel: "intermediate",
+        },
+      ],
       inferenceRequests: { made: 1, maximum: 1 },
       jsonModeRespected: true,
       reason: null,
@@ -133,6 +153,7 @@ describe("runOriginalSemanticDiagnostic", () => {
 
     expect(requestCompletion).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
+      controlClassifications: null,
       inferenceRequests: { made: 1, maximum: 1 },
       jsonModeRespected: false,
       reason: "semantic_output_invalid_json",
@@ -141,5 +162,61 @@ describe("runOriginalSemanticDiagnostic", () => {
       status: "unable_to_parse",
       strictSchemaParsed: false,
     });
+  });
+
+  it("reports the returned control label without retaining control text", async () => {
+    const content = JSON.parse(validContent()) as {
+      controls: Array<{ controlId: string; label: string }>;
+    };
+    const intermediate = content.controls.find(
+      ({ controlId }) => controlId === "control_c",
+    );
+
+    if (!intermediate) {
+      throw new Error("Expected the intermediate control fixture.");
+    }
+
+    intermediate.label = "negative";
+    const requestCompletion = vi
+      .fn()
+      .mockResolvedValue(completion(JSON.stringify(content)));
+
+    const result = await runOriginalSemanticDiagnostic(
+      CONTRACT,
+      SAMPLE,
+      requestCompletion,
+    );
+
+    expect(result).toMatchObject({
+      controlCheck: "failed",
+      controlClassifications: [
+        {
+          controlId: "control_a",
+          expectedLabel: "negative",
+          passed: true,
+          returnedLabel: "negative",
+        },
+        {
+          controlId: "control_b",
+          expectedLabel: "positive",
+          passed: true,
+          returnedLabel: "positive",
+        },
+        {
+          controlId: "control_c",
+          expectedLabel: "intermediate",
+          passed: false,
+          returnedLabel: "negative",
+        },
+      ],
+      reason: "control_check_failed",
+      status: "parsed",
+      strictSchemaParsed: true,
+    });
+    expect(JSON.stringify(result)).not.toContain(
+      CONTRACT.criterion.kind === "semantic_relevance"
+        ? CONTRACT.criterion.controls.intermediate
+        : "",
+    );
   });
 });

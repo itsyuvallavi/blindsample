@@ -1,5 +1,6 @@
 import type { EvaluationContract } from "../evaluation-contracts/types";
 import type { ZeroGTrace } from "../zero-g/client";
+import type { RubricLabel } from "./semantic-output";
 
 export const SUBMITTED_DATA_LIMITATION =
   "This result describes only the submitted records. BlindSample cannot prove that they represent the seller's complete dataset.";
@@ -23,6 +24,13 @@ export type SemanticOutputFailure = {
   pass: "original" | "repeat";
 };
 
+export type SemanticControlClassification = {
+  controlId: string;
+  expectedLabel: RubricLabel;
+  originalLabel: RubricLabel;
+  repeatedLabel: RubricLabel;
+};
+
 export type ResultEvidence = {
   agreement: {
     ratio: number | null;
@@ -31,6 +39,7 @@ export type ResultEvidence = {
   };
   contractVersion: EvaluationContract["contractVersion"];
   controlCheck: "failed" | "not_applicable" | "passed";
+  controlClassifications?: SemanticControlClassification[];
   coverageRatio: number;
   limitation: string;
   measurement: {

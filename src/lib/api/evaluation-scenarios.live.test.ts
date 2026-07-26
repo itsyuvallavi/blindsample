@@ -25,6 +25,12 @@ type ScenarioResult = {
   agreement: string | null;
   completenessScore: number | null;
   controlCheck: string | null;
+  controlClassifications: Array<{
+    controlId: string;
+    expectedLabel: string;
+    originalLabel: string;
+    repeatedLabel: string;
+  }> | null;
   costNeuron: string;
   description: string;
   expectedSemanticScore: number;
@@ -193,6 +199,12 @@ async function runScenario(
         evidence: {
           agreement: { status: string };
           controlCheck: string;
+          controlClassifications?: Array<{
+            controlId: string;
+            expectedLabel: string;
+            originalLabel: string;
+            repeatedLabel: string;
+          }>;
           zeroG: { teeVerified: boolean } | null;
         };
         questionId: string;
@@ -233,6 +245,8 @@ async function runScenario(
     agreement: semantic.evidence.agreement.status,
     completenessScore: completeness.score,
     controlCheck: semantic.evidence.controlCheck,
+    controlClassifications:
+      semantic.evidence.controlClassifications ?? null,
     costNeuron: diagnostics.requests
       .reduce(
         (sum, request) =>

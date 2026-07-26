@@ -140,6 +140,26 @@ describe("evaluateSemanticContract", () => {
           status: "passed",
         },
         controlCheck: "passed",
+        controlClassifications: [
+          {
+            controlId: "control_a",
+            expectedLabel: "negative",
+            originalLabel: "negative",
+            repeatedLabel: "negative",
+          },
+          {
+            controlId: "control_b",
+            expectedLabel: "positive",
+            originalLabel: "positive",
+            repeatedLabel: "positive",
+          },
+          {
+            controlId: "control_c",
+            expectedLabel: "intermediate",
+            originalLabel: "intermediate",
+            repeatedLabel: "intermediate",
+          },
+        ],
         measurement: {
           name: "mean_rubric_points",
           unit: "rubric_points",
@@ -179,7 +199,29 @@ describe("evaluateSemanticContract", () => {
         requestCompletion,
       }),
     ).resolves.toMatchObject({
-      evidence: { controlCheck: "failed" },
+      evidence: {
+        controlCheck: "failed",
+        controlClassifications: [
+          {
+            controlId: "control_a",
+            expectedLabel: "negative",
+            originalLabel: "negative",
+            repeatedLabel: "positive",
+          },
+          {
+            controlId: "control_b",
+            expectedLabel: "positive",
+            originalLabel: "positive",
+            repeatedLabel: "positive",
+          },
+          {
+            controlId: "control_c",
+            expectedLabel: "intermediate",
+            originalLabel: "intermediate",
+            repeatedLabel: "intermediate",
+          },
+        ],
+      },
       reason: "control_check_failed",
       score: null,
       status: "unable_to_score",

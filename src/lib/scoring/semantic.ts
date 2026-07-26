@@ -23,6 +23,7 @@ import {
   SUBMITTED_DATA_LIMITATION,
   type EvaluationResult,
   type ResultEvidence,
+  type SemanticControlClassification,
   type SemanticOutputFailure,
   type UnableToScoreReason,
   zeroGEvidence,
@@ -70,6 +71,14 @@ type SemanticOptions = {
   ) => void;
   requestBudget?: InferenceRequestBudget;
   requestCompletion?: CompletionRequester;
+};
+
+type SemanticEvidenceState = {
+  agreementRatio?: number;
+  controlCheck?: "failed" | "not_applicable" | "passed";
+  controlClassifications?: SemanticControlClassification[];
+  measurement?: number;
+  semanticFailure?: SemanticOutputFailure;
 };
 
 export async function evaluateSemanticContract(
@@ -202,11 +211,16 @@ export async function evaluateSemanticContract(
   }
   const repeatedOutput = parsedRepeated.output;
 
-  const controlsPassed =
-    controlRatio(originalOutput, controls) ===
-      SEMANTIC_RELIABILITY.requiredControlRatio &&
-    controlRatio(repeatedOutput, controls) ===
-      SEMANTIC_RELIABILITY.requiredControlRatio;
+  const controlClassifications = compareControls(
+    controls,
+    originalOutput,
+    repeatedOutput,
+  );
+  const controlsPassed = controlClassifications.every(
+    (control) =>
+      control.originalLabel === control.expectedLabel &&
+      control.repeatedLabel === control.expectedLabel,
+  );
   const evaluable = originalOutput.classifications.filter(
     (classification) => classification.label !== "insufficient",
   );
@@ -227,6 +241,7 @@ export async function evaluateSemanticContract(
       {
         agreementRatio,
         controlCheck: "failed",
+        controlClassifications,
       },
     );
   }
@@ -242,6 +257,7 @@ export async function evaluateSemanticContract(
       {
         agreementRatio,
         controlCheck: "passed",
+        controlClassifications,
       },
     );
   }
@@ -260,6 +276,7 @@ export async function evaluateSemanticContract(
       {
         agreementRatio,
         controlCheck: "passed",
+        controlClassifications,
       },
     );
   }
@@ -278,6 +295,7 @@ export async function evaluateSemanticContract(
       {
         agreementRatio,
         controlCheck: "passed",
+        controlClassifications,
       },
     );
   }
@@ -310,6 +328,7 @@ export async function evaluateSemanticContract(
       {
         agreementRatio,
         controlCheck: "passed",
+        controlClassifications,
         measurement: meanRubricPoints,
       },
     ),
@@ -389,21 +408,39 @@ function verifiedTrace(completion: VerifiedCompletion) {
   return completion.trace;
 }
 
-function controlRatio(
-  output: SemanticClassificationOutput,
+function compareControls(
   controls: SemanticControl[],
-) {
-  const expected = new Map(
-    controls.map((control) => [
+  original: SemanticClassificationOutput,
+  repeated: SemanticClassificationOutput,
+): SemanticControlClassification[] {
+  const originalLabels = new Map(
+    original.controls.map((control) => [
       control.controlId,
-      control.expectedLabel,
+      control.label,
     ]),
   );
-  const passing = output.controls.filter(
-    (control) => expected.get(control.controlId) === control.label,
-  ).length;
+  const repeatedLabels = new Map(
+    repeated.controls.map((control) => [
+      control.controlId,
+      control.label,
+    ]),
+  );
 
-  return ratio(passing, controls.length);
+  return controls.map((control) => {
+    const originalLabel = originalLabels.get(control.controlId);
+    const repeatedLabel = repeatedLabels.get(control.controlId);
+
+    if (!originalLabel || !repeatedLabel) {
+      throw new Error("Parsed semantic controls are incomplete.");
+    }
+
+    return {
+      controlId: control.controlId,
+      expectedLabel: control.expectedLabel,
+      originalLabel,
+      repeatedLabel,
+    };
+  });
 }
 
 function classificationAgreement(
@@ -431,11 +468,7 @@ function unableResult(
   recordsEvaluated: number,
   coverageRatio: number,
   traces: ZeroGTrace[],
-  state: {
-    agreementRatio?: number;
-    controlCheck?: "failed" | "not_applicable" | "passed";
-    semanticFailure?: SemanticOutputFailure;
-  } = {},
+  state: SemanticEvidenceState = {},
 ): EvaluationResult {
   return {
     evidence: evidenceFor(
@@ -459,12 +492,7 @@ function evidenceFor(
   recordsEvaluated: number,
   coverageRatio: number,
   traces: ZeroGTrace[],
-  state: {
-    agreementRatio?: number;
-    controlCheck?: "failed" | "not_applicable" | "passed";
-    measurement?: number;
-    semanticFailure?: SemanticOutputFailure;
-  },
+  state: SemanticEvidenceState,
 ): ResultEvidence {
   const agreementRatio = state.agreementRatio;
 
@@ -483,6 +511,13 @@ function evidenceFor(
     },
     contractVersion: contract.contractVersion,
     controlCheck: state.controlCheck ?? "not_applicable",
+    ...(state.controlClassifications
+      ? {
+          controlClassifications: state.controlClassifications.map(
+            (control) => ({ ...control }),
+          ),
+        }
+      : {}),
     coverageRatio: roundRatio(coverageRatio),
     limitation:
       sample.rowCount === 1
