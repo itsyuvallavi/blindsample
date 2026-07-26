@@ -542,3 +542,48 @@ Remaining:
 - Run the two-pass semantic acceptance test only under a separately approved
   two-request budget.
 - Run the browser evaluation after restarting the local development server.
+
+## 2026-07-26 — Five-scenario multi-question matrix
+
+Completed:
+
+- Added five synthetic end-to-end scenarios with at least two independent
+  question results per dataset.
+- Covered 13 question results: five deterministic completeness questions and
+  eight semantic questions.
+- Capped each evaluation at four inference requests and the full matrix at 16
+  requests. The 0G client remains configured with no automatic retry.
+- Ran the matrix once against the real API handlers, Supabase persistence, and
+  private 0G scoring path.
+- Verified during the run that the first four evaluations reached `complete`,
+  accounting for 12 inference requests and ten question results.
+- Observed four HTTP 200, TEE-verified `glm-5.2` responses for the first
+  scenario. Each response finished with `stop`.
+- Verified after the run that no synthetic `Semantic matrix:` evaluations
+  remained in Supabase.
+
+Limitation:
+
+- The command continued in a background shell after its output stream
+  detached. The test cleanup completed, but the final sanitized result table
+  and process exit code were not retained.
+- Because the synthetic rows were intentionally deleted, the final scores,
+  total request count, and total cost cannot be reconstructed. This run is not
+  claimed as a passing acceptance result, and it must not be rerun without a
+  new explicit paid-run approval.
+
+Mitigation:
+
+- The matrix command now writes its sanitized summary to
+  `tmp/semantic-e2e-report.json` before assertions and cleanup.
+- The report path is constrained to the ignored `tmp/` directory. It contains
+  question IDs, expected and actual scores, control labels, request counts,
+  TEE status, and aggregate cost, but no dataset rows, capability tokens, or
+  credentials.
+- Committed and pushed the scenario harness as `ea8686d` and durable report
+  capture as `808b18d`.
+
+Verified:
+
+- `npm run check` passes after the report-capture change: lint, TypeScript, 102
+  unit tests, and the production build.
