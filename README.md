@@ -1,9 +1,10 @@
 # CipherQuery
 
-CipherQuery is an encrypted evaluation layer for private CSV data. The seller's
-sample travels over encrypted transport, is handled only in memory, and is
-evaluated through one private, TEE-verified 0G request. The buyer receives
-question-level answers without receiving the raw rows.
+CipherQuery is an encrypted evaluation layer for private structured data. The
+seller's CSV, JSONL, NDJSON, or flat Parquet sample travels over encrypted
+transport, is handled only in memory, and is evaluated through one private,
+TEE-verified 0G request. The buyer receives question-level answers without
+receiving the raw records.
 
 Built for the **Best AI Product on 0G** track at ETHGlobal Lisbon 2026.
 
@@ -18,7 +19,8 @@ work. They are compatibility identifiers, not the public brand.
 
 1. The buyer names an evaluation and writes 1–20 plain-text questions.
 2. CipherQuery creates separate seller and buyer capability links.
-3. The seller submits one UTF-8 CSV with 1–50 records.
+3. The seller submits one CSV, JSONL, NDJSON, or flat Parquet sample with 1–50
+   records.
 4. The server parses the complete bounded sample in memory.
 5. The sample and all original questions are sent together in exactly one 0G
    request.
@@ -57,7 +59,7 @@ ID exactly once. Each result contains:
 For count-based questions, 0G returns one boolean judgment per evaluated unit.
 CipherQuery validates the schema, coverage, question IDs, evidence bounds,
 evaluation ID, and TEE trace, then mechanically counts those 0G judgments and
-applies the documented rounding rule. It never inspects the CSV to make or
+applies the documented rounding rule. It never uses the sample to make or
 replace a model judgment. Holistic questions keep the model's validated score.
 The per-unit judgments are discarded after safe aggregate results are built.
 
@@ -67,9 +69,9 @@ fails the entire evaluation. Failed evaluations store and display no scores.
 
 ## Privacy boundary
 
-The CSV, full prompt, and raw 0G response exist only in server memory for the
-duration of the request. They are never written to Supabase, logs, analytics,
-browser storage, or error tracking.
+The raw sample, full prompt, and raw 0G response exist only in server memory for
+the duration of the request. They are never written to Supabase, logs,
+analytics, browser storage, or error tracking.
 
 Supabase stores only:
 
@@ -112,7 +114,7 @@ Buyer name + questions
 Separate buyer/seller capability links
         |
         v
-Seller CSV -> bounded in-memory parser
+Seller sample -> format-specific bounded in-memory parser
         |
         v
 ONE request: evaluation ID + all questions + all parsed records
@@ -133,11 +135,15 @@ payments, accounts, and dataset delivery.
 
 ## Limits
 
-- UTF-8 CSV
+- UTF-8 CSV, JSONL, and NDJSON
+- flat Parquet with uncompressed or Snappy-compressed scalar columns
 - 1–50 parsed records; header excluded
 - 20 columns
-- 200 KB
-- quoted embedded newlines supported
+- 200 KB uploaded file and normalized sample
+- 1 MB maximum decoded Parquet column data
+- quoted CSV newlines and nested JSONL values supported
+- JSONL nested values are converted to canonical JSON strings
+- encrypted, nested, repeated, or unsupported-codec Parquet is rejected
 - no truncation or hidden sampling
 - 1–20 buyer questions
 - 300 characters per question
@@ -149,7 +155,7 @@ payments, accounts, and dataset delivery.
 | `/` | Product overview, workflow, and privacy model |
 | `/new` | Create an evaluation from a name and questions |
 | `/docs` | Product, privacy, scoring, and 0G documentation |
-| `/submit/[id]` | Seller question review and memory-only CSV submission |
+| `/submit/[id]` | Seller question review and memory-only dataset submission |
 | `/results/[id]` | Buyer status and question-level 0G results |
 | `POST /api/evaluations` | Create capability links |
 | `GET /api/evaluations/[id]` | Read the capability-scoped view |

@@ -235,6 +235,7 @@ describe("evaluation API boundary", () => {
     expect(submit).toHaveBeenCalledOnce();
     expect(submit.mock.calls[0][0]).toMatchObject({
       evaluationId: EVALUATION_ID,
+      fileName: "sample.csv",
       sellerToken: SELLER_TOKEN,
     });
     expect(

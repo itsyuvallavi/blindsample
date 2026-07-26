@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     "Secure dataset evaluation with encrypted transport, memory-only handling, and TEE-verified 0G Private Computer.",
   openGraph: {
     description:
-      "Evaluate a seller's private CSV through encrypted transport and TEE-verified 0G compute without exposing the raw rows.",
+      "Evaluate a seller's private structured dataset through encrypted transport and TEE-verified 0G compute without exposing the raw records.",
     title: "CipherQuery | Encrypted data evaluation",
     type: "website",
   },

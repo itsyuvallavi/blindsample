@@ -1,5 +1,5 @@
 import { emitInferenceRunEvents } from "../observability/inference";
-import { parseCsvSample } from "../samples/parse-csv";
+import { parseSample } from "../samples/parse-sample";
 import type { ParsedSample } from "../samples/types";
 import {
   PrivateScoringError,
@@ -42,7 +42,10 @@ type SubmissionDependencies = {
     id: string,
     token: string,
   ) => Promise<SellerEvaluationView | null>;
-  parseSample: (bytes: Uint8Array) => ParsedSample;
+  parseSample: (input: {
+    bytes: Uint8Array;
+    fileName: string;
+  }) => Promise<ParsedSample>;
   scoreSample: typeof scorePrivateCsvSample;
 };
 
@@ -52,7 +55,7 @@ const DEFAULT_DEPENDENCIES: SubmissionDependencies = {
   emitInferenceEvents: emitInferenceRunEvents,
   fail: failEvaluation,
   getSellerView: getSellerEvaluation,
-  parseSample: parseCsvSample,
+  parseSample,
   scoreSample: scorePrivateCsvSample,
 };
 
@@ -75,6 +78,7 @@ export async function submitPrivateSample(
   input: {
     bytes: Uint8Array;
     evaluationId: string;
+    fileName: string;
     sellerToken: string;
   },
   dependencies: SubmissionDependencies = DEFAULT_DEPENDENCIES,
@@ -91,7 +95,10 @@ export async function submitPrivateSample(
     );
   }
 
-  const sample = dependencies.parseSample(input.bytes);
+  const sample = await dependencies.parseSample({
+    bytes: input.bytes,
+    fileName: input.fileName,
+  });
   const claimed = await dependencies.beginSubmission({
     id: input.evaluationId,
     sampleColumnCount: sample.columnCount,

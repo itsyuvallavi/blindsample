@@ -9,7 +9,7 @@ const SOURCE = readFileSync(
 
 describe("seller submission presentation", () => {
   it("uses the concise seller task flow", () => {
-    expect(SOURCE).toContain("Submit your CSV securely");
+    expect(SOURCE).toContain("Submit your dataset securely");
     expect(SOURCE).toContain("What the buyer wants to know");
     expect(SOURCE).toContain("Run private evaluation");
     expect(SOURCE).toContain(
@@ -18,8 +18,11 @@ describe("seller submission presentation", () => {
     expect(SOURCE).toContain("TLS-encrypted transport");
   });
 
-  it("runs the free CSV preflight before submission", () => {
-    expect(SOURCE).toContain("parseCsvSample");
+  it("runs the free structured-sample preflight before submission", () => {
+    expect(SOURCE).toContain("parseSample");
+    expect(SOURCE).toContain(".jsonl");
+    expect(SOURCE).toContain(".parquet");
+    expect(SOURCE).toContain("formatLabel(preflight.format)");
     expect(SOURCE).toContain("Passed locally");
     expect(SOURCE).toContain("No 0G request was made.");
   });

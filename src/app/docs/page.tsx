@@ -6,7 +6,7 @@ import { SiteFrame } from "../../components/site-frame";
 export const metadata: Metadata = {
   title: "Documentation",
   description:
-    "How CipherQuery protects a private CSV with encrypted transport, memory-only handling, and TEE-verified 0G compute.",
+    "How CipherQuery protects a private structured dataset with encrypted transport, memory-only handling, and TEE-verified 0G compute.",
 };
 
 const sections = [
@@ -41,9 +41,10 @@ export default function DocsPage() {
             <h1>Private evaluation, explained clearly.</h1>
             <p>
               CipherQuery is a secure evaluation layer for private data. The
-              seller&apos;s bounded CSV travels over encrypted transport, is
-              handled only in memory, and is evaluated through 0G Private
-              Computer. The buyer receives verified answers, never raw rows.
+              seller&apos;s bounded sample travels over encrypted transport,
+              is handled only in memory, and is evaluated through 0G Private
+              Computer. The buyer receives verified answers, never raw
+              records.
             </p>
           </header>
 
@@ -62,16 +63,17 @@ export default function DocsPage() {
                 <li>
                   <strong>CipherQuery separates access.</strong>
                   <span>
-                    The seller receives a CSV submission link. The buyer keeps
-                    a different link for status and results.
+                    The seller receives a dataset submission link. The buyer
+                    keeps a different link for status and results.
                   </span>
                 </li>
                 <li>
                   <strong>The seller submits a sample.</strong>
                   <span>
-                    TLS-encrypted transport protects a UTF-8 CSV with 1–50
-                    records, up to 20 columns, and a maximum size of 200 KB.
-                    A free browser check runs before any paid request.
+                    TLS-encrypted transport protects a CSV, JSONL, NDJSON, or
+                    flat Parquet sample with 1–50 records, up to 20 columns,
+                    and a maximum size of 200 KB. A free browser check runs
+                    before any paid request.
                   </span>
                 </li>
                 <li>
@@ -124,10 +126,11 @@ export default function DocsPage() {
             <div>
               <h2>Privacy boundary</h2>
               <p>
-                TLS encrypts the CSV in transit. The CSV, the full private
-                prompt, and the raw 0G response then exist only in server
-                memory for the duration of the request. They are not written
-                to Supabase, browser storage, analytics, or application logs.
+                TLS encrypts the sample in transit. The sample, the full
+                private prompt, and the raw 0G response then exist only in
+                server memory for the duration of the request. They are not
+                written to Supabase, browser storage, analytics, or
+                application logs.
               </p>
               <p>
                 The buyer receives the original questions, question-level

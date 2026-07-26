@@ -45,6 +45,7 @@ type SubmitDependencies = {
   submit: (input: {
     bytes: Uint8Array;
     evaluationId: string;
+    fileName: string;
     sellerToken: string;
   }) => Promise<{ status: "complete" }>;
 };
@@ -177,7 +178,7 @@ export async function handleSubmitEvaluation(
     return apiError(
       413,
       "sample_too_large",
-      "The CSV sample must not exceed 200 KB.",
+      "The dataset sample must not exceed 200 KB.",
     );
   }
 
@@ -189,7 +190,7 @@ export async function handleSubmitEvaluation(
     return apiError(
       400,
       "invalid_form",
-      "Submit one CSV file using the sample field.",
+      "Submit one supported dataset file using the sample field.",
     );
   }
 
@@ -200,7 +201,7 @@ export async function handleSubmitEvaluation(
     return apiError(
       400,
       "invalid_form",
-      "Submit exactly one CSV file using the sample field.",
+      "Submit exactly one supported dataset file using the sample field.",
     );
   }
 
@@ -210,7 +211,7 @@ export async function handleSubmitEvaluation(
     return apiError(
       400,
       "missing_sample",
-      "Select a CSV sample to submit.",
+      "Select a dataset sample to submit.",
     );
   }
 
@@ -218,7 +219,7 @@ export async function handleSubmitEvaluation(
     return apiError(
       413,
       "sample_too_large",
-      "The CSV sample must not exceed 200 KB.",
+      "The dataset sample must not exceed 200 KB.",
     );
   }
 
@@ -226,6 +227,7 @@ export async function handleSubmitEvaluation(
     await dependencies.submit({
       bytes: new Uint8Array(await sample.arrayBuffer()),
       evaluationId,
+      fileName: sample.name,
       sellerToken: token,
     });
 

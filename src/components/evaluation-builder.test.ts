@@ -24,7 +24,7 @@ describe("buyer evaluation builder contract", () => {
 
   it("keeps the buyer setup focused on questions and private links", () => {
     expect(SOURCE).toContain("Create private links");
-    expect(SOURCE).toContain("No CSV is uploaded");
+    expect(SOURCE).toContain("No dataset is uploaded");
     expect(SOURCE).not.toContain("Move up");
     expect(SOURCE).not.toContain("Move down");
     expect(SOURCE).not.toContain("TerminalBar");

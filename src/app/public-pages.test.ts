@@ -33,7 +33,7 @@ describe("public information architecture", () => {
     expect(DOCS_SOURCE).toContain("No overall score.");
     expect(DOCS_SOURCE).toContain("one private request");
     expect(DOCS_SOURCE).toContain("TEE verification");
-    expect(DOCS_SOURCE).toContain("TLS encrypts the CSV in transit");
+    expect(DOCS_SOURCE).toContain("TLS encrypts the sample in transit");
     expect(DOCS_SOURCE).toContain("publishes no scores");
     expect(DOCS_SOURCE).toMatch(
       /Questions do\s+not need to reference columns or scoring types/,

@@ -203,8 +203,8 @@ export function EvaluationBuilder() {
           <h2 id="links-title">Share one link. Keep one private.</h2>
           <p>
             Creating these links did not call 0G or spend tokens. After the
-            seller submits, the CSV travels over encrypted transport into 0G
-            private compute.
+            seller submits, the dataset sample travels over encrypted
+            transport into 0G private compute.
           </p>
         </div>
 
@@ -219,7 +219,7 @@ export function EvaluationBuilder() {
         <div className="capability-stack">
           <CapabilityLink
             label="Seller submission link"
-            description="The seller can review your questions and submit one CSV. They cannot see your results."
+            description="The seller can review your questions and submit one CSV, JSONL, NDJSON, or Parquet sample. They cannot see your results."
             value={created.sellerUrl}
             copied={copied === "seller"}
             onCopy={() => copyLink("seller", created.sellerUrl)}
@@ -261,8 +261,8 @@ export function EvaluationBuilder() {
         <p className="builder-step">Step 1 of 2</p>
         <h2>What must the private sample prove?</h2>
         <p>
-          Ask in plain language. CipherQuery securely reads the submitted CSV
-          headers and decides how each question can be evaluated.
+          Ask in plain language. CipherQuery securely reads the submitted
+          dataset fields and decides how each question can be evaluated.
         </p>
       </div>
 
@@ -355,7 +355,7 @@ export function EvaluationBuilder() {
           {submitting ? "Creating private links…" : "Create private links"}
         </button>
         <p className="builder-footnote">
-          No CSV is uploaded and no 0G request is made in this step. The
+          No dataset is uploaded and no 0G request is made in this step. The
           seller&apos;s later submission uses TLS-encrypted transport.
         </p>
         <button

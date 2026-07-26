@@ -1345,7 +1345,7 @@ code {
   font-size: var(--text-xs);
 }
 
-.csv-dropzone {
+.sample-dropzone {
   position: relative;
   min-height: 10rem;
   margin-block-start: var(--space-lg);
@@ -1360,19 +1360,19 @@ code {
     background var(--dur-short) var(--ease-out);
 }
 
-.csv-dropzone--active {
+.sample-dropzone--active {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
 }
 
-.csv-dropzone input {
+.sample-dropzone input {
   position: absolute;
   width: 1px;
   height: 1px;
   opacity: 0;
 }
 
-.csv-dropzone label {
+.sample-dropzone label {
   width: 100%;
   min-height: 10rem;
   display: grid;
@@ -1382,11 +1382,11 @@ code {
   cursor: pointer;
 }
 
-.csv-dropzone strong {
+.sample-dropzone strong {
   color: var(--color-ink);
 }
 
-.csv-dropzone span {
+.sample-dropzone span {
   color: var(--color-muted);
   font-size: var(--text-xs);
 }
@@ -1866,7 +1866,7 @@ code {
     transform: translateY(-1px);
   }
 
-  .csv-dropzone:hover {
+  .sample-dropzone:hover {
     border-color: var(--color-accent);
   }
 

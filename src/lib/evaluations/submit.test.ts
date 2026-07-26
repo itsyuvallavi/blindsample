@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { parseSample } from "../samples/parse-sample";
 import { SampleError } from "../samples/types";
 import type { SellerEvaluationView } from "../supabase/evaluations";
 import { ZeroGClientError } from "../zero-g/client";
@@ -105,7 +106,7 @@ function dependencies(
     emitInferenceEvents: vi.fn(),
     fail: vi.fn().mockResolvedValue(undefined),
     getSellerView: vi.fn().mockResolvedValue(SELLER_VIEW),
-    parseSample: vi.fn(() => ({
+    parseSample: vi.fn(async () => ({
       columnCount: 2,
       columns: ["order_id", "order_date"],
       format: "csv" as const,
@@ -129,6 +130,7 @@ describe("submitPrivateSample", () => {
         {
           bytes: CSV_BYTES,
           evaluationId: "evaluation-1",
+          fileName: "orders.csv",
           sellerToken: "seller-token",
         },
         deps,
@@ -144,6 +146,9 @@ describe("submitPrivateSample", () => {
         rowCount: 2,
       }),
     });
+    expect(
+      vi.mocked(deps.scoreSample).mock.calls[0][0],
+    ).not.toHaveProperty("fileName");
     expect(deps.complete).toHaveBeenCalledWith("evaluation-1", {
       inferenceDiagnostics: INFERENCE_DIAGNOSTICS,
       questionIds: ["q-orders"],
@@ -159,6 +164,7 @@ describe("submitPrivateSample", () => {
     expect(persistenceCalls).not.toContain("private-order-1");
     expect(persistenceCalls).not.toContain("2026-07-20");
     expect(persistenceCalls).not.toContain("order_id,order_date");
+    expect(persistenceCalls).not.toContain("orders.csv");
     expect(deps.emitInferenceEvents).toHaveBeenCalledWith(
       "evaluation-1",
       "complete",
@@ -168,7 +174,7 @@ describe("submitPrivateSample", () => {
 
   it("does not claim or call 0G when CSV validation fails", async () => {
     const deps = dependencies({
-      parseSample: vi.fn(() => {
+      parseSample: vi.fn(async () => {
         throw new SampleError("Malformed sample.", "invalid_csv");
       }),
     });
@@ -178,6 +184,7 @@ describe("submitPrivateSample", () => {
         {
           bytes: CSV_BYTES,
           evaluationId: "evaluation-1",
+          fileName: "orders.csv",
           sellerToken: "seller-token",
         },
         deps,
@@ -186,6 +193,36 @@ describe("submitPrivateSample", () => {
     expect(deps.beginSubmission).not.toHaveBeenCalled();
     expect(deps.scoreSample).not.toHaveBeenCalled();
   });
+
+  it.each([
+    {
+      bytes: new TextEncoder().encode('{"id":1}\nnot-json'),
+      fileName: "invalid.jsonl",
+    },
+    {
+      bytes: new TextEncoder().encode("not parquet"),
+      fileName: "invalid.parquet",
+    },
+  ])(
+    "makes zero 0G requests when $fileName fails preflight",
+    async ({ bytes, fileName }) => {
+      const deps = dependencies({ parseSample });
+
+      await expect(
+        submitPrivateSample(
+          {
+            bytes,
+            evaluationId: "evaluation-1",
+            fileName,
+            sellerToken: "seller-token",
+          },
+          deps,
+        ),
+      ).rejects.toThrowError(SampleError);
+      expect(deps.beginSubmission).not.toHaveBeenCalled();
+      expect(deps.scoreSample).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not score when another submission owns the claim", async () => {
     const deps = dependencies({
@@ -197,6 +234,7 @@ describe("submitPrivateSample", () => {
         {
           bytes: CSV_BYTES,
           evaluationId: "evaluation-1",
+          fileName: "orders.csv",
           sellerToken: "seller-token",
         },
         deps,
@@ -233,6 +271,7 @@ describe("submitPrivateSample", () => {
           {
             bytes: CSV_BYTES,
             evaluationId: "evaluation-1",
+            fileName: "orders.csv",
             sellerToken: "seller-token",
           },
           deps,

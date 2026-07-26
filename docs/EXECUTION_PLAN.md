@@ -17,14 +17,14 @@ decision:
 
 Persistence replaced buyer questions with generated plans containing an
 ordinary dataset fingerprint. Production logging was already metadata-only,
-and the raw CSV was already memory-only.
+and the raw sample was already memory-only.
 
 ## 2. Mapping
 
 The evaluation boundary is now one atomic server operation:
 
 ```text
-parse bounded CSV in memory
+identify and parse a bounded CSV, JSONL, NDJSON, or flat Parquet sample
         |
 package evaluation ID + all questions + all records
         |
@@ -44,7 +44,7 @@ complete + safe aggregate results
 The model decides how to evaluate each question and makes every semantic or
 per-unit judgment. For countable questions, the application only counts the
 model's booleans and applies the published rounding rule. It never reads the
-CSV to make or replace a judgment.
+sample to make or replace a judgment.
 
 ## 3. Review
 
@@ -109,6 +109,7 @@ displayable. Existing hybrid rows fail closed.
 | Missing TEE | Client rejects absent/false verification | Client and scoring tests |
 | Request failure | Submission calls `fail`, never `complete` | Submission tests |
 | Cell leakage | Reject persisted text containing private cell values | Privacy test |
+| Parser expansion | Enforce raw, decoded, normalized, row, and column limits before inference | Format tests |
 | Cost fan-out | One call site, no retry, hard `1/1` diagnostics | Request-count test |
 | Stale results | Claim and failure clear `results` and `completed_at` | Repository code |
 | Legacy rows | Runtime atomic-result guard | Buyer source test |
@@ -161,7 +162,7 @@ No paid live request is part of this milestone.
 - [x] Every successful result maps to one original question ID.
 - [x] Count arithmetic is derived from 0G judgments without local question answering.
 - [x] No local question-answering fallback is reachable.
-- [x] No raw CSV, prompt, response, or copied cell value reaches persistence.
+- [x] No raw sample, prompt, response, or copied cell value reaches persistence.
 - [x] Every displayed result says “Evaluated by 0G.”
 - [x] Production rejects a non-mainnet 0G Router URL.
 
@@ -177,3 +178,52 @@ No paid live request is part of this milestone.
 
 Live 0G, scoring, and end-to-end suites remain opt-in and require explicit
 paid approval.
+
+## 8. Structured sample formats
+
+### Inspection
+
+The original upload boundary accepted only UTF-8 CSV. CSV remains common, but
+JSONL/NDJSON is useful for event and model records, while Parquet is common for
+analytical exports. Supporting them must not alter scoring, privacy, cost, or
+atomic publication behavior.
+
+### Mapping and review
+
+The filename extension selects one strict parser. Each parser returns the same
+ordered columns-and-rows representation:
+
+- CSV preserves the existing strict header and row behavior.
+- JSONL requires one top-level object per nonblank line, rejects duplicate or
+  case-ambiguous keys, preserves large numeric text, and canonicalizes nested
+  values.
+- Parquet reads metadata before records, accepts flat non-repeated scalar
+  schemas with uncompressed or Snappy compression, and preserves 64-bit
+  integers.
+
+The normalized representation is passed to the existing one-request evaluator.
+The filename and format do not enter the prompt, persistence, logs, or buyer
+result.
+
+### Pre-mortem and mitigation
+
+| Failure | Mitigation |
+|---|---|
+| Renamed invalid file bypasses validation | Parser validates content after extension dispatch |
+| Compressed Parquet expands excessively | Metadata-first 1 MB decoded-data limit |
+| Different formats produce different judgments | Cross-format normalization equivalence test |
+| JSON number precision is lost | Lossless JSON number parsing |
+| Nested or encrypted Parquet creates unsafe ambiguity | Fail closed before inference |
+| Invalid input spends 0G tokens | Parse and validate before submission is claimed |
+
+### Acceptance
+
+- [x] CSV behavior remains covered by its original tests.
+- [x] JSONL, NDJSON, and Parquet have parser and limit tests.
+- [x] Equivalent files normalize to identical records.
+- [x] Invalid files make zero scoring calls and zero persistence writes.
+- [x] Raw values and filenames do not reach persisted completion input.
+- [x] The seller UI accepts and labels all supported formats.
+- [x] Lint, TypeScript, non-live tests, production build, and production
+      dependency audit pass.
+- [x] No paid or live 0G request is required for format acceptance.

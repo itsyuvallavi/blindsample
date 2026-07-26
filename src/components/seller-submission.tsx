@@ -9,10 +9,11 @@ import {
   submitSample,
   type SellerEvaluation,
 } from "../lib/browser/evaluations";
+import { parseSample } from "../lib/samples/parse-sample";
 import {
-  parseCsvSample,
-} from "../lib/samples/parse-csv";
-import { SampleError } from "../lib/samples/types";
+  SampleError,
+  type SampleFormat,
+} from "../lib/samples/types";
 import { PRODUCT_LIMITS } from "../lib/product-contract";
 import { StatusMessage } from "./status-message";
 
@@ -20,6 +21,7 @@ type FilePreflight = {
   columnCount: number;
   columns: string[];
   file: File;
+  format: SampleFormat;
   rowCount: number;
 };
 
@@ -119,9 +121,10 @@ export function SellerSubmission({
     setInspecting(true);
 
     try {
-      const parsed = parseCsvSample(
-        new Uint8Array(await selected.arrayBuffer()),
-      );
+      const parsed = await parseSample({
+        bytes: new Uint8Array(await selected.arrayBuffer()),
+        fileName: selected.name,
+      });
 
       if (selectionVersionRef.current !== selectionVersion) {
         return;
@@ -131,6 +134,7 @@ export function SellerSubmission({
         columnCount: parsed.columnCount,
         columns: parsed.columns,
         file: selected,
+        format: parsed.format,
         rowCount: parsed.rowCount,
       });
     } catch (caught) {
@@ -141,7 +145,7 @@ export function SellerSubmission({
       setFileError(
         caught instanceof SampleError
           ? fileIssue(caught.code)
-          : fileIssue("invalid_csv"),
+          : fileIssue("unsupported_format"),
       );
     } finally {
       if (selectionVersionRef.current === selectionVersion) {
@@ -176,7 +180,7 @@ export function SellerSubmission({
 
     if (!preflight || !consent || !token) {
       setRequestError(
-        "Choose a valid CSV sample and confirm the sample limitation. No 0G request was made.",
+        "Choose a valid dataset sample and confirm the sample limitation. No 0G request was made.",
       );
       return;
     }
@@ -229,7 +233,7 @@ export function SellerSubmission({
       <PageIntro
         label="Seller"
         title="Private evaluation complete"
-        description="The buyer can now view one 0G result for each question. Your CSV was not stored."
+        description="The buyer can now view one 0G result for each question. Your dataset sample was not stored."
       >
         <StatusMessage tone="success">
           The buyer’s result link is ready. You can close this page.
@@ -256,9 +260,9 @@ export function SellerSubmission({
   }
 
   const buttonLabel = inspecting
-    ? "Checking CSV…"
+    ? "Checking sample…"
     : !preflight
-      ? "Choose a CSV first"
+      ? "Choose a sample first"
       : !consent
         ? "Confirm the sample limitation"
         : submitting
@@ -272,14 +276,14 @@ export function SellerSubmission({
           Private seller task
           <span className="link-validity">Link verified</span>
         </p>
-        <h1 className="role-title">Submit your CSV securely</h1>
+        <h1 className="role-title">Submit your dataset securely</h1>
         <p className="seller-for">
           Evaluation <strong>{evaluation.title}</strong>
         </p>
         <p className="role-description">
-          Your CSV travels over encrypted transport, is handled only in
+          Your sample travels over encrypted transport, is handled only in
           memory, and is evaluated through 0G Private Computer. The buyer gets
-          question-level results, never the file or its rows.
+          question-level results, never the file or its records.
         </p>
       </header>
 
@@ -302,12 +306,13 @@ export function SellerSubmission({
         <section aria-labelledby="sample-heading">
           <h2 id="sample-heading">Choose your sample</h2>
           <p className="section-support">
-            CSV only. Up to {PRODUCT_LIMITS.maximumRows} records,{" "}
+            CSV, JSONL, NDJSON, or Parquet. Up to{" "}
+            {PRODUCT_LIMITS.maximumRows} records,{" "}
             {PRODUCT_LIMITS.maximumColumns} columns, and 200 KB.
           </p>
 
           <div
-            className={`csv-dropzone${dragActive ? " csv-dropzone--active" : ""}`}
+            className={`sample-dropzone${dragActive ? " sample-dropzone--active" : ""}`}
             onDragEnter={(event) => {
               event.preventDefault();
               setDragActive(true);
@@ -328,7 +333,7 @@ export function SellerSubmission({
               ref={fileInputRef}
               id="sample-file"
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.jsonl,.ndjson,.parquet,text/csv,application/x-ndjson,application/vnd.apache.parquet"
               aria-describedby="sample-file-help"
               aria-invalid={Boolean(fileError)}
               aria-required="true"
@@ -339,8 +344,8 @@ export function SellerSubmission({
             <label htmlFor="sample-file">
               <strong>
                 {inspecting
-                  ? "Checking your CSV…"
-                  : "Choose a CSV or drop it here"}
+                  ? "Checking your sample…"
+                  : "Choose a dataset sample or drop it here"}
               </strong>
               <span id="sample-file-help">
                 A free check runs in this browser before any 0G request.
@@ -376,11 +381,12 @@ export function SellerSubmission({
             </span>
           </label>
           <details className="privacy-disclosure">
-            <summary>How CipherQuery protects your CSV</summary>
+            <summary>How CipherQuery protects your sample</summary>
             <p>
-              The CSV travels over TLS-encrypted transport, is held in server
-              memory only for this evaluation, and is processed through 0G
-              private compute. Raw rows are not stored or shown to the buyer.
+              The sample travels over TLS-encrypted transport, is held in
+              server memory only for this evaluation, and is processed through
+              0G private compute. Raw records are not stored or shown to the
+              buyer.
             </p>
           </details>
         </section>
@@ -442,6 +448,10 @@ function PreflightSummary({
         </button>
       </div>
       <dl className="preflight-facts">
+        <div>
+          <dt>Format</dt>
+          <dd>{formatLabel(preflight.format)}</dd>
+        </div>
         <div>
           <dt>Records</dt>
           <dd>{preflight.rowCount}</dd>
@@ -588,7 +598,7 @@ function errorMessage(caught: unknown) {
 function fileIssue(code: SampleError["code"]) {
   const action = {
     empty_sample:
-      "Add one header row and at least one data row, then choose the CSV again.",
+      "Add at least one structured data record, then choose the sample again.",
     invalid_csv:
       "Check that every row has the same number of cells and every header is unique, then choose the CSV again.",
     invalid_encoding:
@@ -633,4 +643,15 @@ function formatBytes(bytes: number) {
   return bytes < 1_000
     ? `${bytes} B`
     : `${(bytes / 1_000).toFixed(1)} KB`;
+}
+
+function formatLabel(format: SampleFormat) {
+  switch (format) {
+    case "csv":
+      return "CSV";
+    case "jsonl":
+      return "JSONL";
+    case "parquet":
+      return "Parquet";
+  }
 }

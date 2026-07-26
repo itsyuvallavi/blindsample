@@ -1160,3 +1160,35 @@ Acceptance:
   consistent across routes.
 - Lint, TypeScript, 97 non-live tests, the production build, and the refreshed
   localhost page pass. No live or paid 0G request was made.
+
+## 2026-07-26 — JSONL and Parquet sample support
+
+Inspection and mapping:
+
+- Preserved the one-request, 0G-only scoring boundary and generalized only the
+  bounded in-memory ingestion layer.
+- Moved CSV parsing behind a common sample contract, then added extension-based
+  dispatch for CSV, JSONL/NDJSON, and Parquet.
+- Kept filenames, raw files, parsed records, full prompts, and raw model
+  responses outside persistence and logs.
+
+Pre-mortem and mitigation:
+
+- JSONL rejects non-object records, duplicate keys, case-ambiguous columns,
+  invalid UTF-8, and oversized normalized data before inference.
+- Lossless number handling preserves large integers and decimal spelling.
+- Parquet validates its signature and metadata before decoding, accepts only
+  flat non-repeated scalar schemas, supports uncompressed and Snappy data, and
+  applies raw, decoded, normalized, row, and column limits.
+- Cross-format equivalence tests confirm that matching CSV, JSONL, and Parquet
+  samples produce the same normalized records.
+- Submission regression tests confirm invalid input makes zero scoring calls
+  and zero persistence writes.
+
+Acceptance:
+
+- All 29 non-live test files pass: 130 tests passed and six paid/live tests
+  remained skipped.
+- Lint, TypeScript, and the production build pass.
+- The production dependency audit reports zero vulnerabilities.
+- No live or paid 0G request was made.
