@@ -1,19 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   CriterionDraft,
   CriterionKind,
   EvaluationContractPreview,
 } from "../lib/evaluation-contracts/types";
-import { createDefaultSemanticCriterion } from "../lib/evaluation-contracts/default-semantic";
 import {
   BrowserApiError,
   createEvaluation,
   type CreatedEvaluationResponse,
   previewEvaluationContracts,
 } from "../lib/browser/evaluations";
+import {
+  EVALUATION_DRAFT_STORAGE_KEY,
+  parseEvaluationDraft,
+  serializeEvaluationDraft,
+  type EvaluationDraft,
+} from "../lib/browser/evaluation-draft";
+import {
+  createDefaultSemanticCriterion,
+  hasDefaultSemanticSetupMismatch,
+  semanticCriterionFingerprint,
+} from "../lib/evaluation-contracts/default-semantic";
 import { PRODUCT_LIMITS } from "../lib/product-contract";
 import { StatusMessage } from "./status-message";
 
@@ -34,10 +44,17 @@ type CreatedLinks = CreatedEvaluationResponse & {
 };
 
 export function EvaluationBuilder() {
-  const [title, setTitle] = useState("Customer support sample");
-  const [criteria, setCriteria] = useState<CriterionDraft[]>([
-    createCriterion("semantic_relevance", "criterion_1"),
-  ]);
+  const [initialDraft] = useState(createInitialEvaluationDraft);
+  const [title, setTitle] = useState(initialDraft.title);
+  const [criteria, setCriteria] = useState<CriterionDraft[]>(
+    initialDraft.criteria,
+  );
+  const [
+    semanticReviewFingerprints,
+    setSemanticReviewFingerprints,
+  ] = useState<Record<string, string>>(
+    initialDraft.semanticReviewFingerprints,
+  );
   const [preview, setPreview] =
     useState<EvaluationContractPreview | null>(null);
   const [approved, setApproved] = useState(false);
@@ -47,6 +64,82 @@ export function EvaluationBuilder() {
   const [copied, setCopied] = useState<"buyer" | "seller" | null>(
     null,
   );
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [draftPersistenceFailed, setDraftPersistenceFailed] =
+    useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const restored = parseEvaluationDraft(
+        window.localStorage.getItem(EVALUATION_DRAFT_STORAGE_KEY),
+      );
+
+      if (restored) {
+        setTitle(restored.title);
+        setCriteria(restored.criteria);
+        setSemanticReviewFingerprints(
+          restored.semanticReviewFingerprints,
+        );
+        setDraftRestored(true);
+      }
+
+      setDraftReady(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady || created) {
+      return;
+    }
+
+    let persistenceFailed = false;
+
+    try {
+      window.localStorage.setItem(
+        EVALUATION_DRAFT_STORAGE_KEY,
+        serializeEvaluationDraft({
+          criteria,
+          semanticReviewFingerprints,
+          title,
+        }),
+      );
+    } catch {
+      persistenceFailed = true;
+    }
+
+    const timer = window.setTimeout(
+      () => setDraftPersistenceFailed(persistenceFailed),
+      0,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [
+    created,
+    criteria,
+    draftReady,
+    semanticReviewFingerprints,
+    title,
+  ]);
+
+  useEffect(() => {
+    if (!draftPersistenceFailed) {
+      return;
+    }
+
+    function warnBeforeLeaving(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
+
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () =>
+      window.removeEventListener(
+        "beforeunload",
+        warnBeforeLeaving,
+      );
+  }, [draftPersistenceFailed]);
 
   function invalidatePreview() {
     setPreview(null);
@@ -64,6 +157,9 @@ export function EvaluationBuilder() {
   function changeCriterionKind(id: string, kind: CriterionKind) {
     const current = criteria.find((criterion) => criterion.id === id);
     const next = createCriterion(kind, id);
+    setSemanticReviewFingerprints((fingerprints) =>
+      withoutKey(fingerprints, id),
+    );
     updateCriterion(
       id,
       current
@@ -92,6 +188,9 @@ export function EvaluationBuilder() {
     setCriteria((current) =>
       current.filter((criterion) => criterion.id !== id),
     );
+    setSemanticReviewFingerprints((fingerprints) =>
+      withoutKey(fingerprints, id),
+    );
     invalidatePreview();
   }
 
@@ -119,6 +218,22 @@ export function EvaluationBuilder() {
 
     if (!title.trim()) {
       setError("Add an evaluation title.");
+      return;
+    }
+
+    const unreviewedSemanticIndex = criteria.findIndex(
+      (criterion) =>
+        criterion.kind === "semantic_relevance" &&
+        !semanticCriterionIsReviewed(
+          criterion,
+          semanticReviewFingerprints,
+        ),
+    );
+
+    if (unreviewedSemanticIndex >= 0) {
+      setError(
+        `Review and confirm the scoring setup for question ${unreviewedSemanticIndex + 1}.`,
+      );
       return;
     }
 
@@ -154,6 +269,8 @@ export function EvaluationBuilder() {
         buyerUrl: new URL(result.buyerPath, window.location.origin).href,
         sellerUrl: new URL(result.sellerPath, window.location.origin).href,
       });
+      window.localStorage.removeItem(EVALUATION_DRAFT_STORAGE_KEY);
+      setDraftRestored(false);
     } catch (caught) {
       setError(errorMessage(caught));
       setPreview(null);
@@ -171,6 +288,43 @@ export function EvaluationBuilder() {
     } catch {
       setError("Copy failed. Select the URL and copy it manually.");
     }
+  }
+
+  function confirmSemanticCriterion(id: string) {
+    const criterion = criteria.find((item) => item.id === id);
+
+    if (!criterion || criterion.kind !== "semantic_relevance") {
+      return;
+    }
+
+    if (hasDefaultSemanticSetupMismatch(criterion)) {
+      setError(
+        "The question changed, but its scoring setup still describes customer support. Update the evidence columns, good-match description, or examples before confirming.",
+      );
+      return;
+    }
+
+    setSemanticReviewFingerprints((current) => ({
+      ...current,
+      [id]: semanticCriterionFingerprint(criterion),
+    }));
+    setError(null);
+  }
+
+  function resetDraft() {
+    const next = createInitialEvaluationDraft();
+    window.localStorage.removeItem(EVALUATION_DRAFT_STORAGE_KEY);
+    setTitle(next.title);
+    setCriteria(next.criteria);
+    setSemanticReviewFingerprints(
+      next.semanticReviewFingerprints,
+    );
+    setPreview(null);
+    setApproved(false);
+    setCreated(null);
+    setError(null);
+    setDraftRestored(false);
+    setDraftPersistenceFailed(false);
   }
 
   if (created) {
@@ -214,12 +368,7 @@ export function EvaluationBuilder() {
             <button
               type="button"
               className="button-secondary"
-              onClick={() => {
-                setCreated(null);
-                setPreview(null);
-                setApproved(false);
-                setError(null);
-              }}
+              onClick={resetDraft}
             >
               New evaluation
             </button>
@@ -403,6 +552,13 @@ export function EvaluationBuilder() {
                 canMoveUp={index > 0}
                 canMoveDown={index < criteria.length - 1}
                 canRemove={criteria.length > 1}
+                semanticSetupReviewed={semanticCriterionIsReviewed(
+                  criterion,
+                  semanticReviewFingerprints,
+                )}
+                onConfirmSemantic={() =>
+                  confirmSemanticCriterion(criterion.id)
+                }
               />
             ))}
           </div>
@@ -423,6 +579,23 @@ export function EvaluationBuilder() {
           </div>
         ) : null}
 
+        {draftRestored ? (
+          <div className="message-wrap">
+            <StatusMessage>
+              Draft restored from this browser.
+            </StatusMessage>
+          </div>
+        ) : null}
+
+        {draftPersistenceFailed ? (
+          <div className="message-wrap">
+            <StatusMessage tone="error">
+              This browser could not save the draft. Keep this page open until
+              you finish.
+            </StatusMessage>
+          </div>
+        ) : null}
+
         <button
           type="submit"
           disabled={submitting}
@@ -434,6 +607,13 @@ export function EvaluationBuilder() {
         <p className="terminal-footnote">
           Nothing is shared until you approve the scoring rules.
         </p>
+        <button
+          type="button"
+          className="button-quiet discard-draft"
+          onClick={resetDraft}
+        >
+          Discard draft
+        </button>
       </div>
     </form>
   );
@@ -447,8 +627,10 @@ function CriterionEditor({
   index,
   onChange,
   onKindChange,
+  onConfirmSemantic,
   onMove,
   onRemove,
+  semanticSetupReviewed,
 }: {
   canMoveDown: boolean;
   canMoveUp: boolean;
@@ -456,9 +638,11 @@ function CriterionEditor({
   criterion: CriterionDraft;
   index: number;
   onChange: (criterion: CriterionDraft) => void;
+  onConfirmSemantic: () => void;
   onKindChange: (kind: CriterionKind) => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
+  semanticSetupReviewed: boolean;
 }) {
   return (
     <div className="question-row criterion-editor">
@@ -510,13 +694,40 @@ function CriterionEditor({
         />
       </label>
 
-      <details className="criterion-details">
-        <summary>Scoring setup</summary>
+      <details
+        className="criterion-details"
+        open={
+          criterion.kind === "semantic_relevance" &&
+          !semanticSetupReviewed
+        }
+      >
+        <summary>
+          Scoring setup
+          {criterion.kind === "semantic_relevance" ? (
+            <span
+              className="review-state"
+              data-state={
+                semanticSetupReviewed ? "reviewed" : "needs-review"
+              }
+            >
+              {semanticSetupReviewed ? "Reviewed" : "Needs review"}
+            </span>
+          ) : null}
+        </summary>
         <p>
           These defaults make the result measurable and testable. Adjust them
           if your CSV uses different columns or examples.
         </p>
         <CriterionSettings criterion={criterion} onChange={onChange} />
+        {criterion.kind === "semantic_relevance" ? (
+          <button
+            type="button"
+            className="button-secondary confirm-scoring"
+            onClick={onConfirmSemantic}
+          >
+            Confirm scoring setup
+          </button>
+        ) : null}
       </details>
     </div>
   );
@@ -935,6 +1146,39 @@ function createCriterion(
         question: "Are the expected categories represented?",
       };
   }
+}
+
+function createInitialEvaluationDraft(): EvaluationDraft {
+  const criterion = createDefaultSemanticCriterion("criterion_1");
+
+  return {
+    criteria: [criterion],
+    semanticReviewFingerprints: {
+      [criterion.id]: semanticCriterionFingerprint(criterion),
+    },
+    title: "Customer support sample",
+  };
+}
+
+function semanticCriterionIsReviewed(
+  criterion: CriterionDraft,
+  fingerprints: Record<string, string>,
+) {
+  return (
+    criterion.kind !== "semantic_relevance" ||
+    (!hasDefaultSemanticSetupMismatch(criterion) &&
+      fingerprints[criterion.id] ===
+        semanticCriterionFingerprint(criterion))
+  );
+}
+
+function withoutKey(
+  values: Record<string, string>,
+  key: string,
+) {
+  return Object.fromEntries(
+    Object.entries(values).filter(([entryKey]) => entryKey !== key),
+  );
 }
 
 function splitList(value: string) {
