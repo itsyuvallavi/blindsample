@@ -4,27 +4,12 @@ alter table public.evaluations
 alter table public.evaluations
   alter column inference_diagnostics set default
   '{
-    "outputValidation": {
-      "failureCode": null,
-      "status": "not_run"
-    },
     "requestCount": {
       "made": 0,
       "maximum": 1
     },
     "requests": []
   }'::jsonb;
-
-update public.evaluations
-set inference_diagnostics =
-  inference_diagnostics
-  || '{
-    "outputValidation": {
-      "failureCode": null,
-      "status": "not_run"
-    }
-  }'::jsonb
-where not (inference_diagnostics ? 'outputValidation');
 
 update public.evaluations
 set inference_diagnostics = jsonb_set(
@@ -47,43 +32,48 @@ alter table public.evaluations
       - 'requestCount'
       - 'requests'
     ) = '{}'::jsonb
-    and jsonb_typeof(
-      inference_diagnostics -> 'outputValidation'
-    ) = 'object'
     and (
-      (inference_diagnostics -> 'outputValidation')
-      - 'failureCode'
-      - 'status'
-    ) = '{}'::jsonb
-    and (
-      inference_diagnostics
-      #>> '{outputValidation,status}'
-    ) in ('failed', 'not_run', 'passed')
-    and (
-      (
-        inference_diagnostics
-        #> '{outputValidation,failureCode}'
-      ) = 'null'::jsonb
+      not (inference_diagnostics ? 'outputValidation')
       or (
         jsonb_typeof(
-          inference_diagnostics
-          #> '{outputValidation,failureCode}'
-        ) = 'string'
+          inference_diagnostics -> 'outputValidation'
+        ) = 'object'
+        and (
+          (inference_diagnostics -> 'outputValidation')
+          - 'failureCode'
+          - 'status'
+        ) = '{}'::jsonb
         and (
           inference_diagnostics
-          #>> '{outputValidation,failureCode}'
-        ) ~ '^[a-z0-9_]{1,64}$'
+          #>> '{outputValidation,status}'
+        ) in ('failed', 'not_run', 'passed')
+        and (
+          (
+            inference_diagnostics
+            #> '{outputValidation,failureCode}'
+          ) = 'null'::jsonb
+          or (
+            jsonb_typeof(
+              inference_diagnostics
+              #> '{outputValidation,failureCode}'
+            ) = 'string'
+            and (
+              inference_diagnostics
+              #>> '{outputValidation,failureCode}'
+            ) ~ '^[a-z0-9_]{1,64}$'
+          )
+        )
+        and (
+          (
+            inference_diagnostics
+            #>> '{outputValidation,status}'
+          ) = 'failed'
+          or (
+            inference_diagnostics
+            #> '{outputValidation,failureCode}'
+          ) = 'null'::jsonb
+        )
       )
-    )
-    and (
-      (
-        inference_diagnostics
-        #>> '{outputValidation,status}'
-      ) = 'failed'
-      or (
-        inference_diagnostics
-        #> '{outputValidation,failureCode}'
-      ) = 'null'::jsonb
     )
     and jsonb_typeof(
       inference_diagnostics -> 'requestCount'
@@ -147,4 +137,4 @@ alter table public.evaluations
   );
 
 comment on column public.evaluations.inference_diagnostics is
-  'Bounded allowlisted 0G request metadata only. New evaluations permit one request. Prompts, submitted records, response content, reasoning content, credentials, and capability tokens are forbidden.';
+  'Bounded allowlisted 0G request metadata only. New evaluations permit one request. Optional parser status may contain only an allowlisted failure code. Prompts, submitted records, response content, reasoning content, credentials, and capability tokens are forbidden.';

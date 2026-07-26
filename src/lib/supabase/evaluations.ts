@@ -310,7 +310,7 @@ export async function beginSellerSubmission(
       completed_at: null,
       error_code: null,
       inference_diagnostics:
-        emptyEvaluationRunDiagnostics() as unknown as Json,
+        toStoredRunDiagnostics(emptyEvaluationRunDiagnostics()),
       results: null,
       sample_column_count: input.sampleColumnCount,
       sample_row_count: input.sampleRowCount,
@@ -365,7 +365,7 @@ export async function completeEvaluation(
       completed_at: now.toISOString(),
       error_code: null,
       inference_diagnostics:
-        result.inferenceDiagnostics as unknown as Json,
+        toStoredRunDiagnostics(result.inferenceDiagnostics),
       results: result.results as Json,
       sample_column_count: result.sampleColumnCount,
       sample_row_count: result.sampleRowCount,
@@ -407,7 +407,7 @@ export async function failEvaluation(
       completed_at: null,
       error_code: errorCode,
       inference_diagnostics:
-        inferenceDiagnostics as unknown as Json,
+        toStoredRunDiagnostics(inferenceDiagnostics),
       results: null,
       status: "failed",
       updated_at: now.toISOString(),
@@ -499,6 +499,19 @@ export function toBuyerQuestionResult(
     status: "scored",
     teeVerified: true,
   };
+}
+
+export function toStoredRunDiagnostics(
+  diagnostics: EvaluationRunDiagnostics,
+): Json {
+  return {
+    requestCount: { ...diagnostics.requestCount },
+    requests: diagnostics.requests.map((request) => ({
+      ...request,
+      billing: { ...request.billing },
+      usage: { ...request.usage },
+    })),
+  } as Json;
 }
 
 function scoreSummary(score: number) {

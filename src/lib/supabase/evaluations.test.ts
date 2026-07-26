@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import type { EvaluationRunDiagnostics } from "../scoring/run-diagnostics";
 import type { EvaluationResult } from "../scoring/types";
 
-import { toBuyerQuestionResult } from "./evaluations";
+import {
+  toBuyerQuestionResult,
+  toStoredRunDiagnostics,
+} from "./evaluations";
 
 const BASE_RESULT = {
   confidence: 91,
@@ -69,5 +73,56 @@ describe("buyer result privacy boundary", () => {
       "0G could not identify enough relevant evidence in the submitted sample to score this question safely.",
     );
     expect(JSON.stringify(result)).not.toContain("private value");
+  });
+});
+
+describe("stored inference diagnostics", () => {
+  it("persists the bounded request audit without parser state or content", () => {
+    const diagnostics = {
+      outputValidation: {
+        failureCode: "invalid_json",
+        status: "failed",
+      },
+      requestCount: { made: 1, maximum: 1 },
+      requests: [
+        {
+          attempt: 1,
+          billing: {
+            inputCostNeuron: null,
+            outputCostNeuron: null,
+            totalCostNeuron: null,
+          },
+          durationMs: 125,
+          finishReason: "stop",
+          httpStatus: 200,
+          model: "private-model",
+          outcome: "succeeded",
+          provider: "private-provider",
+          reasoningContentPresent: false,
+          requestId: "request-1",
+          responseLength: 321,
+          teeVerified: true,
+          usage: {
+            completionTokens: 100,
+            promptTokens: 200,
+            reasoningTokens: 0,
+            totalTokens: 300,
+          },
+        },
+      ],
+    } satisfies EvaluationRunDiagnostics;
+
+    const stored = toStoredRunDiagnostics(diagnostics);
+    const serialized = JSON.stringify(stored);
+
+    expect(stored).toMatchObject({
+      requestCount: { made: 1, maximum: 1 },
+      requests: [{ requestId: "request-1", teeVerified: true }],
+    });
+    expect(serialized).not.toContain("outputValidation");
+    expect(serialized).not.toContain("invalid_json");
+    expect(serialized).not.toContain('"content"');
+    expect(serialized).not.toContain("rawResponse");
+    expect(serialized).not.toContain("responseContent");
   });
 });
