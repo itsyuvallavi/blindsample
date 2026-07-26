@@ -9,8 +9,10 @@ import {
   type BuyerEvaluation,
 } from "../lib/browser/evaluations";
 import type { GeneratedEvaluationPlan } from "../lib/evaluation-plans/types";
+import { normalizeLegacyExecutionErrors } from "../lib/scoring/execution-error";
 import { completedResultPresentation } from "../lib/results/presentation";
 import {
+  executionErrorExplanation,
   type EvaluationResult,
   unableReasonExplanation,
 } from "../lib/scoring/types";
@@ -176,8 +178,13 @@ function CompletedResults({
 }: {
   evaluation: BuyerEvaluation;
 }) {
+  const inferenceDiagnostics = evaluation.inferenceDiagnostics;
+  const displayResults = normalizeLegacyExecutionErrors(
+    evaluation.results ?? [],
+    inferenceDiagnostics.requests,
+  );
   const resultByQuestion = new Map(
-    evaluation.results?.map((result) => [result.questionId, result]),
+    displayResults.map((result) => [result.questionId, result]),
   );
   const resultsAreComplete =
     resultByQuestion.size === evaluation.questions.length &&
@@ -197,16 +204,15 @@ function CompletedResults({
     );
   }
 
-  const inferenceDiagnostics = evaluation.inferenceDiagnostics;
   const presentation = completedResultPresentation(
-    evaluation.results,
+    displayResults,
   );
-  const { allUnable } = presentation;
+  const { allUnable, hasErrors } = presentation;
   const planByQuestion = new Map(
     evaluation.plans.map((plan) => [plan.questionId, plan]),
   );
   const aiRequestMade =
-    inferenceDiagnostics.requestCount.made > 0;
+    inferenceDiagnostics.requests.length > 0;
   const finishReasons = [
     ...new Set(
       inferenceDiagnostics.requests
@@ -236,7 +242,9 @@ function CompletedResults({
             </p>
             <h1 className="terminal-title">{evaluation.title}</h1>
             <p className="terminal-copy">
-              {allUnable
+              {hasErrors
+                ? "An execution error is not a zero score and does not mean the dataset failed. Successfully published question scores remain independent."
+                : allUnable
                 ? "The explanations below describe why BlindSample could not safely answer the questions. They do not mean the dataset failed."
                 : `No overall score is calculated. Every result applies only to the ${evaluation.sampleRowCount ?? 0} submitted records.`}
             </p>
@@ -346,6 +354,11 @@ function ResultRecord({
             <span>{result.score}</span>
             <small>/100</small>
           </div>
+        ) : result.status === "error" ? (
+          <div className="unable-value">
+            error
+            <small>not scored</small>
+          </div>
         ) : (
           <div className="unable-value">
             unable
@@ -360,16 +373,30 @@ function ResultRecord({
         </p>
       ) : null}
 
+      {result.status === "error" ? (
+        <p className="terminal-copy">
+          {executionErrorExplanation(result.error)}
+        </p>
+      ) : null}
+
       <details className="result-audit">
         <summary>View audit evidence</summary>
         <dl className="result-evidence-grid">
           <TraceItem
             label="records"
-            value={`${result.evidence.recordsEvaluated}/${result.evidence.recordsSubmitted}`}
+            value={
+              result.evidence.recordsEvaluated === null
+                ? `n/a (${result.evidence.recordsSubmitted} submitted)`
+                : `${result.evidence.recordsEvaluated}/${result.evidence.recordsSubmitted}`
+            }
           />
           <TraceItem
             label="coverage"
-            value={`${Math.round(result.evidence.coverageRatio * 100)}%`}
+            value={
+              result.evidence.coverageRatio === null
+                ? "n/a"
+                : `${Math.round(result.evidence.coverageRatio * 100)}%`
+            }
           />
           <TraceItem
             label="plan"
@@ -391,7 +418,11 @@ function ResultRecord({
           />
           <TraceItem
             label="controls"
-            value={result.evidence.controlCheck}
+            value={
+              result.status === "error"
+                ? "not evaluated"
+                : result.evidence.controlCheck
+            }
           />
           <TraceItem
             label="agreement"
@@ -438,6 +469,12 @@ function ResultRecord({
               )}
             </dl>
           </div>
+        ) : result.status === "error" ? (
+          <p className="local-method-note">
+            {result.error.requestMade
+              ? `A 0G request was attempted but failed before a verified result was returned${result.error.httpStatus === null ? "." : ` (HTTP ${result.error.httpStatus}).`}`
+              : "No request reached the model because private-compute execution failed before a verified response."}
+          </p>
         ) : (
           <p className="local-method-note">
             No 0G call was needed for this deterministic or preflight-unable
