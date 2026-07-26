@@ -39,6 +39,12 @@ export function buildEvaluationMessages(input: {
         "evaluation_basis must have exactly unit and description.",
         "evidence must have exactly row_numbers, aggregate_counts, reasons.",
         "Each aggregate_counts item must have exactly label and count.",
+        "Do not add any key that is not explicitly listed in this schema.",
+        "Every row_numbers array must contain unique 1-based integers only; use an empty array when row-level evidence is unnecessary.",
+        "For records, expected_intervals, fields, or events, numerator and denominator are required integers and score must match their rounded percentage.",
+        "Only holistic_rubric may use null numerator and denominator.",
+        "Never copy a dataset cell into score_definition, evaluation_basis, explanation, aggregate count labels, or evidence reasons. Refer only to field names, row numbers, counts, and generic validation reasons.",
+        "Before returning, verify that every question appears exactly once, all keys match the schema, arithmetic matches each score, evidence row numbers are unique, and no text quotes a cell value.",
       ].join(" "),
     },
     {

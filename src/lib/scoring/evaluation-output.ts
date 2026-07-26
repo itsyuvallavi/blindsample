@@ -30,8 +30,30 @@ const RESULT_KEYS = [
   "status",
 ];
 
+export type EvaluationOutputFailureCode =
+  | "arithmetic_mismatch"
+  | "duplicate_evidence_rows"
+  | "incomplete_arithmetic"
+  | "invalid_aggregate_count"
+  | "invalid_envelope"
+  | "invalid_evaluation_basis"
+  | "invalid_evidence"
+  | "invalid_json"
+  | "invalid_numeric_value"
+  | "invalid_result_shape"
+  | "invalid_score_definition"
+  | "invalid_status"
+  | "invalid_text"
+  | "invalid_unable_arithmetic"
+  | "missing_count_arithmetic"
+  | "missing_or_duplicate_question"
+  | "private_value_copy";
+
 export class EvaluationOutputError extends Error {
-  constructor(message: string) {
+  constructor(
+    readonly code: EvaluationOutputFailureCode,
+    message: string,
+  ) {
     super(message);
     this.name = "EvaluationOutputError";
   }
@@ -50,6 +72,7 @@ export function parseEvaluationOutput(input: {
     parsed = JSON.parse(input.content);
   } catch {
     throw new EvaluationOutputError(
+      "invalid_json",
       "0G returned invalid JSON.",
     );
   }
@@ -62,6 +85,7 @@ export function parseEvaluationOutput(input: {
     parsed.results.length !== input.questions.length
   ) {
     throw new EvaluationOutputError(
+      "invalid_envelope",
       "0G returned an invalid evaluation envelope.",
     );
   }
@@ -90,6 +114,7 @@ export function parseEvaluationOutput(input: {
     [...expectedIds].some((id) => !seenIds.has(id))
   ) {
     throw new EvaluationOutputError(
+      "missing_or_duplicate_question",
       "0G did not return every original question exactly once.",
     );
   }
@@ -107,6 +132,7 @@ function parseResult(
 ): EvaluationResult {
   if (!isRecord(value) || !hasExactKeys(value, RESULT_KEYS)) {
     throw new EvaluationOutputError(
+      "invalid_result_shape",
       "0G returned an invalid result object.",
     );
   }
@@ -151,6 +177,7 @@ function parseResult(
   if (status === "unable") {
     if (score !== null || numerator !== null || denominator !== null) {
       throw new EvaluationOutputError(
+        "invalid_unable_arithmetic",
         "An unable result must not contain a score or arithmetic.",
       );
     }
@@ -173,6 +200,7 @@ function parseResult(
 
   if (status !== "scored") {
     throw new EvaluationOutputError(
+      "invalid_status",
       "A result status must be scored or unable.",
     );
   }
@@ -181,6 +209,7 @@ function parseResult(
 
   if ((numerator === null) !== (denominator === null)) {
     throw new EvaluationOutputError(
+      "incomplete_arithmetic",
       "Numerator and denominator must both be present or both be null.",
     );
   }
@@ -190,6 +219,7 @@ function parseResult(
     numerator === null
   ) {
     throw new EvaluationOutputError(
+      "missing_count_arithmetic",
       "Count-based results require a numerator and denominator.",
     );
   }
@@ -212,6 +242,7 @@ function parseResult(
         numericScore
     ) {
       throw new EvaluationOutputError(
+        "arithmetic_mismatch",
         "The result score does not match its numerator and denominator.",
       );
     }
@@ -244,6 +275,7 @@ function readQuestionId(
     seenIds.has(value)
   ) {
     throw new EvaluationOutputError(
+      "missing_or_duplicate_question",
       "0G returned a missing, duplicate, or invented question ID.",
     );
   }
@@ -261,6 +293,7 @@ function readScoreDefinition(
     !hasExactKeys(value, ["one_hundred", "zero"])
   ) {
     throw new EvaluationOutputError(
+      "invalid_score_definition",
       "A score definition must define zero and one hundred.",
     );
   }
@@ -292,6 +325,7 @@ function readEvaluationBasis(
     !BASIS_UNITS.has(value.unit as EvaluationBasisUnit)
   ) {
     throw new EvaluationOutputError(
+      "invalid_evaluation_basis",
       "The evaluation basis is invalid.",
     );
   }
@@ -323,7 +357,10 @@ function readEvidence(
     !Array.isArray(value.aggregate_counts) ||
     !Array.isArray(value.reasons)
   ) {
-    throw new EvaluationOutputError("The result evidence is invalid.");
+    throw new EvaluationOutputError(
+      "invalid_evidence",
+      "The result evidence is invalid.",
+    );
   }
 
   const rowNumbers = value.row_numbers.map((rowNumber) =>
@@ -332,6 +369,7 @@ function readEvidence(
 
   if (new Set(rowNumbers).size !== rowNumbers.length) {
     throw new EvaluationOutputError(
+      "duplicate_evidence_rows",
       "Evidence row numbers must be unique.",
     );
   }
@@ -355,6 +393,7 @@ function readAggregateCount(
     !hasExactKeys(value, ["count", "label"])
   ) {
     throw new EvaluationOutputError(
+      "invalid_aggregate_count",
       "An aggregate evidence count is invalid.",
     );
   }
@@ -377,13 +416,17 @@ function readSafeText(
   maximumLength: number,
 ) {
   if (typeof value !== "string") {
-    throw new EvaluationOutputError(`The ${field} must be text.`);
+    throw new EvaluationOutputError(
+      "invalid_text",
+      `The ${field} must be text.`,
+    );
   }
 
   const text = value.trim();
 
   if (text.length < 1 || text.length > maximumLength) {
     throw new EvaluationOutputError(
+      "invalid_text",
       `The ${field} has an invalid length.`,
     );
   }
@@ -392,6 +435,7 @@ function readSafeText(
 
   if (forbiddenValues.some((cell) => normalized.includes(cell))) {
     throw new EvaluationOutputError(
+      "private_value_copy",
       `The ${field} copied a private dataset cell value.`,
     );
   }
@@ -430,6 +474,7 @@ function readInteger(value: unknown, minimum: number, maximum: number) {
     Number(value) > maximum
   ) {
     throw new EvaluationOutputError(
+      "invalid_numeric_value",
       "0G returned a numeric value outside the allowed range.",
     );
   }

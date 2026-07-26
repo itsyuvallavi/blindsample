@@ -6,12 +6,16 @@ import {
   type ZeroGMessage,
 } from "../zero-g/client";
 import { buildEvaluationMessages } from "./evaluation-prompt";
-import { parseEvaluationOutput } from "./evaluation-output";
+import {
+  EvaluationOutputError,
+  parseEvaluationOutput,
+} from "./evaluation-output";
 import {
   diagnosticsFromClientError,
   diagnosticsFromCompletion,
   emptyEvaluationRunDiagnostics,
   type EvaluationRunDiagnostics,
+  withOutputValidation,
 } from "./run-diagnostics";
 import type { EvaluationResult } from "./types";
 import { ZeroGClientError } from "../zero-g/client";
@@ -97,12 +101,17 @@ export async function scorePrivateCsvSample(
     });
 
     return {
-      diagnostics,
+      diagnostics: withOutputValidation(diagnostics, "passed"),
       inferenceRequests: { made: 1, maximum: 1 },
       results,
     };
   } catch (error) {
-    throw new PrivateScoringError(diagnostics, { cause: error });
+    throw new PrivateScoringError(
+      error instanceof EvaluationOutputError
+        ? withOutputValidation(diagnostics, "failed", error.code)
+        : diagnostics,
+      { cause: error },
+    );
   }
 }
 

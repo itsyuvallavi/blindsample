@@ -41,6 +41,10 @@ describe("evaluation run diagnostics", () => {
     const serialized = JSON.stringify(snapshot);
 
     expect(snapshot.requestCount).toEqual({ made: 1, maximum: 1 });
+    expect(snapshot.outputValidation).toEqual({
+      failureCode: null,
+      status: "not_run",
+    });
     expect(snapshot.requests[0]).toMatchObject({
       finishReason: "stop",
       requestId: "request-1",

@@ -57,6 +57,10 @@ describe("scorePrivateCsvSample", () => {
       made: 1,
       maximum: 1,
     });
+    expect(result.diagnostics.outputValidation).toEqual({
+      failureCode: null,
+      status: "passed",
+    });
     expect(result.results.map((item) => item.questionId)).toEqual([
       "complete",
       "context",
@@ -227,7 +231,46 @@ describe("scorePrivateCsvSample", () => {
             .mockResolvedValue(completion(output)),
         },
       ),
-    ).rejects.toBeInstanceOf(PrivateScoringError);
+    ).rejects.toMatchObject({
+      diagnostics: {
+        outputValidation: {
+          failureCode: "private_value_copy",
+          status: "failed",
+        },
+      },
+    });
+  });
+
+  it("records a safe failure code without retaining invalid output", async () => {
+    const rejected = scorePrivateCsvSample(
+      {
+        evaluationId: "evaluation-1",
+        questions: QUESTIONS,
+        sample: SAMPLE,
+      },
+      {
+        requestCompletion: vi
+          .fn()
+          .mockResolvedValue(completion("private invalid output")),
+      },
+    );
+
+    await expect(rejected).rejects.toMatchObject({
+      diagnostics: {
+        outputValidation: {
+          failureCode: "invalid_json",
+          status: "failed",
+        },
+      },
+    });
+
+    try {
+      await rejected;
+    } catch (error) {
+      expect(JSON.stringify(error)).not.toContain(
+        "private invalid output",
+      );
+    }
   });
 
   it("fails when TEE verification is unavailable", async () => {

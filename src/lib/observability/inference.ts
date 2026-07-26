@@ -17,6 +17,10 @@ export function emitInferenceRunEvents(
         httpStatus: request.httpStatus,
         model: request.model,
         outcome: request.outcome,
+        outputValidation: diagnostics.outputValidation ?? {
+          failureCode: null,
+          status: "not_run",
+        },
         provider: request.provider,
         reasoningContentPresent: request.reasoningContentPresent,
         requestId: request.requestId,
