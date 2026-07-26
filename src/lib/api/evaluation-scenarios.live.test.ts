@@ -22,7 +22,6 @@ import {
 import {
   handleCreateEvaluation,
   handleGetEvaluation,
-  handlePreviewEvaluationContracts,
   handleSubmitEvaluation,
 } from "./evaluations";
 
@@ -182,25 +181,9 @@ describeLive("five-scenario multi-question semantic E2E matrix", () => {
 async function runScenario(
   scenario: SemanticE2EScenario,
 ): Promise<ScenarioResult> {
-  const previewResponse = await handlePreviewEvaluationContracts(
-    jsonRequest("/api/evaluation-contracts", {
-      criteria: scenario.criteria,
-    }),
-  );
-
-  if (previewResponse.status !== 200) {
-    throw new Error(
-      `Scenario ${scenario.id} contract preview failed with HTTP ${previewResponse.status}.`,
-    );
-  }
-
-  const preview = (await previewResponse.json()) as {
-    contractSetHash: string;
-  };
   const createResponse = await handleCreateEvaluation(
     jsonRequest("/api/evaluations", {
-      approvedContractSetHash: preview.contractSetHash,
-      criteria: scenario.criteria,
+      questions: scenario.questions,
       title: `Semantic matrix: ${scenario.id}`,
     }),
   );
@@ -332,8 +315,8 @@ async function runScenario(
     };
   });
   const expectedInferenceRequests =
-    scenario.criteria.filter(
-      (criterion) => criterion.kind === "semantic_relevance",
+    scenario.questions.filter(
+      (question) => question.id !== "completeness",
     ).length * 2;
 
   return {

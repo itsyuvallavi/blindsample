@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { compileEvaluationContracts } from "../evaluation-contracts/compile";
-import { hashEvaluationContracts } from "../evaluation-contracts/hash";
+import { hashEvaluationQuestions } from "../evaluation-contracts/hash";
+import {
+  fingerprintQuestion,
+  fingerprintSample,
+} from "../evaluation-plans/generate";
+import {
+  EVALUATION_PLAN_VERSION,
+  type GeneratedEvaluationPlan,
+} from "../evaluation-plans/types";
 import { getSupabaseServerClient } from "./client";
 import {
   beginSellerSubmission,
@@ -34,6 +42,39 @@ const CONTRACTS = compileEvaluationContracts([
     target: "Records that clearly describe customer orders.",
   },
 ]);
+const QUESTIONS = CONTRACTS.map((contract) => ({
+  id: contract.questionId,
+  question: contract.originalQuestion,
+}));
+const AUDIT_SAMPLE = {
+  columnCount: 2,
+  columns: ["order_total", "description"],
+  rowCount: 1,
+  rows: [["10", "Confirmed customer order"]],
+};
+const PLANS: GeneratedEvaluationPlan[] = CONTRACTS.map((contract) => ({
+  confidence: 1,
+  contract,
+  datasetFingerprint: fingerprintSample(AUDIT_SAMPLE),
+  evidenceNeeded: contract.requiredEvidence,
+  explanation: "Live persistence plan.",
+  generationAttempt: 1,
+  method: contract.method,
+  originalQuestion: contract.originalQuestion,
+  planVersion: EVALUATION_PLAN_VERSION,
+  questionFingerprint: fingerprintQuestion({
+    id: contract.questionId,
+    question: contract.originalQuestion,
+  }),
+  questionId: contract.questionId,
+  relevantColumns: contract.requiredColumns,
+  scoreMeaning: {
+    one: contract.scoringAnchors["1"],
+    oneHundred: contract.scoringAnchors["100"],
+  },
+  status: "answerable",
+  unableReason: null,
+}));
 
 describeLive("live Supabase evaluation persistence", () => {
   afterEach(async () => {
@@ -54,8 +95,8 @@ describeLive("live Supabase evaluation persistence", () => {
 
   it("separates roles and permits exactly one submission claim", async () => {
     const created = await createEvaluation({
-      contracts: CONTRACTS,
-      contractSetHash: hashEvaluationContracts(CONTRACTS),
+      questions: QUESTIONS,
+      questionSetHash: hashEvaluationQuestions(QUESTIONS),
       title: "Live persistence verification",
     });
     createdIds.push(created.id);
@@ -122,6 +163,7 @@ describeLive("live Supabase evaluation persistence", () => {
           },
         ],
       },
+      plans: PLANS,
       results: [
         {
           evidence: {

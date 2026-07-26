@@ -5,7 +5,12 @@ import {
   hashCapabilityToken,
   issueEvaluationCapabilities,
 } from "../access/capabilities";
+import { hashCanonicalValue } from "../evaluation-contracts/hash";
 import type { EvaluationContract } from "../evaluation-contracts/types";
+import type {
+  EvaluationQuestion,
+  GeneratedEvaluationPlan,
+} from "../evaluation-plans/types";
 import {
   emptyEvaluationRunDiagnostics,
   type EvaluationRunDiagnostics,
@@ -39,9 +44,9 @@ type RepositoryOptions = {
 };
 
 export type CreateEvaluationInput = {
-  contracts: EvaluationContract[];
-  contractSetHash: string;
   expiresAt?: Date;
+  questions: EvaluationQuestion[];
+  questionSetHash: string;
   title: string;
 };
 
@@ -55,9 +60,10 @@ export type CreatedEvaluation = {
 
 export type SellerEvaluationView = {
   approvedAt: string;
-  contracts: EvaluationContract[];
   expiresAt: string;
   id: string;
+  plans: GeneratedEvaluationPlan[] | null;
+  questions: EvaluationQuestion[];
   status: EvaluationStatus;
   title: string;
 };
@@ -73,6 +79,7 @@ export type BuyerEvaluationView = SellerEvaluationView & {
 
 export type CompletedEvaluationResult = {
   inferenceDiagnostics: EvaluationRunDiagnostics;
+  plans: GeneratedEvaluationPlan[];
   results: EvaluationResult[];
   sampleColumnCount: number;
   sampleRowCount: number;
@@ -106,8 +113,8 @@ export async function createEvaluation(
   const row: EvaluationInsert = {
     approved_at: now.toISOString(),
     buyer_token_hash: capabilities.buyer.hash,
-    contract_set_hash: input.contractSetHash,
-    contracts: input.contracts as Json,
+    contract_set_hash: input.questionSetHash,
+    contracts: input.questions as Json,
     environment,
     expires_at: expiresAt.toISOString(),
     seller_token_hash: capabilities.seller.hash,
@@ -163,11 +170,14 @@ export async function getSellerEvaluation(
     return null;
   }
 
+  const stored = readStoredEvaluation(data.contracts);
+
   return {
     approvedAt: data.approved_at,
-    contracts: data.contracts as EvaluationContract[],
     expiresAt: data.expires_at,
     id: data.id,
+    plans: stored.plans,
+    questions: stored.questions,
     status: data.status as EvaluationStatus,
     title: data.title,
   };
@@ -204,10 +214,11 @@ export async function getBuyerEvaluation(
     return null;
   }
 
+  const stored = readStoredEvaluation(data.contracts);
+
   return {
     approvedAt: data.approved_at,
     completedAt: data.completed_at,
-    contracts: data.contracts as EvaluationContract[],
     errorCode: data.error_code,
     expiresAt: data.expires_at,
     id: data.id,
@@ -216,6 +227,8 @@ export async function getBuyerEvaluation(
     results: data.results as EvaluationResult[] | null,
     sampleColumnCount: data.sample_column_count,
     sampleRowCount: data.sample_row_count,
+    plans: stored.plans,
+    questions: stored.questions,
     status: data.status as EvaluationStatus,
     title: data.title,
   };
@@ -277,6 +290,8 @@ export async function completeEvaluation(
     .from("evaluations")
     .update({
       completed_at: now.toISOString(),
+      contract_set_hash: hashCanonicalValue(result.plans),
+      contracts: result.plans as unknown as Json,
       error_code: null,
       inference_diagnostics:
         result.inferenceDiagnostics as unknown as Json,
@@ -348,4 +363,81 @@ function databaseError(message: string, cause: unknown) {
   return new EvaluationRepositoryError(message, "database_error", {
     cause,
   });
+}
+
+function readStoredEvaluation(value: Json): {
+  plans: GeneratedEvaluationPlan[] | null;
+  questions: EvaluationQuestion[];
+} {
+  if (!Array.isArray(value)) {
+    return { plans: null, questions: [] };
+  }
+
+  if (value.every(isGeneratedEvaluationPlan)) {
+    const plans = value as unknown as GeneratedEvaluationPlan[];
+
+    return {
+      plans,
+      questions: plans.map((plan) => ({
+        id: plan.questionId,
+        question: plan.originalQuestion,
+      })),
+    };
+  }
+
+  if (value.every(isEvaluationQuestion)) {
+    return {
+      plans: null,
+      questions: value as unknown as EvaluationQuestion[],
+    };
+  }
+
+  if (value.every(isLegacyContract)) {
+    const contracts = value as unknown as EvaluationContract[];
+
+    return {
+      plans: null,
+      questions: contracts.map((contract) => ({
+        id: contract.questionId,
+        question: contract.originalQuestion,
+      })),
+    };
+  }
+
+  return { plans: null, questions: [] };
+}
+
+function isEvaluationQuestion(value: Json) {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.question === "string" &&
+    !("method" in value)
+  );
+}
+
+function isGeneratedEvaluationPlan(value: Json) {
+  return (
+    isRecord(value) &&
+    value.planVersion === "2.0.0" &&
+    typeof value.questionId === "string" &&
+    typeof value.originalQuestion === "string"
+  );
+}
+
+function isLegacyContract(value: Json) {
+  return (
+    isRecord(value) &&
+    typeof value.questionId === "string" &&
+    typeof value.originalQuestion === "string" &&
+    (value.method === "deterministic" || value.method === "semantic")
+  );
+}
+
+function isRecord(value: Json): value is Record<string, Json> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
 }

@@ -8,7 +8,12 @@ import {
   readEvaluation,
   type BuyerEvaluation,
 } from "../lib/browser/evaluations";
-import type { EvaluationResult } from "../lib/scoring/types";
+import type { GeneratedEvaluationPlan } from "../lib/evaluation-plans/types";
+import { completedResultPresentation } from "../lib/results/presentation";
+import {
+  type EvaluationResult,
+  unableReasonExplanation,
+} from "../lib/scoring/types";
 import {
   CommandLine,
   TerminalBar,
@@ -110,10 +115,10 @@ export function BuyerResults({
         title={evaluation.title}
       >
         <p className="terminal-copy">
-          {evaluation.contracts.length} approved contract
-          {evaluation.contracts.length === 1 ? "" : "s"} ready. The seller
-          has not submitted records yet; this capability checks every three
-          seconds.
+          {evaluation.questions.length} plain-language question
+          {evaluation.questions.length === 1 ? "" : "s"} ready. The seller
+          has not submitted records yet. BlindSample will create fresh plans
+          only after reading the submitted CSV.
         </p>
         <StatusMessage>
           Share only the separate seller capability URL.
@@ -130,9 +135,9 @@ export function BuyerResults({
         title={evaluation.title}
       >
         <p className="terminal-copy">
-          Exact objective metrics are running in application code. Semantic
-          rubric classifications require private, TEE-verified 0G responses
-          before a numeric result can be published.
+          BlindSample is matching each question to the submitted headers,
+          validating a fresh plan, and running exact calculations or private
+          record-level judgments as needed.
         </p>
         <StatusMessage>
           Unstable or insufficient evidence resolves to unable to score.
@@ -175,12 +180,16 @@ function CompletedResults({
     evaluation.results?.map((result) => [result.questionId, result]),
   );
   const resultsAreComplete =
-    resultByQuestion.size === evaluation.contracts.length &&
-    evaluation.contracts.every((contract) =>
-      resultByQuestion.has(contract.questionId),
+    resultByQuestion.size === evaluation.questions.length &&
+    evaluation.questions.every((question) =>
+      resultByQuestion.has(question.id),
     );
 
-  if (!evaluation.results || !resultsAreComplete) {
+  if (
+    !evaluation.results ||
+    !evaluation.plans ||
+    !resultsAreComplete
+  ) {
     return (
       <StatusMessage tone="error">
         The stored result set is incomplete and cannot be displayed.
@@ -189,6 +198,15 @@ function CompletedResults({
   }
 
   const inferenceDiagnostics = evaluation.inferenceDiagnostics;
+  const presentation = completedResultPresentation(
+    evaluation.results,
+  );
+  const { allUnable } = presentation;
+  const planByQuestion = new Map(
+    evaluation.plans.map((plan) => [plan.questionId, plan]),
+  );
+  const aiRequestMade =
+    inferenceDiagnostics.requestCount.made > 0;
   const finishReasons = [
     ...new Set(
       inferenceDiagnostics.requests
@@ -199,39 +217,51 @@ function CompletedResults({
 
   return (
     <section className="terminal-window">
-      <TerminalBar path="~/blindsample/results" status="COMPLETE" />
+      <TerminalBar
+        path="~/blindsample/results"
+        status={presentation.status}
+      />
       <div className="terminal-body">
         <CommandLine>
-          results read --contracts {evaluation.contracts.length}
+          results read --questions {evaluation.questions.length}
         </CommandLine>
         <div className="results-header">
           <div>
-            <p className="terminal-success">
-              {evaluation.results.length} question-level result
-              {evaluation.results.length === 1 ? "" : "s"} published
+            <p
+              className={
+                allUnable ? "terminal-copy" : "terminal-success"
+              }
+            >
+              {presentation.headline}
             </p>
             <h1 className="terminal-title">{evaluation.title}</h1>
             <p className="terminal-copy">
-              No overall score is calculated. Every result applies only to
-              the {evaluation.sampleRowCount ?? 0} submitted records.
+              {allUnable
+                ? "The explanations below describe why BlindSample could not safely answer the questions. They do not mean the dataset failed."
+                : `No overall score is calculated. Every result applies only to the ${evaluation.sampleRowCount ?? 0} submitted records.`}
+            </p>
+            <p className="terminal-copy">
+              AI request made: {aiRequestMade ? "yes" : "no"}.
             </p>
           </div>
           <span className="verification-badge">
-            AUDIT COMPLETE
+            {presentation.badge}
           </span>
         </div>
 
         <div className="score-list">
-          {evaluation.contracts.map((contract, index) => {
+          {evaluation.questions.map((question, index) => {
             const result = resultByQuestion.get(
-              contract.questionId,
+              question.id,
             ) as EvaluationResult;
+            const plan = planByQuestion.get(question.id);
 
             return (
               <ResultRecord
-                key={contract.questionId}
+                key={question.id}
                 index={index}
-                question={contract.originalQuestion}
+                plan={plan}
+                question={question.question}
                 result={result}
               />
             );
@@ -242,9 +272,9 @@ function CompletedResults({
           <summary>How this evaluation was verified</summary>
           <p className="verification-copy">
             TEE verification proves protected execution for the listed 0G
-            requests. It does not prove judgment accuracy. Semantic
-            reliability comes from the approved rubric, human-reviewed
-            controls, coverage checks, and repeated-classification agreement.
+            requests. It does not prove judgment accuracy. BlindSample stores
+            the generated plan with the result and calculates final scores in
+            application code.
           </p>
           <dl className="trace-grid">
             <TraceItem
@@ -254,6 +284,10 @@ function CompletedResults({
             <TraceItem
               label="submitted columns"
               value={String(evaluation.sampleColumnCount ?? 0)}
+            />
+            <TraceItem
+              label="AI request made"
+              value={aiRequestMade ? "yes" : "no"}
             />
             <TraceItem
               label="0G attempts"
@@ -288,10 +322,12 @@ function CompletedResults({
 
 function ResultRecord({
   index,
+  plan,
   question,
   result,
 }: {
   index: number;
+  plan: GeneratedEvaluationPlan | undefined;
   question: string;
   result: EvaluationResult;
 }) {
@@ -313,10 +349,16 @@ function ResultRecord({
         ) : (
           <div className="unable-value">
             unable
-            <small>{result.reason.replaceAll("_", " ")}</small>
+            <small>no score</small>
           </div>
         )}
       </header>
+
+      {result.status === "unable_to_score" ? (
+        <p className="terminal-copy">
+          {unableReasonExplanation(result.reason)}
+        </p>
+      ) : null}
 
       <details className="result-audit">
         <summary>View audit evidence</summary>
@@ -330,8 +372,22 @@ function ResultRecord({
             value={`${Math.round(result.evidence.coverageRatio * 100)}%`}
           />
           <TraceItem
-            label="contract"
-            value={result.evidence.contractVersion}
+            label="plan"
+            value={plan?.planVersion ?? result.evidence.contractVersion}
+          />
+          <TraceItem
+            label="confidence"
+            value={
+              plan ? `${Math.round(plan.confidence * 100)}%` : "not stored"
+            }
+          />
+          <TraceItem
+            label="relevant fields"
+            value={
+              plan?.relevantColumns.length
+                ? plan.relevantColumns.join(", ")
+                : "none"
+            }
           />
           <TraceItem
             label="controls"

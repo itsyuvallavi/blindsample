@@ -4,7 +4,7 @@ import type { SemanticRecord } from "./semantic";
 
 const SYSTEM_PROMPT = `You are a private rubric classifier inside BlindSample.
 
-Classify each opaque submitted-data record and each calibration control against the approved criterion.
+Classify each opaque submitted-data record and each calibration control against the generated question-specific rubric.
 
 Rules:
 1. Return JSON only with exactly two arrays: classifications and controls.
@@ -39,7 +39,7 @@ export function buildSemanticClassificationMessages(
     { content: SYSTEM_PROMPT, role: "system" },
     {
       content: JSON.stringify({
-        approvedCriterion: {
+        evaluationRubric: {
           anchors: contract.scoringAnchors,
           evidenceColumns: contract.criterion.columns,
           target: contract.criterion.target,
@@ -61,7 +61,7 @@ export function buildSemanticClassificationMessages(
           })),
         },
         submittedDataRecords: records,
-        task: "classify_against_approved_rubric",
+        task: "classify_against_generated_rubric",
       }),
       role: "user",
     },

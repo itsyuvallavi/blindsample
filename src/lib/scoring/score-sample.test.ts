@@ -2,6 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ParsedCsvSample } from "../csv/parse-sample";
 import { compileEvaluationContracts } from "../evaluation-contracts/compile";
+import {
+  fingerprintQuestion,
+  fingerprintSample,
+} from "../evaluation-plans/generate";
+import {
+  EVALUATION_PLAN_VERSION,
+  type GeneratedEvaluationPlan,
+} from "../evaluation-plans/types";
 import type { VerifiedCompletion } from "../zero-g/client";
 import { prepareSemanticRecords } from "./semantic";
 import { scorePrivateCsvSample } from "./score-sample";
@@ -46,6 +54,32 @@ const TRACE: VerifiedCompletion["trace"] = {
   requestId: "test-request",
   teeVerified: true,
 };
+
+function plansFor(sample: ParsedCsvSample): GeneratedEvaluationPlan[] {
+  return CONTRACTS.map((contract) => ({
+    confidence: 1,
+    contract,
+    datasetFingerprint: fingerprintSample(sample),
+    evidenceNeeded: contract.requiredEvidence,
+    explanation: "Test plan bound to this exact sample.",
+    generationAttempt: 1,
+    method: contract.method,
+    originalQuestion: contract.originalQuestion,
+    planVersion: EVALUATION_PLAN_VERSION,
+    questionFingerprint: fingerprintQuestion({
+      id: contract.questionId,
+      question: contract.originalQuestion,
+    }),
+    questionId: contract.questionId,
+    relevantColumns: contract.requiredColumns,
+    scoreMeaning: {
+      one: contract.scoringAnchors["1"],
+      oneHundred: contract.scoringAnchors["100"],
+    },
+    status: "answerable",
+    unableReason: null,
+  }));
+}
 
 function semanticCompletion(requestId: string) {
   const semanticContract = CONTRACTS[1];
@@ -98,7 +132,7 @@ describe("scorePrivateCsvSample", () => {
       .mockResolvedValueOnce(semanticCompletion("original"))
       .mockResolvedValueOnce(semanticCompletion("repeat"));
 
-    const scoring = await scorePrivateCsvSample(CONTRACTS, SAMPLE, {
+    const scoring = await scorePrivateCsvSample(plansFor(SAMPLE), SAMPLE, {
       requestCompletion,
     });
 
@@ -150,7 +184,7 @@ describe("scorePrivateCsvSample", () => {
     };
     const requestCompletion = vi.fn();
 
-    const scoring = await scorePrivateCsvSample(CONTRACTS, tooSmall, {
+    const scoring = await scorePrivateCsvSample(plansFor(tooSmall), tooSmall, {
       requestCompletion,
     });
 
@@ -174,7 +208,7 @@ describe("scorePrivateCsvSample", () => {
       content: "",
     });
 
-    const scoring = await scorePrivateCsvSample(CONTRACTS, SAMPLE, {
+    const scoring = await scorePrivateCsvSample(plansFor(SAMPLE), SAMPLE, {
       requestCompletion,
     });
 
@@ -203,16 +237,27 @@ describe("scorePrivateCsvSample", () => {
     });
   });
 
-  it("rejects an all-deterministic contract set", async () => {
-    await expect(
-      scorePrivateCsvSample([CONTRACTS[0]], SAMPLE),
-    ).rejects.toThrow("requires at least one semantic");
+  it("runs an all-deterministic plan set without a 0G request", async () => {
+    const requestCompletion = vi.fn();
+    const scoring = await scorePrivateCsvSample(
+      [plansFor(SAMPLE)[0]],
+      SAMPLE,
+      { requestCompletion },
+    );
+
+    expect(scoring.results[0]).toMatchObject({
+      questionId: "available",
+      score: 100,
+      status: "scored",
+    });
+    expect(scoring.inferenceRequests.made).toBe(0);
+    expect(requestCompletion).not.toHaveBeenCalled();
   });
 
   it("rejects an over-budget evaluation before making a request", async () => {
     const requestCompletion = vi.fn();
 
-    const rejected = scorePrivateCsvSample(CONTRACTS, SAMPLE, {
+    const rejected = scorePrivateCsvSample(plansFor(SAMPLE), SAMPLE, {
       maximumInferenceRequests: 1,
       requestCompletion,
     });

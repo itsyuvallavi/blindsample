@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { compileEvaluationContracts } from "../evaluation-contracts/compile";
 import {
   SEMANTIC_E2E_EXPECTED_QUESTION_RESULTS,
   SEMANTIC_E2E_MAXIMUM_INFERENCE_REQUESTS,
@@ -19,13 +18,12 @@ describe("semantic E2E scenario matrix", () => {
     let multiSemanticScenarios = 0;
 
     for (const scenario of SEMANTIC_E2E_SCENARIOS) {
-      const contracts = compileEvaluationContracts(scenario.criteria);
-      const semanticCount = contracts.filter(
-        ({ method }) => method === "semantic",
+      const semanticCount = scenario.questions.filter(
+        ({ id }) => id !== "completeness",
       ).length;
-      const questionIds = contracts.map(({ questionId }) => questionId);
+      const questionIds = scenario.questions.map(({ id }) => id);
 
-      expect(scenario.criteria.length).toBeGreaterThanOrEqual(2);
+      expect(scenario.questions.length).toBeGreaterThanOrEqual(2);
       expect(Object.keys(scenario.expectedScores).sort()).toEqual(
         [...questionIds].sort(),
       );
@@ -95,9 +93,12 @@ describe("semantic E2E scenario matrix", () => {
     ]);
   });
 
-  it("does not retain the rejected ambiguous intermediate control", () => {
-    expect(JSON.stringify(SEMANTIC_E2E_SCENARIOS)).not.toContain(
-      "what subscription plans are available but does not request account action",
-    );
+  it("defines buyer input as questions without technical plans", () => {
+    const serialized = JSON.stringify(SEMANTIC_E2E_SCENARIOS);
+
+    expect(serialized).not.toContain('"criteria"');
+    expect(serialized).not.toContain('"columns"');
+    expect(serialized).not.toContain('"kind"');
+    expect(serialized).not.toContain('"controls"');
   });
 });

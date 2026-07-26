@@ -1,22 +1,21 @@
-import type { CriterionDraft } from "../evaluation-contracts/types";
+import type { EvaluationQuestion } from "../evaluation-plans/types";
 
 export const EVALUATION_DRAFT_STORAGE_KEY =
-  "blindsample:evaluation-draft:v1";
+  "blindsample:evaluation-draft:v2";
 
 export type EvaluationDraft = {
-  criteria: CriterionDraft[];
-  semanticReviewFingerprints: Record<string, string>;
+  questions: EvaluationQuestion[];
   title: string;
 };
 
 type StoredEvaluationDraft = EvaluationDraft & {
-  version: 1;
+  version: 2;
 };
 
 export function serializeEvaluationDraft(draft: EvaluationDraft) {
   return JSON.stringify({
     ...draft,
-    version: 1,
+    version: 2,
   } satisfies StoredEvaluationDraft);
 }
 
@@ -37,94 +36,29 @@ export function parseEvaluationDraft(
 
   if (
     !isRecord(value) ||
-    value.version !== 1 ||
+    value.version !== 2 ||
     typeof value.title !== "string" ||
-    !Array.isArray(value.criteria) ||
-    value.criteria.length < 1 ||
-    !value.criteria.every(isCriterionDraft) ||
-    !isStringRecord(value.semanticReviewFingerprints)
+    !Array.isArray(value.questions) ||
+    value.questions.length < 1 ||
+    !value.questions.every(isEvaluationQuestion)
   ) {
     return null;
   }
 
   return {
-    criteria: value.criteria,
-    semanticReviewFingerprints:
-      value.semanticReviewFingerprints,
+    questions: value.questions,
     title: value.title,
   };
 }
 
-function isCriterionDraft(value: unknown): value is CriterionDraft {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== "string" ||
-    typeof value.question !== "string" ||
-    typeof value.kind !== "string"
-  ) {
-    return false;
-  }
-
-  switch (value.kind) {
-    case "completeness":
-    case "column_availability":
-      return isStringArray(value.columns);
-    case "format_validity":
-      return (
-        typeof value.column === "string" &&
-        ["email", "iso_date", "number", "url", "uuid"].includes(
-          String(value.format),
-        )
-      );
-    case "uniqueness":
-      return typeof value.column === "string";
-    case "date_freshness":
-      return (
-        typeof value.column === "string" &&
-        typeof value.maximumAgeDays === "number" &&
-        Number.isFinite(value.maximumAgeDays) &&
-        typeof value.referenceDate === "string"
-      );
-    case "numeric_range":
-      return (
-        typeof value.column === "string" &&
-        typeof value.minimum === "number" &&
-        Number.isFinite(value.minimum) &&
-        typeof value.maximum === "number" &&
-        Number.isFinite(value.maximum)
-      );
-    case "category_coverage":
-      return (
-        typeof value.column === "string" &&
-        isStringArray(value.expectedValues)
-      );
-    case "semantic_relevance":
-      return (
-        isStringArray(value.columns) &&
-        typeof value.target === "string" &&
-        isRecord(value.controls) &&
-        typeof value.controls.negative === "string" &&
-        typeof value.controls.intermediate === "string" &&
-        typeof value.controls.positive === "string"
-      );
-    default:
-      return false;
-  }
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) &&
-    value.every((item) => typeof item === "string")
-  );
-}
-
-function isStringRecord(
+function isEvaluationQuestion(
   value: unknown,
-): value is Record<string, string> {
+): value is EvaluationQuestion {
   return (
     isRecord(value) &&
-    Object.values(value).every((item) => typeof item === "string")
+    Object.keys(value).length === 2 &&
+    typeof value.id === "string" &&
+    typeof value.question === "string"
   );
 }
 

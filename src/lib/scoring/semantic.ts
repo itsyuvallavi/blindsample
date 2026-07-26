@@ -122,6 +122,22 @@ export async function evaluateSemanticContract(
     );
   }
 
+  const preflightCoverage = ratio(records.length, sample.rowCount);
+
+  if (
+    preflightCoverage + Number.EPSILON <
+    contract.minimumEvidence.coverageRatio
+  ) {
+    return unableResult(
+      contract,
+      sample,
+      "insufficient_coverage",
+      records.length,
+      preflightCoverage,
+      [],
+    );
+  }
+
   const repeatRecords = records.slice(
     0,
     Math.min(SEMANTIC_RELIABILITY.repeatSubsetSize, records.length),
@@ -364,6 +380,9 @@ export function prepareSemanticRecords(
   );
 
   return projected
+    .filter((values) =>
+      Object.values(values).some((value) => value.trim().length > 0),
+    )
     .map((values) => ({ serialized: JSON.stringify(values), values }))
     .sort((left, right) =>
       left.serialized.localeCompare(right.serialized),

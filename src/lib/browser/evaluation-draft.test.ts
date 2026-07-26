@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { createDefaultSemanticCriterion } from "../evaluation-contracts/default-semantic";
 import {
   parseEvaluationDraft,
   serializeEvaluationDraft,
 } from "./evaluation-draft";
 
 describe("evaluation draft storage", () => {
-  it("round-trips editable fields and semantic review fingerprints", () => {
+  it("round-trips only the evaluation name and plain-text questions", () => {
     const draft = {
-      criteria: [createDefaultSemanticCriterion("support")],
-      semanticReviewFingerprints: {
-        support: "reviewed-fingerprint",
-      },
-      title: "Support sample",
+      questions: [
+        {
+          id: "btc_context",
+          question: "Does each market context explain the BTC movement?",
+        },
+      ],
+      title: "BTC sample",
     };
 
     expect(
@@ -22,19 +23,10 @@ describe("evaluation draft storage", () => {
   });
 
   it("preserves structurally valid unfinished text fields", () => {
-    const criterion = createDefaultSemanticCriterion("support");
-
     expect(
       parseEvaluationDraft(
         serializeEvaluationDraft({
-          criteria: [
-            {
-              ...criterion,
-              controls: { ...criterion.controls, positive: "" },
-              target: "",
-            },
-          ],
-          semanticReviewFingerprints: {},
+          questions: [{ id: "question_1", question: "" }],
           title: "",
         }),
       ),
@@ -45,14 +37,19 @@ describe("evaluation draft storage", () => {
     null,
     "",
     "not-json",
-    JSON.stringify({ version: 2 }),
+    JSON.stringify({ version: 1 }),
     JSON.stringify({
-      criteria: [{ id: "unsafe", kind: "unknown", question: "?" }],
-      semanticReviewFingerprints: {},
+      questions: [
+        {
+          columns: ["message"],
+          id: "unsafe",
+          question: "Question",
+        },
+      ],
       title: "Invalid",
-      version: 1,
+      version: 2,
     }),
-  ])("rejects invalid or unsupported stored data", (serialized) => {
+  ])("rejects invalid or technical stored data", (serialized) => {
     expect(parseEvaluationDraft(serialized)).toBeNull();
   });
 });

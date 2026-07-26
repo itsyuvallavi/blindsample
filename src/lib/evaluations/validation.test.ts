@@ -3,118 +3,94 @@ import { describe, expect, it } from "vitest";
 import { PRODUCT_LIMITS } from "../product-contract";
 import {
   EvaluationInputError,
-  validateContractPreviewDraft,
   validateEvaluationDraft,
 } from "./validation";
 
-const CRITERIA = [
+const QUESTIONS = [
   {
-    columns: ["message"],
-    controls: {
-      intermediate: "A general product question.",
-      negative: "A weather report unrelated to support.",
-      positive: "A customer asks an agent to restore account access.",
-    },
-    id: "relevance",
-    kind: "semantic_relevance",
-    question: "Is this useful for support classification?",
-    target: "Customer requests requiring a support agent response.",
+    id: "btc_completeness",
+    question:
+      "What percentage of records contain timestamp and close values?",
   },
-] as const;
+];
 
 describe("evaluation input validation", () => {
-  it("binds activation to the exact buyer-reviewed contracts", () => {
-    const preview = validateContractPreviewDraft({
-      criteria: CRITERIA,
+  it("accepts only an evaluation name and plain-text questions", () => {
+    const result = validateEvaluationDraft({
+      questions: QUESTIONS,
+      title: "  BTC data  ",
     });
 
-    expect(
-      validateEvaluationDraft({
-        approvedContractSetHash: preview.contractSetHash,
-        criteria: CRITERIA,
-        title: "  Support data  ",
-      }),
-    ).toEqual({
-      contracts: preview.contracts,
-      contractSetHash: preview.contractSetHash,
-      title: "Support data",
+    expect(result).toEqual({
+      questions: QUESTIONS,
+      questionSetHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      title: "BTC data",
     });
   });
 
-  it("rejects activation when criteria change after review", () => {
-    const preview = validateContractPreviewDraft({
-      criteria: CRITERIA,
-    });
-
+  it("rejects hidden buyer-authored plans and technical fields", () => {
     expect(() =>
       validateEvaluationDraft({
-        approvedContractSetHash: preview.contractSetHash,
-        criteria: [
+        questions: [
           {
-            ...CRITERIA[0],
-            target: "A materially different target requiring new approval.",
+            ...QUESTIONS[0],
+            columns: ["message"],
+            kind: "semantic_relevance",
           },
         ],
-        title: "Support data",
-      }),
-    ).toThrow("changed after contract review");
-  });
-
-  it("rejects extra fields and duplicate criterion IDs", () => {
-    expect(() =>
-      validateContractPreviewDraft({
-        criteria: CRITERIA,
-        overallScore: true,
+        title: "BTC data",
       }),
     ).toThrowError(EvaluationInputError);
 
     expect(() =>
-      validateContractPreviewDraft({
-        criteria: [CRITERIA[0], CRITERIA[0]],
+      validateEvaluationDraft({
+        criteria: [],
+        questions: QUESTIONS,
+        title: "BTC data",
       }),
-    ).toThrow("unique");
+    ).toThrow("only a title and plain-text questions");
   });
 
-  it("enforces criterion count and question text limits", () => {
+  it("rejects duplicate question IDs", () => {
     expect(() =>
-      validateContractPreviewDraft({ criteria: [] }),
-    ).toThrow("between 1");
+      validateEvaluationDraft({
+        questions: [QUESTIONS[0], QUESTIONS[0]],
+        title: "BTC data",
+      }),
+    ).toThrow("invalid");
+  });
+
+  it("enforces question count and text limits", () => {
     expect(() =>
-      validateContractPreviewDraft({
-        criteria: Array.from(
-          { length: PRODUCT_LIMITS.maximumQuestions + 1 },
-          (_, index) => ({
-            ...CRITERIA[0],
-            id: `q${index}`,
-          }),
-        ),
+      validateEvaluationDraft({
+        questions: [],
+        title: "BTC data",
       }),
     ).toThrow("between 1");
     expect(() =>
-      validateContractPreviewDraft({
-        criteria: [
+      validateEvaluationDraft({
+        questions: Array.from(
+          { length: PRODUCT_LIMITS.maximumQuestions + 1 },
+          (_, index) => ({
+            id: `q${index}`,
+            question: "Is this question answerable?",
+          }),
+        ),
+        title: "BTC data",
+      }),
+    ).toThrow("between 1");
+    expect(() =>
+      validateEvaluationDraft({
+        questions: [
           {
-            ...CRITERIA[0],
+            id: "too_long",
             question: "x".repeat(
               PRODUCT_LIMITS.maximumQuestionCharacters + 1,
             ),
           },
         ],
+        title: "BTC data",
       }),
     ).toThrow("characters");
-  });
-
-  it("returns clarification_required for incomplete criteria", () => {
-    expect(() =>
-      validateContractPreviewDraft({
-        criteria: [
-          {
-            id: "vague",
-            kind: "semantic_relevance",
-            question: "Is this good?",
-          },
-        ],
-      }),
-    ).toThrow("needs clarification");
   });
 });

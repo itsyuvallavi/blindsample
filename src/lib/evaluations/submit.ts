@@ -2,6 +2,11 @@ import {
   parseCsvSample,
   type ParsedCsvSample,
 } from "../csv/parse-sample";
+import { generateFreshEvaluationPlans } from "../evaluation-plans/generate";
+import type {
+  EvaluationQuestion,
+  GeneratedEvaluationPlan,
+} from "../evaluation-plans/types";
 import { emitInferenceRunEvents } from "../observability/inference";
 import {
   PrivateScoringError,
@@ -43,6 +48,10 @@ type SubmissionDependencies = {
     id: string,
     token: string,
   ) => Promise<SellerEvaluationView | null>;
+  planQuestions: (
+    questions: EvaluationQuestion[],
+    sample: ParsedCsvSample,
+  ) => GeneratedEvaluationPlan[];
   parseSample: (bytes: Uint8Array) => ParsedCsvSample;
   scoreSample: typeof scorePrivateCsvSample;
 };
@@ -53,6 +62,7 @@ const DEFAULT_DEPENDENCIES: SubmissionDependencies = {
   emitInferenceEvents: emitInferenceRunEvents,
   fail: failEvaluation,
   getSellerView: getSellerEvaluation,
+  planQuestions: generateFreshEvaluationPlans,
   parseSample: parseCsvSample,
   scoreSample: scorePrivateCsvSample,
 };
@@ -110,12 +120,17 @@ export async function submitPrivateSample(
   let result: CompletedEvaluationResult;
 
   try {
+    const plans = dependencies.planQuestions(
+      sellerView.questions,
+      sample,
+    );
     const scoring = await dependencies.scoreSample(
-      sellerView.contracts,
+      plans,
       sample,
     );
     result = {
       inferenceDiagnostics: scoring.diagnostics,
+      plans,
       results: scoring.results,
       sampleColumnCount: sample.columnCount,
       sampleRowCount: sample.rowCount,

@@ -13,19 +13,19 @@ const MINIMUM_SEMANTIC_COVERAGE = 0.8;
 const MINIMUM_OBJECTIVE_COVERAGE = 0.8;
 
 const PERCENTAGE_ANCHORS: ScoreAnchors = {
-  "1": "0% of the approved evidence requirement is satisfied.",
-  "25": "25% of the approved evidence requirement is satisfied.",
-  "50": "50% of the approved evidence requirement is satisfied.",
-  "75": "75% of the approved evidence requirement is satisfied.",
-  "100": "100% of the approved evidence requirement is satisfied.",
+  "1": "Almost none of the generated evidence requirement is satisfied.",
+  "25": "25% of the generated evidence requirement is satisfied.",
+  "50": "50% of the generated evidence requirement is satisfied.",
+  "75": "75% of the generated evidence requirement is satisfied.",
+  "100": "100% of the generated evidence requirement is satisfied.",
 };
 
 const SEMANTIC_ANCHORS: ScoreAnchors = {
-  "1": "Clearly negative evidence against the approved target.",
-  "25": "Weak evidence with substantial mismatch to the approved target.",
-  "50": "Intermediate or genuinely mixed evidence for the approved target.",
-  "75": "Strong evidence with a limited mismatch to the approved target.",
-  "100": "Clearly positive evidence for the approved target.",
+  "1": "The record clearly does not answer the buyer's question.",
+  "25": "The record provides weak or mostly irrelevant evidence.",
+  "50": "The record provides partial or genuinely mixed evidence.",
+  "75": "The record provides strong evidence with a limited gap.",
+  "100": "The record clearly and specifically answers the buyer's question.",
 };
 
 export class EvaluationContractError extends Error {
@@ -299,22 +299,22 @@ function compileCriterionDraft(
           coverageRatio: MINIMUM_SEMANTIC_COVERAGE,
           records: MINIMUM_SEMANTIC_RECORDS,
         },
-        normalizedCriterion: `Semantic relevance of ${formatList(columns)} to: ${target}`,
+        normalizedCriterion: `Record-level answer quality using ${formatList(columns)} for: ${target}`,
         originalQuestion: base.question,
         populationRule: "all_submitted_records_no_sampling",
         questionId: base.id,
         requiredColumns: columns,
         requiredEvidence: [
-          "One rubric classification per submitted record using only the approved evidence columns.",
-          "Buyer-approved negative, intermediate, and positive controls.",
+          "One rubric classification per submitted record using only the generated evidence columns.",
+          "BlindSample-generated negative, intermediate, and positive controls.",
           "A deterministic repeated subset with at least 80% classification agreement.",
         ],
         scoringAnchors: SEMANTIC_ANCHORS,
         unableToScoreConditions: [
-          "Any approved evidence column is absent.",
+          "Any generated evidence column is absent.",
           `Fewer than ${MINIMUM_SEMANTIC_RECORDS} submitted records contain evaluable evidence.`,
           "Evidence coverage is below 80%.",
-          "Any buyer-approved control is classified incorrectly.",
+          "Any internal calibration control is classified incorrectly.",
           "Repeated classification agreement is below 80%.",
           "Any 0G response is not TEE verified.",
         ],

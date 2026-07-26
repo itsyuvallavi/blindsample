@@ -1,5 +1,10 @@
 import type { ParsedCsvSample } from "../csv/parse-sample";
-import type { EvaluationContract } from "../evaluation-contracts/types";
+import { validateGeneratedPlan } from "../evaluation-plans/generate";
+import type {
+  AnswerableEvaluationPlan,
+  GeneratedEvaluationPlan,
+  UnableEvaluationPlan,
+} from "../evaluation-plans/types";
 import type {
   VerifiedCompletion,
   ZeroGMessage,
@@ -15,6 +20,10 @@ import {
 } from "./run-diagnostics";
 import { evaluateSemanticContract } from "./semantic";
 import type { EvaluationResult } from "./types";
+import {
+  ONE_RECORD_LIMITATION,
+  SUBMITTED_DATA_LIMITATION,
+} from "./types";
 
 type CompletionRequester = (
   messages: ZeroGMessage[],
@@ -46,24 +55,36 @@ export class PrivateScoringError extends Error {
 }
 
 export async function scorePrivateCsvSample(
-  contracts: EvaluationContract[],
+  plans: GeneratedEvaluationPlan[],
   sample: ParsedCsvSample,
   options: ScoringOptions = {},
 ): Promise<PrivateScoringResult> {
-  if (
-    contracts.length < 1 ||
-    !contracts.some((contract) => contract.method === "semantic")
-  ) {
-    throw new Error(
-      "The 0G MVP requires at least one semantic evaluation contract.",
+  if (plans.length < 1) {
+    throw new Error("At least one generated evaluation plan is required.");
+  }
+
+  for (const plan of plans) {
+    const validation = validateGeneratedPlan(
+      plan,
+      {
+        id: plan.questionId,
+        question: plan.originalQuestion,
+      },
+      sample,
     );
+
+    if (!validation.valid) {
+      throw new Error(
+        "A generated evaluation plan does not match the submitted CSV.",
+      );
+    }
   }
 
   const budget = new InferenceRequestBudget(
     options.maximumInferenceRequests ?? getInferenceRequestLimit(),
   );
   const plannedSemanticRequests =
-    contracts.filter((contract) => contract.method === "semantic")
+    plans.filter((plan) => plan.method === "semantic")
       .length * 2;
   const recorder = new InferenceAuditRecorder();
   const results: EvaluationResult[] = [];
@@ -71,23 +92,39 @@ export async function scorePrivateCsvSample(
   try {
     budget.assertCanPlan(plannedSemanticRequests);
 
-    for (const contract of contracts) {
-      results.push(
-        contract.method === "deterministic"
-          ? evaluateDeterministicContract(contract, sample)
-          : await evaluateSemanticContract(contract, sample, {
-              onCompletion: (pass, completion) =>
-                recorder.recordCompletion(
-                  contract.questionId,
-                  pass,
-                  completion,
-                ),
-              onRequestError: (pass, error) =>
-                recorder.recordError(contract.questionId, pass, error),
-              requestBudget: budget,
-              requestCompletion: options.requestCompletion,
-            }),
-      );
+    for (const plan of plans) {
+      if (plan.status === "unable") {
+        results.push(planningUnableResult(plan, sample));
+        continue;
+      }
+
+      const contract = plan.contract;
+
+      if (contract.method === "deterministic") {
+        results.push(evaluateDeterministicContract(contract, sample));
+        continue;
+      }
+
+      try {
+        results.push(
+          await evaluateSemanticContract(contract, sample, {
+            onCompletion: (pass, completion) =>
+              recorder.recordCompletion(
+                contract.questionId,
+                pass,
+                completion,
+              ),
+            onRequestError: (pass, error) =>
+              recorder.recordError(contract.questionId, pass, error),
+            requestBudget: budget,
+            requestCompletion: options.requestCompletion,
+          }),
+        );
+      } catch {
+        results.push(
+          semanticExecutionUnableResult(plan, sample),
+        );
+      }
     }
   } catch (error) {
     throw new PrivateScoringError(
@@ -108,5 +145,69 @@ export async function scorePrivateCsvSample(
     results,
     semanticVerification:
       verifiedSemanticResults.length > 0 ? "verified" : "not_run",
+  };
+}
+
+function semanticExecutionUnableResult(
+  plan: AnswerableEvaluationPlan,
+  sample: ParsedCsvSample,
+): EvaluationResult {
+  return {
+    evidence: {
+      agreement: {
+        ratio: null,
+        requiredRatio: null,
+        status: "not_applicable",
+      },
+      contractVersion: plan.contract.contractVersion,
+      controlCheck: "not_applicable",
+      coverageRatio: 0,
+      limitation:
+        sample.rowCount === 1
+          ? ONE_RECORD_LIMITATION
+          : SUBMITTED_DATA_LIMITATION,
+      measurement: null,
+      method: "semantic",
+      recordsEvaluated: 0,
+      recordsSubmitted: sample.rowCount,
+      semanticFailure: null,
+      zeroG: null,
+    },
+    questionId: plan.questionId,
+    reason: "model_or_verification_failed",
+    score: null,
+    status: "unable_to_score",
+  };
+}
+
+function planningUnableResult(
+  plan: UnableEvaluationPlan,
+  sample: ParsedCsvSample,
+): EvaluationResult {
+  return {
+    evidence: {
+      agreement: {
+        ratio: null,
+        requiredRatio: null,
+        status: "not_applicable",
+      },
+      contractVersion: plan.planVersion,
+      controlCheck: "not_applicable",
+      coverageRatio: 0,
+      limitation:
+        sample.rowCount === 1
+          ? ONE_RECORD_LIMITATION
+          : SUBMITTED_DATA_LIMITATION,
+      measurement: null,
+      method: "unable",
+      recordsEvaluated: 0,
+      recordsSubmitted: sample.rowCount,
+      semanticFailure: null,
+      zeroG: null,
+    },
+    questionId: plan.questionId,
+    reason: plan.unableReason,
+    score: null,
+    status: "unable_to_score",
   };
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { CsvSampleError } from "../csv/parse-sample";
-import { compileEvaluationContracts } from "../evaluation-contracts/compile";
+import { generateFreshEvaluationPlans } from "../evaluation-plans/generate";
 import type { SellerEvaluationView } from "../supabase/evaluations";
 import { ZeroGClientError } from "../zero-g/client";
 import {
@@ -12,25 +12,18 @@ import {
 const CSV_BYTES = new TextEncoder().encode(
   "order_id,order_date\n1,2026-07-20\n2,2026-07-21",
 );
-const CONTRACTS = compileEvaluationContracts([
+const QUESTIONS = [
   {
-    columns: ["order_id"],
-    controls: {
-      intermediate: "A record that may refer to an order.",
-      negative: "A weather observation unrelated to commerce.",
-      positive: "A confirmed customer order identifier.",
-    },
     id: "q-orders",
-    kind: "semantic_relevance",
     question: "Are these useful order records?",
-    target: "Records that represent customer orders.",
   },
-]);
+] as const;
 const SELLER_VIEW: SellerEvaluationView = {
   approvedAt: "2026-07-26T00:00:00.000Z",
-  contracts: CONTRACTS,
   expiresAt: "2099-01-01T00:00:00.000Z",
   id: "evaluation-1",
+  plans: null,
+  questions: [...QUESTIONS],
   status: "waiting_for_seller",
   title: "Orders",
 };
@@ -119,6 +112,7 @@ function dependencies(
     emitInferenceEvents: vi.fn(),
     fail: vi.fn().mockResolvedValue(undefined),
     getSellerView: vi.fn().mockResolvedValue(SELLER_VIEW),
+    planQuestions: vi.fn(generateFreshEvaluationPlans),
     parseSample: vi.fn((bytes: Uint8Array) => ({
       columnCount: 2,
       columns: ["order_id", "order_date"],
@@ -157,6 +151,12 @@ describe("submitPrivateSample", () => {
     });
     expect(deps.complete).toHaveBeenCalledWith("evaluation-1", {
       inferenceDiagnostics: INFERENCE_DIAGNOSTICS,
+      plans: expect.arrayContaining([
+        expect.objectContaining({
+          datasetFingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
+          questionId: "q-orders",
+        }),
+      ]),
       sampleColumnCount: 2,
       sampleRowCount: 2,
       results: VERIFIED_RESULT.results,

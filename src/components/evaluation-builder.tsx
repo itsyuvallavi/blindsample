@@ -2,17 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-import type {
-  CriterionDraft,
-  CriterionKind,
-  EvaluationContract,
-  EvaluationContractPreview,
-} from "../lib/evaluation-contracts/types";
 import {
   BrowserApiError,
   createEvaluation,
   type CreatedEvaluationResponse,
-  previewEvaluationContracts,
 } from "../lib/browser/evaluations";
 import {
   EVALUATION_DRAFT_STORAGE_KEY,
@@ -20,28 +13,9 @@ import {
   serializeEvaluationDraft,
   type EvaluationDraft,
 } from "../lib/browser/evaluation-draft";
-import {
-  createDefaultSemanticCriterion,
-  hasDefaultSemanticSetupMismatch,
-  semanticCriterionFingerprint,
-} from "../lib/evaluation-contracts/default-semantic";
+import type { EvaluationQuestion } from "../lib/evaluation-plans/types";
 import { PRODUCT_LIMITS } from "../lib/product-contract";
 import { StatusMessage } from "./status-message";
-
-const CRITERION_OPTIONS: { label: string; value: CriterionKind }[] = [
-  {
-    label: "Meaning and relevance · private 0G",
-    value: "semantic_relevance",
-  },
-  { label: "Completeness", value: "completeness" },
-  { label: "Format validity", value: "format_validity" },
-  { label: "Uniqueness", value: "uniqueness" },
-  { label: "Date freshness", value: "date_freshness" },
-  { label: "Numeric range", value: "numeric_range" },
-  { label: "Column availability", value: "column_availability" },
-  { label: "Category coverage", value: "category_coverage" },
-];
-const SCORE_PREVIEW_KEYS = ["1", "50", "100"] as const;
 
 type CreatedLinks = CreatedEvaluationResponse & {
   buyerUrl: string;
@@ -51,18 +25,7 @@ type CreatedLinks = CreatedEvaluationResponse & {
 export function EvaluationBuilder() {
   const [initialDraft] = useState(createInitialEvaluationDraft);
   const [title, setTitle] = useState(initialDraft.title);
-  const [criteria, setCriteria] = useState<CriterionDraft[]>(
-    initialDraft.criteria,
-  );
-  const [
-    semanticReviewFingerprints,
-    setSemanticReviewFingerprints,
-  ] = useState<Record<string, string>>(
-    initialDraft.semanticReviewFingerprints,
-  );
-  const [preview, setPreview] =
-    useState<EvaluationContractPreview | null>(null);
-  const [approved, setApproved] = useState(false);
+  const [questions, setQuestions] = useState(initialDraft.questions);
   const [created, setCreated] = useState<CreatedLinks | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -82,10 +45,7 @@ export function EvaluationBuilder() {
 
       if (restored) {
         setTitle(restored.title);
-        setCriteria(restored.criteria);
-        setSemanticReviewFingerprints(
-          restored.semanticReviewFingerprints,
-        );
+        setQuestions(restored.questions);
         setDraftRestored(true);
       }
 
@@ -105,11 +65,7 @@ export function EvaluationBuilder() {
     try {
       window.localStorage.setItem(
         EVALUATION_DRAFT_STORAGE_KEY,
-        serializeEvaluationDraft({
-          criteria,
-          semanticReviewFingerprints,
-          title,
-        }),
+        serializeEvaluationDraft({ questions, title }),
       );
     } catch {
       persistenceFailed = true;
@@ -121,13 +77,7 @@ export function EvaluationBuilder() {
     );
 
     return () => window.clearTimeout(timer);
-  }, [
-    created,
-    criteria,
-    draftReady,
-    semanticReviewFingerprints,
-    title,
-  ]);
+  }, [created, draftReady, questions, title]);
 
   useEffect(() => {
     if (!draftPersistenceFailed) {
@@ -146,67 +96,47 @@ export function EvaluationBuilder() {
       );
   }, [draftPersistenceFailed]);
 
-  function invalidatePreview() {
-    setPreview(null);
-    setApproved(false);
+  function updateQuestion(id: string, question: string) {
+    setQuestions((current) =>
+      current.map((item) =>
+        item.id === id ? { ...item, question } : item,
+      ),
+    );
     setError(null);
   }
 
-  function updateCriterion(id: string, next: CriterionDraft) {
-    setCriteria((current) =>
-      current.map((criterion) => (criterion.id === id ? next : criterion)),
-    );
-    invalidatePreview();
-  }
-
-  function changeCriterionKind(id: string, kind: CriterionKind) {
-    const current = criteria.find((criterion) => criterion.id === id);
-    const next = createCriterion(kind, id);
-    setSemanticReviewFingerprints((fingerprints) =>
-      withoutKey(fingerprints, id),
-    );
-    updateCriterion(
-      id,
-      current
-        ? { ...next, question: current.question } as CriterionDraft
-        : next,
-    );
-  }
-
-  function addCriterion() {
-    if (criteria.length >= PRODUCT_LIMITS.maximumQuestions) {
+  function addQuestion() {
+    if (questions.length >= PRODUCT_LIMITS.maximumQuestions) {
       return;
     }
 
-    setCriteria((current) => [
+    setQuestions((current) => [
       ...current,
-      createCriterion("completeness", `q_${crypto.randomUUID()}`),
+      {
+        id: `q_${crypto.randomUUID()}`,
+        question: "",
+      },
     ]);
-    invalidatePreview();
   }
 
-  function removeCriterion(id: string) {
-    if (criteria.length === 1) {
+  function removeQuestion(id: string) {
+    if (questions.length === 1) {
       return;
     }
 
-    setCriteria((current) =>
-      current.filter((criterion) => criterion.id !== id),
+    setQuestions((current) =>
+      current.filter((question) => question.id !== id),
     );
-    setSemanticReviewFingerprints((fingerprints) =>
-      withoutKey(fingerprints, id),
-    );
-    invalidatePreview();
   }
 
-  function moveCriterion(index: number, direction: -1 | 1) {
+  function moveQuestion(index: number, direction: -1 | 1) {
     const target = index + direction;
 
-    if (target < 0 || target >= criteria.length) {
+    if (target < 0 || target >= questions.length) {
       return;
     }
 
-    setCriteria((current) => {
+    setQuestions((current) => {
       const reordered = [...current];
       [reordered[index], reordered[target]] = [
         reordered[target],
@@ -214,72 +144,48 @@ export function EvaluationBuilder() {
       ];
       return reordered;
     });
-    invalidatePreview();
   }
 
-  async function handlePreview(event: React.FormEvent<HTMLFormElement>) {
+  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
     if (!title.trim()) {
-      setError("Add an evaluation title.");
+      setError("Add an evaluation name.");
       return;
     }
 
-    const unreviewedSemanticIndex = criteria.findIndex(
-      (criterion) =>
-        criterion.kind === "semantic_relevance" &&
-        !semanticCriterionIsReviewed(
-          criterion,
-          semanticReviewFingerprints,
-        ),
+    const firstEmptyQuestion = questions.findIndex(
+      (question) => !question.question.trim(),
     );
 
-    if (unreviewedSemanticIndex >= 0) {
-      setError(
-        `Review and confirm the scoring setup for question ${unreviewedSemanticIndex + 1}.`,
-      );
+    if (firstEmptyQuestion >= 0) {
+      setError(`Add question ${firstEmptyQuestion + 1}.`);
       return;
     }
 
-    setSubmitting(true);
-
-    try {
-      const result = await previewEvaluationContracts(criteria);
-      setPreview(result);
-      setApproved(false);
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function activateEvaluation() {
-    if (!preview || !approved) {
-      return;
-    }
-
-    setError(null);
     setSubmitting(true);
 
     try {
       const result = await createEvaluation({
-        approvedContractSetHash: preview.contractSetHash,
-        criteria,
+        questions,
         title,
       });
       setCreated({
         ...result,
-        buyerUrl: new URL(result.buyerPath, window.location.origin).href,
-        sellerUrl: new URL(result.sellerPath, window.location.origin).href,
+        buyerUrl: new URL(
+          result.buyerPath,
+          window.location.origin,
+        ).href,
+        sellerUrl: new URL(
+          result.sellerPath,
+          window.location.origin,
+        ).href,
       });
       window.localStorage.removeItem(EVALUATION_DRAFT_STORAGE_KEY);
       setDraftRestored(false);
     } catch (caught) {
       setError(errorMessage(caught));
-      setPreview(null);
-      setApproved(false);
     } finally {
       setSubmitting(false);
     }
@@ -295,37 +201,11 @@ export function EvaluationBuilder() {
     }
   }
 
-  function confirmSemanticCriterion(id: string) {
-    const criterion = criteria.find((item) => item.id === id);
-
-    if (!criterion || criterion.kind !== "semantic_relevance") {
-      return;
-    }
-
-    if (hasDefaultSemanticSetupMismatch(criterion)) {
-      setError(
-        "The question changed, but its scoring setup still describes customer support. Update the evidence columns, good-match description, or examples before confirming.",
-      );
-      return;
-    }
-
-    setSemanticReviewFingerprints((current) => ({
-      ...current,
-      [id]: semanticCriterionFingerprint(criterion),
-    }));
-    setError(null);
-  }
-
   function resetDraft() {
     const next = createInitialEvaluationDraft();
     window.localStorage.removeItem(EVALUATION_DRAFT_STORAGE_KEY);
     setTitle(next.title);
-    setCriteria(next.criteria);
-    setSemanticReviewFingerprints(
-      next.semanticReviewFingerprints,
-    );
-    setPreview(null);
-    setApproved(false);
+    setQuestions(next.questions);
     setCreated(null);
     setError(null);
     setDraftRestored(false);
@@ -345,14 +225,15 @@ export function EvaluationBuilder() {
             Share one link. Keep one link.
           </h2>
           <p className="terminal-copy">
-            Each link grants only the access described below and expires
-            automatically. Creating these links did not spend 0G tokens.
+            BlindSample will build a fresh evaluation plan only after the
+            seller submits a CSV. Creating these links did not spend 0G
+            tokens.
           </p>
 
           <div className="capability-stack">
             <CapabilityLink
               label="Send this link to the seller"
-              description="The seller can review the approved questions and submit one CSV. They cannot see your results."
+              description="The seller can review your questions and submit one CSV. They cannot see your results."
               value={created.sellerUrl}
               copied={copied === "seller"}
               onCopy={() => copyLink("seller", created.sellerUrl)}
@@ -383,176 +264,25 @@ export function EvaluationBuilder() {
     );
   }
 
-  if (preview) {
-    return (
-      <section className="terminal-window" aria-labelledby="review-title">
-        <TerminalBar path="~/blindsample/contracts" status="REVIEW" />
-        <div className="terminal-body">
-          <CommandLine>
-            review questions --count {preview.contracts.length}
-          </CommandLine>
-          <h2 id="review-title" className="terminal-title">
-            Check what each score will mean.
-          </h2>
-          <p className="terminal-copy">
-            No links exist yet. Any edit returns you to setup before the
-            evaluation can be shared.
-          </p>
-
-          <div className="contract-review-list">
-            {preview.contracts.map((contract, index) => (
-              <article
-                key={contract.questionId}
-                className="contract-review"
-              >
-                <header>
-                  <span>
-                    {String(index + 1).padStart(2, "0")} ·{" "}
-                    {contract.method === "semantic"
-                      ? "private AI check"
-                      : "exact check"}
-                  </span>
-                  <code>{contract.contractVersion}</code>
-                </header>
-                <h3>{contract.originalQuestion}</h3>
-                <p>{readerFacingCriterion(contract)}</p>
-                <ScoreMeaningPreview contract={contract} />
-                <details>
-                  <summary>Technical scoring details</summary>
-                  <dl className="contract-review-grid">
-                    <div>
-                      <dt>population</dt>
-                      <dd>all submitted records · no sampling</dd>
-                    </div>
-                    <div>
-                      <dt>minimum</dt>
-                      <dd>
-                        {contract.minimumEvidence.records} records ·{" "}
-                        {Math.round(
-                          contract.minimumEvidence.coverageRatio * 100,
-                        )}
-                        % coverage
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>aggregation</dt>
-                      <dd>
-                        {aggregationDescription(contract)}
-                        <small>{contract.aggregationMethod}</small>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>columns</dt>
-                      <dd>
-                        {contract.requiredColumns.length
-                          ? contract.requiredColumns.join(", ")
-                          : "CSV headers"}
-                      </dd>
-                    </div>
-                  </dl>
-                  <dl
-                    className="anchor-definitions"
-                    aria-label="All score meanings"
-                  >
-                    {Object.entries(contract.scoringAnchors).map(
-                      ([score, meaning]) => (
-                        <div key={score}>
-                          <dt>{score}</dt>
-                          <dd>{meaning}</dd>
-                        </div>
-                      ),
-                    )}
-                  </dl>
-                  <p className="terminal-list-label">
-                    What must be present
-                  </p>
-                  <ul>
-                    {contract.requiredEvidence.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                  <p className="terminal-list-label">
-                    When no score is published
-                  </p>
-                  <ul>
-                    {contract.unableToScoreConditions.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </details>
-              </article>
-            ))}
-          </div>
-
-          <ExperiencePreviews
-            question={preview.contracts[0]?.originalQuestion}
-          />
-
-          <label className="check-row contract-approval">
-            <input
-              type="checkbox"
-              checked={approved}
-              onChange={(event) => setApproved(event.target.checked)}
-            />
-            <span>
-              I checked these questions and score meanings. Each result will
-              apply only to the records the seller submits.
-            </span>
-          </label>
-
-          {error ? (
-            <div className="message-wrap">
-              <StatusMessage tone="error">{error}</StatusMessage>
-            </div>
-          ) : null}
-
-          <div className="button-row">
-            <button
-              type="button"
-              className="button-primary"
-              disabled={!approved || submitting}
-              aria-busy={submitting}
-              onClick={activateEvaluation}
-            >
-              {submitting ? "Creating links…" : "Create private links"}
-            </button>
-            <button
-              type="button"
-              className="button-secondary"
-              disabled={submitting}
-              onClick={invalidatePreview}
-            >
-              Edit questions
-            </button>
-          </div>
-          <p className="terminal-footnote">
-            Creating links is free. 0G tokens are spent only when the seller
-            submits a CSV for evaluation.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <form onSubmit={handlePreview} className="terminal-window">
+    <form onSubmit={handleCreate} className="terminal-window">
       <TerminalBar path="~/new-evaluation" status="READY" />
       <div className="terminal-body">
         <CommandLine>start private evaluation</CommandLine>
         <h2 className="terminal-title">Create an evaluation</h2>
         <p className="terminal-copy">
-          Ask what you need the dataset to prove. You can add more questions
-          before sharing.
+          Ask plain-language questions. BlindSample decides how to test each
+          one after reading the submitted CSV.
         </p>
 
         <label className="field-group">
-          <span className="field-label">Name</span>
+          <span className="field-label">Evaluation name</span>
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             maxLength={PRODUCT_LIMITS.maximumTitleCharacters}
             className="text-input"
-            placeholder="Customer support sample"
+            placeholder="BTC market sample"
             required
           />
         </label>
@@ -561,45 +291,43 @@ export function EvaluationBuilder() {
           <div className="field-heading">
             <legend>Questions</legend>
             <span className="field-count">
-              {criteria.length}/{PRODUCT_LIMITS.maximumQuestions}
+              {questions.length}/{PRODUCT_LIMITS.maximumQuestions}
             </span>
           </div>
 
           <div className="question-list">
-            {criteria.map((criterion, index) => (
-              <CriterionEditor
-                key={criterion.id}
-                criterion={criterion}
+            {questions.map((question, index) => (
+              <QuestionEditor
+                key={question.id}
+                question={question}
                 index={index}
-                onChange={(next) => updateCriterion(criterion.id, next)}
-                onKindChange={(kind) =>
-                  changeCriterionKind(criterion.id, kind)
+                onChange={(value) =>
+                  updateQuestion(question.id, value)
                 }
-                onMove={(direction) => moveCriterion(index, direction)}
-                onRemove={() => removeCriterion(criterion.id)}
+                onMove={(direction) =>
+                  moveQuestion(index, direction)
+                }
+                onRemove={() => removeQuestion(question.id)}
                 canMoveUp={index > 0}
-                canMoveDown={index < criteria.length - 1}
-                canRemove={criteria.length > 1}
-                semanticSetupReviewed={semanticCriterionIsReviewed(
-                  criterion,
-                  semanticReviewFingerprints,
-                )}
-                onConfirmSemantic={() =>
-                  confirmSemanticCriterion(criterion.id)
-                }
+                canMoveDown={index < questions.length - 1}
+                canRemove={questions.length > 1}
               />
             ))}
           </div>
 
           <button
             type="button"
-            onClick={addCriterion}
-            disabled={criteria.length >= PRODUCT_LIMITS.maximumQuestions}
+            onClick={addQuestion}
+            disabled={
+              questions.length >= PRODUCT_LIMITS.maximumQuestions
+            }
             className="button-quiet add-question"
           >
             + Add another question
           </button>
         </fieldset>
+
+        <ExperiencePreviews question={questions[0]?.question} />
 
         {error ? (
           <div className="message-wrap">
@@ -630,11 +358,11 @@ export function EvaluationBuilder() {
           aria-busy={submitting}
           className="button-primary button-wide"
         >
-          {submitting ? "Preparing review…" : "Review evaluation"}
+          {submitting ? "Creating private links…" : "Create private links"}
         </button>
         <p className="terminal-footnote">
-          Creating and reviewing this evaluation is free. 0G tokens are spent
-          only after the seller submits a CSV.
+          Creating links is free. 0G tokens are spent only if a submitted
+          question needs private AI evaluation.
         </p>
         <button
           type="button"
@@ -648,30 +376,24 @@ export function EvaluationBuilder() {
   );
 }
 
-function CriterionEditor({
+function QuestionEditor({
   canMoveDown,
   canMoveUp,
   canRemove,
-  criterion,
   index,
   onChange,
-  onKindChange,
-  onConfirmSemantic,
   onMove,
   onRemove,
-  semanticSetupReviewed,
+  question,
 }: {
   canMoveDown: boolean;
   canMoveUp: boolean;
   canRemove: boolean;
-  criterion: CriterionDraft;
   index: number;
-  onChange: (criterion: CriterionDraft) => void;
-  onConfirmSemantic: () => void;
-  onKindChange: (kind: CriterionKind) => void;
+  onChange: (question: string) => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
-  semanticSetupReviewed: boolean;
+  question: EvaluationQuestion;
 }) {
   return (
     <div className="question-row criterion-editor">
@@ -699,335 +421,20 @@ function CriterionEditor({
       </div>
 
       <label className="field-group">
-        <span className="field-label">What should we check?</span>
-        <select
-          className="text-input"
-          value={criterion.kind}
-          onChange={(event) =>
-            onKindChange(event.target.value as CriterionKind)
-          }
-        >
-          {CRITERION_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="field-group">
-        <span className="field-label">Your question</span>
+        <span className="field-label">
+          What do you want to know about this dataset?
+        </span>
         <textarea
           className="text-area"
-          rows={2}
+          rows={3}
           maxLength={PRODUCT_LIMITS.maximumQuestionCharacters}
-          value={criterion.question}
-          onChange={(event) =>
-            onChange({ ...criterion, question: event.target.value })
-          }
+          value={question.question}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="What percentage of records contain all required price fields?"
           required
         />
       </label>
-
-      <details
-        className="criterion-details"
-        open={
-          criterion.kind === "semantic_relevance" &&
-          !semanticSetupReviewed
-        }
-      >
-        <summary>
-          How should this question be scored?
-          {criterion.kind === "semantic_relevance" ? (
-            <span
-              className="review-state"
-              data-state={
-                semanticSetupReviewed ? "reviewed" : "needs-review"
-              }
-            >
-              {semanticSetupReviewed ? "Reviewed" : "Needs review"}
-            </span>
-          ) : null}
-        </summary>
-        <p>
-          Confirm what counts as a match, which CSV columns contain the
-          evidence, and three examples that anchor the score.
-        </p>
-        <CriterionSettings criterion={criterion} onChange={onChange} />
-        {criterion.kind === "semantic_relevance" ? (
-          <button
-            type="button"
-            className="button-secondary confirm-scoring"
-            onClick={onConfirmSemantic}
-          >
-            Confirm scoring setup
-          </button>
-        ) : null}
-      </details>
     </div>
-  );
-}
-
-function CriterionSettings({
-  criterion,
-  onChange,
-}: {
-  criterion: CriterionDraft;
-  onChange: (criterion: CriterionDraft) => void;
-}) {
-  switch (criterion.kind) {
-    case "completeness":
-    case "column_availability":
-      return (
-        <ColumnsInput
-          value={criterion.columns}
-          onChange={(columns) => onChange({ ...criterion, columns })}
-        />
-      );
-    case "format_validity":
-      return (
-        <div className="settings-grid">
-          <TextSetting
-            label="column"
-            value={criterion.column}
-            onChange={(column) => onChange({ ...criterion, column })}
-          />
-          <label className="field-group">
-            <span className="field-label">format</span>
-            <select
-              className="text-input"
-              value={criterion.format}
-              onChange={(event) =>
-                onChange({
-                  ...criterion,
-                  format: event.target.value as typeof criterion.format,
-                })
-              }
-            >
-              <option value="email">email</option>
-              <option value="iso_date">ISO date</option>
-              <option value="number">number</option>
-              <option value="url">URL</option>
-              <option value="uuid">UUID</option>
-            </select>
-          </label>
-        </div>
-      );
-    case "uniqueness":
-      return (
-        <TextSetting
-          label="column"
-          value={criterion.column}
-          onChange={(column) => onChange({ ...criterion, column })}
-        />
-      );
-    case "date_freshness":
-      return (
-        <div className="settings-grid">
-          <TextSetting
-            label="date.column"
-            value={criterion.column}
-            onChange={(column) => onChange({ ...criterion, column })}
-          />
-          <NumberSetting
-            label="maximum_age_days"
-            value={criterion.maximumAgeDays}
-            onChange={(maximumAgeDays) =>
-              onChange({ ...criterion, maximumAgeDays })
-            }
-          />
-          <TextSetting
-            label="reference_date"
-            type="date"
-            value={criterion.referenceDate}
-            onChange={(referenceDate) =>
-              onChange({ ...criterion, referenceDate })
-            }
-          />
-        </div>
-      );
-    case "numeric_range":
-      return (
-        <div className="settings-grid">
-          <TextSetting
-            label="numeric.column"
-            value={criterion.column}
-            onChange={(column) => onChange({ ...criterion, column })}
-          />
-          <NumberSetting
-            label="minimum"
-            value={criterion.minimum}
-            onChange={(minimum) => onChange({ ...criterion, minimum })}
-          />
-          <NumberSetting
-            label="maximum"
-            value={criterion.maximum}
-            onChange={(maximum) => onChange({ ...criterion, maximum })}
-          />
-        </div>
-      );
-    case "category_coverage":
-      return (
-        <div className="settings-stack">
-          <TextSetting
-            label="category.column"
-            value={criterion.column}
-            onChange={(column) => onChange({ ...criterion, column })}
-          />
-          <TextSetting
-            label="expected_values"
-            helper="Comma-separated, case-insensitive categories."
-            value={criterion.expectedValues.join(", ")}
-            onChange={(value) =>
-              onChange({
-                ...criterion,
-                expectedValues: splitList(value),
-              })
-            }
-          />
-        </div>
-      );
-    case "semantic_relevance":
-      return (
-        <div className="settings-stack semantic-settings">
-          <ColumnsInput
-            label="Which CSV columns contain the evidence?"
-            value={criterion.columns}
-            onChange={(columns) => onChange({ ...criterion, columns })}
-          />
-          <TextAreaSetting
-            label="What should count as a good match?"
-            value={criterion.target}
-            onChange={(target) => onChange({ ...criterion, target })}
-          />
-          <p className="terminal-list-label">
-            Examples that define the scale
-          </p>
-          <TextAreaSetting
-            label="Clearly not a match · score 1"
-            value={criterion.controls.negative}
-            onChange={(negative) =>
-              onChange({
-                ...criterion,
-                controls: { ...criterion.controls, negative },
-              })
-            }
-          />
-          <TextAreaSetting
-            label="Mixed or partial match · score 50"
-            value={criterion.controls.intermediate}
-            onChange={(intermediate) =>
-              onChange({
-                ...criterion,
-                controls: { ...criterion.controls, intermediate },
-              })
-            }
-          />
-          <TextAreaSetting
-            label="Clear match · score 100"
-            value={criterion.controls.positive}
-            onChange={(positive) =>
-              onChange({
-                ...criterion,
-                controls: { ...criterion.controls, positive },
-              })
-            }
-          />
-        </div>
-      );
-  }
-}
-
-function ColumnsInput({
-  label = "columns",
-  onChange,
-  value,
-}: {
-  label?: string;
-  onChange: (columns: string[]) => void;
-  value: string[];
-}) {
-  return (
-    <TextSetting
-      label={label}
-      helper="Comma-separated CSV headers, matched case-insensitively."
-      value={value.join(", ")}
-      onChange={(next) => onChange(splitList(next))}
-    />
-  );
-}
-
-function TextSetting({
-  helper,
-  label,
-  onChange,
-  type = "text",
-  value,
-}: {
-  helper?: string;
-  label: string;
-  onChange: (value: string) => void;
-  type?: "date" | "text";
-  value: string;
-}) {
-  return (
-    <label className="field-group">
-      <span className="field-label">{label}</span>
-      <input
-        className="text-input"
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        required
-      />
-      {helper ? <span className="field-helper">{helper}</span> : null}
-    </label>
-  );
-}
-
-function NumberSetting({
-  label,
-  onChange,
-  value,
-}: {
-  label: string;
-  onChange: (value: number) => void;
-  value: number;
-}) {
-  return (
-    <label className="field-group">
-      <span className="field-label">{label}</span>
-      <input
-        className="text-input"
-        type="number"
-        value={value}
-        onChange={(event) => onChange(event.target.valueAsNumber)}
-        required
-      />
-    </label>
-  );
-}
-
-function TextAreaSetting({
-  label,
-  onChange,
-  value,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
-}) {
-  return (
-    <label className="field-group">
-      <span className="field-label">{label}</span>
-      <textarea
-        className="text-area"
-        rows={2}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        required
-      />
-    </label>
   );
 }
 
@@ -1049,40 +456,19 @@ function MiniButton({
   );
 }
 
-function ScoreMeaningPreview({
-  contract,
-}: {
-  contract: EvaluationContract;
-}) {
-  return (
-    <dl
-      className="score-meaning-preview"
-      aria-label="Key score meanings"
-    >
-      {SCORE_PREVIEW_KEYS.map((score) => (
-        <div key={score}>
-          <dt>{score}</dt>
-          <dd>{contract.scoringAnchors[score]}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 function ExperiencePreviews({ question }: { question?: string }) {
   return (
     <div className="experience-previews">
       <details className="experience-preview">
         <summary>Preview seller experience</summary>
         <div className="experience-preview__body">
-          <p className="preview-label">Example only · Seller submission</p>
+          <p className="preview-label">
+            Example only · Seller submission
+          </p>
           <h3>Review the questions, then choose one CSV.</h3>
           <p>
-            The seller sees the approved questions before uploading. They
-            cannot see the buyer&apos;s result link or final scores.
-          </p>
-          <p className="cost-boundary">
-            0G tokens start only when the seller submits the CSV.
+            BlindSample reads the actual headers and builds a fresh internal
+            plan for every question. The buyer never receives the sample rows.
           </p>
         </div>
       </details>
@@ -1090,15 +476,20 @@ function ExperiencePreviews({ question }: { question?: string }) {
         <summary>Preview example results</summary>
         <div className="experience-preview__body example-result">
           <div>
-            <p className="preview-label">Example only · Private buyer result</p>
-            <h3>{question ?? "Does this dataset meet my requirement?"}</h3>
+            <p className="preview-label">
+              Example only · Private buyer result
+            </p>
+            <h3>
+              {question?.trim() ||
+                "Does this dataset meet my requirement?"}
+            </h3>
           </div>
           <p className="example-score">
             82<small>/100</small>
           </p>
           <p>
-            A real result also shows coverage, agreement, control checks, and
-            verified 0G requests. No overall dataset score is calculated.
+            Every answer is shown separately. BlindSample never calculates
+            an overall dataset score.
           </p>
         </div>
       </details>
@@ -1164,7 +555,11 @@ export function TerminalBar({
   );
 }
 
-export function CommandLine({ children }: { children: React.ReactNode }) {
+export function CommandLine({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <p className="command-line">
       <span>$</span> {children}
@@ -1172,135 +567,16 @@ export function CommandLine({ children }: { children: React.ReactNode }) {
   );
 }
 
-function createCriterion(
-  kind: CriterionKind,
-  id: string,
-): CriterionDraft {
-  switch (kind) {
-    case "semantic_relevance":
-      return createDefaultSemanticCriterion(id);
-    case "completeness":
-      return {
-        columns: ["message"],
-        id,
-        kind,
-        question: "Are the required fields complete?",
-      };
-    case "format_validity":
-      return {
-        column: "email",
-        format: "email",
-        id,
-        kind,
-        question: "Do the submitted values use the expected format?",
-      };
-    case "uniqueness":
-      return {
-        column: "id",
-        id,
-        kind,
-        question: "Are identifiers unique?",
-      };
-    case "date_freshness":
-      return {
-        column: "created_at",
-        id,
-        kind,
-        maximumAgeDays: 30,
-        question: "Are the submitted records recent enough?",
-        referenceDate: new Date().toISOString().slice(0, 10),
-      };
-    case "numeric_range":
-      return {
-        column: "value",
-        id,
-        kind,
-        maximum: 100,
-        minimum: 0,
-        question: "Are numeric values within the approved range?",
-      };
-    case "column_availability":
-      return {
-        columns: ["id", "message"],
-        id,
-        kind,
-        question: "Are the required columns available?",
-      };
-    case "category_coverage":
-      return {
-        column: "category",
-        expectedValues: ["positive", "negative"],
-        id,
-        kind,
-        question: "Are the expected categories represented?",
-      };
-  }
-}
-
-function readerFacingCriterion(contract: EvaluationContract) {
-  const criterion = contract.criterion;
-
-  switch (criterion.kind) {
-    case "semantic_relevance":
-      return `A good match is: ${criterion.target}`;
-    case "completeness":
-      return `Checks whether ${criterion.columns.join(", ")} contain values in each submitted row.`;
-    case "format_validity":
-      return `Checks whether ${criterion.column} uses the expected ${criterion.format.replace("_", " ")} format.`;
-    case "uniqueness":
-      return `Checks whether every ${criterion.column} value is unique.`;
-    case "date_freshness":
-      return `Checks whether ${criterion.column} is no more than ${criterion.maximumAgeDays} days old on ${criterion.referenceDate}.`;
-    case "numeric_range":
-      return `Checks whether ${criterion.column} is between ${criterion.minimum} and ${criterion.maximum}.`;
-    case "column_availability":
-      return `Checks whether the CSV includes ${criterion.columns.join(", ")}.`;
-    case "category_coverage":
-      return `Checks whether ${criterion.column} includes ${criterion.expectedValues.join(", ")}.`;
-  }
-}
-
-function aggregationDescription(contract: EvaluationContract) {
-  return contract.method === "semantic"
-    ? "Average of the record-level match scores."
-    : "Percentage of submitted records that satisfy the requirement.";
-}
-
 function createInitialEvaluationDraft(): EvaluationDraft {
-  const criterion = createDefaultSemanticCriterion("criterion_1");
-
   return {
-    criteria: [criterion],
-    semanticReviewFingerprints: {
-      [criterion.id]: semanticCriterionFingerprint(criterion),
-    },
-    title: "Customer support sample",
+    questions: [
+      {
+        id: "question_1",
+        question: "",
+      },
+    ],
+    title: "",
   };
-}
-
-function semanticCriterionIsReviewed(
-  criterion: CriterionDraft,
-  fingerprints: Record<string, string>,
-) {
-  return (
-    criterion.kind !== "semantic_relevance" ||
-    (!hasDefaultSemanticSetupMismatch(criterion) &&
-      fingerprints[criterion.id] ===
-        semanticCriterionFingerprint(criterion))
-  );
-}
-
-function withoutKey(
-  values: Record<string, string>,
-  key: string,
-) {
-  return Object.fromEntries(
-    Object.entries(values).filter(([entryKey]) => entryKey !== key),
-  );
-}
-
-function splitList(value: string) {
-  return value.split(",").map((item) => item.trim());
 }
 
 function errorMessage(caught: unknown) {

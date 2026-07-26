@@ -1,8 +1,7 @@
 import type {
-  CriterionDraft,
-  EvaluationContract,
-  EvaluationContractPreview,
-} from "../evaluation-contracts/types";
+  EvaluationQuestion,
+  GeneratedEvaluationPlan,
+} from "../evaluation-plans/types";
 import type { EvaluationRunDiagnostics } from "../scoring/run-diagnostics";
 import type { EvaluationResult } from "../scoring/types";
 
@@ -14,9 +13,10 @@ export type EvaluationStatus =
 
 export type SellerEvaluation = {
   approvedAt: string;
-  contracts: EvaluationContract[];
   expiresAt: string;
   id: string;
+  plans: GeneratedEvaluationPlan[] | null;
+  questions: EvaluationQuestion[];
   status: EvaluationStatus;
   title: string;
 };
@@ -66,22 +66,8 @@ export async function readEvaluation(
   );
 }
 
-export async function previewEvaluationContracts(
-  criteria: CriterionDraft[],
-) {
-  return requestJson<EvaluationContractPreview>(
-    "/api/evaluation-contracts",
-    {
-      body: JSON.stringify({ criteria }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    },
-  );
-}
-
 export async function createEvaluation(input: {
-  approvedContractSetHash: string;
-  criteria: CriterionDraft[];
+  questions: EvaluationQuestion[];
   title: string;
 }) {
   return requestJson<CreatedEvaluationResponse>("/api/evaluations", {

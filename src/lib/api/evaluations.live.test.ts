@@ -1,27 +1,28 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { readCapabilityToken } from "../browser/capability";
-import { createDefaultSemanticCriterion } from "../evaluation-contracts/default-semantic";
 import { getSupabaseServerClient } from "../supabase/client";
 import { paidLiveEnabled } from "../testing/paid-live";
 import {
   handleCreateEvaluation,
   handleGetEvaluation,
-  handlePreviewEvaluationContracts,
   handleSubmitEvaluation,
 } from "./evaluations";
 
 const describeLive =
   paidLiveEnabled("END_TO_END_LIVE") ? describe : describe.skip;
 const createdIds: string[] = [];
-const criteria = [
+const questions = [
   {
-    columns: ["message"],
     id: "complete",
-    kind: "completeness" as const,
-    question: "Are the submitted messages complete?",
+    question:
+      "What percentage of records contain a message value?",
   },
-  createDefaultSemanticCriterion("relevance"),
+  {
+    id: "relevance",
+    question:
+      "Does each message describe a customer-support request that requires an agent response?",
+  },
 ];
 
 describeLive("live evaluation API flow", () => {
@@ -44,24 +45,11 @@ describeLive("live evaluation API flow", () => {
   });
 
   it(
-    "publishes one safe result per approved contract",
+    "publishes one safe result per plain-text question",
     async () => {
-      const previewResponse =
-        await handlePreviewEvaluationContracts(
-          jsonRequest("/api/evaluation-contracts", { criteria }),
-        );
-      expect(previewResponse.status).toBe(200);
-
-      const preview = (await previewResponse.json()) as {
-        contractSetHash: string;
-        contracts: unknown[];
-      };
-      expect(preview.contracts).toHaveLength(criteria.length);
-
       const createResponse = await handleCreateEvaluation(
         jsonRequest("/api/evaluations", {
-          approvedContractSetHash: preview.contractSetHash,
-          criteria,
+          questions,
           title: "Synthetic end-to-end verification",
         }),
       );
@@ -157,7 +145,7 @@ describeLive("live evaluation API flow", () => {
       expect(buyerView.role).toBe("buyer");
       expect(buyerView.evaluation.status).toBe("complete");
       expect(buyerView.evaluation.results).toHaveLength(
-        criteria.length,
+        questions.length,
       );
       expect(
         buyerView.evaluation.inferenceDiagnostics.requestCount,
@@ -167,7 +155,7 @@ describeLive("live evaluation API flow", () => {
       ).toHaveLength(2);
       expect(
         buyerView.evaluation.results.map((result) => result.questionId),
-      ).toEqual(criteria.map((criterion) => criterion.id));
+      ).toEqual(questions.map((question) => question.id));
       const semanticResult = buyerView.evaluation.results.find(
         (result) => result.questionId === "relevance",
       );

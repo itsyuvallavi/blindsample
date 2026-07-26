@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { CsvSampleError } from "../csv/parse-sample";
-import { compileEvaluationContracts } from "../evaluation-contracts/compile";
-import { hashEvaluationContracts } from "../evaluation-contracts/hash";
+import { hashEvaluationQuestions } from "../evaluation-contracts/hash";
 import { SampleSubmissionError } from "../evaluations/submit";
 import {
   handleCreateEvaluation,
@@ -14,42 +13,32 @@ import {
 const EVALUATION_ID = "5f27e1d9-74ac-4f43-93af-f530c2bb08d0";
 const BUYER_TOKEN = "a".repeat(43);
 const SELLER_TOKEN = "b".repeat(43);
-const CRITERIA = [
+const QUESTIONS = [
   {
-    columns: ["description"],
-    controls: {
-      intermediate: "A general product question.",
-      negative: "A weather report unrelated to support.",
-      positive: "A customer asks an agent to restore account access.",
-    },
     id: "q1",
-    kind: "semantic_relevance",
     question: "Is this useful for support classification?",
-    target: "Customer requests requiring a support agent response.",
   },
 ] as const;
-const CONTRACTS = compileEvaluationContracts(CRITERIA);
-const CONTRACT_SET_HASH = hashEvaluationContracts(CONTRACTS);
+const QUESTION_SET_HASH = hashEvaluationQuestions([...QUESTIONS]);
 
 describe("evaluation API boundary", () => {
-  it("previews contracts without activating a seller link", async () => {
+  it("retires buyer-authored contract previews", async () => {
     const response = await handlePreviewEvaluationContracts(
       jsonRequest("https://example.test/api/evaluation-contracts", {
-        criteria: CRITERIA,
+        criteria: [],
       }),
     );
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      contracts: CONTRACTS,
-      contractSetHash: CONTRACT_SET_HASH,
+    expect(response.status).toBe(410);
+    expect(body).toMatchObject({
+      error: { code: "question_only_workflow" },
     });
     expect(body).not.toHaveProperty("sellerPath");
     expect(body).not.toHaveProperty("buyerPath");
   });
 
-  it("creates separate fragment-only paths after exact approval", async () => {
+  it("creates separate fragment-only paths from plain-text questions", async () => {
     const create = vi.fn().mockResolvedValue({
       buyerToken: BUYER_TOKEN,
       expiresAt: "2026-07-27T01:00:00.000Z",
@@ -58,8 +47,7 @@ describe("evaluation API boundary", () => {
       status: "waiting_for_seller",
     });
     const request = jsonRequest("https://example.test/api/evaluations", {
-      approvedContractSetHash: CONTRACT_SET_HASH,
-      criteria: CRITERIA,
+      questions: QUESTIONS,
       title: "Forecast sample",
     });
 
@@ -78,17 +66,16 @@ describe("evaluation API boundary", () => {
     expect(body).not.toHaveProperty("buyerToken");
     expect(body).not.toHaveProperty("sellerToken");
     expect(create).toHaveBeenCalledWith({
-      contracts: CONTRACTS,
-      contractSetHash: CONTRACT_SET_HASH,
+      questions: QUESTIONS,
+      questionSetHash: QUESTION_SET_HASH,
       title: "Forecast sample",
     });
   });
 
-  it("rejects extra or changed creation fields before persistence", async () => {
+  it("rejects hidden plans or extra creation fields before persistence", async () => {
     const create = vi.fn();
     const request = jsonRequest("https://example.test/api/evaluations", {
-      approvedContractSetHash: CONTRACT_SET_HASH,
-      criteria: CRITERIA,
+      questions: QUESTIONS,
       title: "Forecast sample",
       userId: "not-allowed",
     });
@@ -100,11 +87,11 @@ describe("evaluation API boundary", () => {
 
     const changedResponse = await handleCreateEvaluation(
       jsonRequest("https://example.test/api/evaluations", {
-        approvedContractSetHash: CONTRACT_SET_HASH,
-        criteria: [
+        questions: [
           {
-            ...CRITERIA[0],
-            target: "Changed after review and not approved.",
+            ...QUESTIONS[0],
+            columns: ["message"],
+            target: "Buyer-authored technical target.",
           },
         ],
         title: "Forecast sample",
@@ -114,7 +101,7 @@ describe("evaluation API boundary", () => {
 
     expect(changedResponse.status).toBe(400);
     expect(await changedResponse.json()).toMatchObject({
-      error: { code: "approval_mismatch" },
+      error: { code: "invalid_evaluation" },
     });
     expect(create).not.toHaveBeenCalled();
   });
@@ -122,8 +109,7 @@ describe("evaluation API boundary", () => {
   it("rejects an oversized declared creation body before parsing", async () => {
     const create = vi.fn();
     const request = jsonRequest("https://example.test/api/evaluations", {
-      approvedContractSetHash: CONTRACT_SET_HASH,
-      criteria: CRITERIA,
+      questions: QUESTIONS,
       title: "Forecast sample",
     });
     request.headers.set("Content-Length", "20000");
@@ -138,10 +124,11 @@ describe("evaluation API boundary", () => {
     const getBuyer = vi.fn().mockResolvedValue({
       approvedAt: "2026-07-26T00:00:00.000Z",
       completedAt: null,
-      contracts: CONTRACTS,
       errorCode: null,
       expiresAt: "2026-07-27T01:00:00.000Z",
       id: EVALUATION_ID,
+      plans: null,
+      questions: QUESTIONS,
       results: null,
       sampleColumnCount: null,
       sampleRowCount: null,
@@ -170,9 +157,10 @@ describe("evaluation API boundary", () => {
     const getBuyer = vi.fn().mockResolvedValue(null);
     const getSeller = vi.fn().mockResolvedValue({
       approvedAt: "2026-07-26T00:00:00.000Z",
-      contracts: CONTRACTS,
       expiresAt: "2026-07-27T01:00:00.000Z",
       id: EVALUATION_ID,
+      plans: null,
+      questions: QUESTIONS,
       status: "waiting_for_seller",
       title: "Forecast sample",
     });

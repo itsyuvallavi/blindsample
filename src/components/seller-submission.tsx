@@ -181,18 +181,18 @@ export function SellerSubmission({
         </p>
 
         <div className="question-review">
-          <h2>Approved evaluation contracts</h2>
+          <h2>Questions from the buyer</h2>
           <ol className="review-list">
-            {evaluation.contracts.map((contract, index) => (
-              <li key={contract.questionId}>
+            {evaluation.questions.map((question, index) => (
+              <li key={question.id}>
                 <span className="question-index">
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <span>
-                  <strong>{contract.originalQuestion}</strong>
+                  <strong>{question.question}</strong>
                   <small>
-                    {contract.method} · {contract.normalizedCriterion} ·{" "}
-                    {contract.contractVersion}
+                    BlindSample creates a fresh internal plan from this
+                    question and the submitted CSV.
                   </small>
                 </span>
               </li>
@@ -212,7 +212,8 @@ export function SellerSubmission({
           <h2 className="terminal-title">Submit a CSV sample</h2>
           <p className="terminal-copy">
             1–50 parsed data records, maximum 200 KB and 20 columns. The header
-            is excluded from the record count; no row is truncated.
+            is excluded from the record count. BlindSample reads the actual
+            headers before deciding how each question should be tested.
           </p>
           <p className="cost-boundary">
             Selecting a file is free. 0G tokens are spent only when you start
@@ -293,7 +294,7 @@ export function SellerSubmission({
               ? "Select a CSV sample to continue."
               : !consent
                 ? "Confirm the submitted-data limitation."
-                : "Ready to evaluate all parsed records."}
+                : "Ready to create fresh plans and evaluate all parsed records."}
           </p>
         </div>
       </form>

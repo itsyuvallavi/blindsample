@@ -1,16 +1,9 @@
-import {
-  compileEvaluationContracts,
-  EvaluationContractError,
-} from "../evaluation-contracts/compile";
-import { hashEvaluationContracts } from "../evaluation-contracts/hash";
-import type {
-  CriterionDraft,
-  EvaluationContractPreview,
-} from "../evaluation-contracts/types";
+import { hashEvaluationQuestions } from "../evaluation-contracts/hash";
+import type { EvaluationQuestion } from "../evaluation-plans/types";
 import { PRODUCT_LIMITS } from "../product-contract";
 import type { CreateEvaluationInput } from "../supabase/evaluations";
 
-const HASH_PATTERN = /^[0-9a-f]{64}$/;
+const QUESTION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 export type ValidatedEvaluationDraft = CreateEvaluationInput;
 
@@ -30,78 +23,72 @@ export class EvaluationInputError extends Error {
   }
 }
 
-export function validateContractPreviewDraft(
-  value: unknown,
-): EvaluationContractPreview {
-  if (!isRecord(value) || !hasExactKeys(value, ["criteria"])) {
-    throw new EvaluationInputError(
-      "Contract preview input must contain only criteria.",
-      "invalid_evaluation",
-    );
-  }
-
-  const contracts = compileCriteria(value.criteria);
-
-  return {
-    contracts,
-    contractSetHash: hashEvaluationContracts(contracts),
-  };
-}
-
 export function validateEvaluationDraft(
   value: unknown,
 ): ValidatedEvaluationDraft {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, [
-      "approvedContractSetHash",
-      "criteria",
-      "title",
-    ])
+    !hasExactKeys(value, ["questions", "title"])
   ) {
     throw new EvaluationInputError(
-      "Evaluation input must contain only a title, criteria, and the approved contract-set hash.",
+      "Evaluation input must contain only a title and plain-text questions.",
       "invalid_evaluation",
     );
   }
 
-  if (
-    typeof value.approvedContractSetHash !== "string" ||
-    !HASH_PATTERN.test(value.approvedContractSetHash)
-  ) {
-    throw new EvaluationInputError(
-      "Approve the reviewed evaluation contracts before activation.",
-      "approval_mismatch",
-    );
-  }
-
-  const contracts = compileCriteria(value.criteria);
-  const contractSetHash = hashEvaluationContracts(contracts);
-
-  if (contractSetHash !== value.approvedContractSetHash) {
-    throw new EvaluationInputError(
-      "The criteria changed after contract review. Review and approve the updated contracts.",
-      "approval_mismatch",
-    );
-  }
+  const questions = validateQuestions(value.questions);
 
   return {
-    contracts,
-    contractSetHash,
+    questionSetHash: hashEvaluationQuestions(questions),
+    questions,
     title: validateTitle(value.title),
   };
 }
 
-function compileCriteria(value: unknown) {
-  try {
-    return compileEvaluationContracts(value as CriterionDraft[]);
-  } catch (error) {
-    if (error instanceof EvaluationContractError) {
-      throw new EvaluationInputError(error.message, error.code);
+function validateQuestions(value: unknown): EvaluationQuestion[] {
+  if (
+    !Array.isArray(value) ||
+    value.length < 1 ||
+    value.length > PRODUCT_LIMITS.maximumQuestions
+  ) {
+    throw new EvaluationInputError(
+      `Provide between 1 and ${PRODUCT_LIMITS.maximumQuestions} questions.`,
+      "invalid_evaluation",
+    );
+  }
+
+  const ids = new Set<string>();
+
+  return value.map((item, index) => {
+    if (
+      !isRecord(item) ||
+      !hasExactKeys(item, ["id", "question"]) ||
+      typeof item.id !== "string" ||
+      !QUESTION_ID_PATTERN.test(item.id) ||
+      ids.has(item.id) ||
+      typeof item.question !== "string"
+    ) {
+      throw new EvaluationInputError(
+        `Question ${index + 1} is invalid.`,
+        "invalid_evaluation",
+      );
     }
 
-    throw error;
-  }
+    const question = item.question.trim();
+
+    if (
+      question.length < 1 ||
+      question.length > PRODUCT_LIMITS.maximumQuestionCharacters
+    ) {
+      throw new EvaluationInputError(
+        `Question ${index + 1} must contain 1–${PRODUCT_LIMITS.maximumQuestionCharacters} characters.`,
+        "clarification_required",
+      );
+    }
+
+    ids.add(item.id);
+    return { id: item.id, question };
+  });
 }
 
 function validateTitle(value: unknown) {
