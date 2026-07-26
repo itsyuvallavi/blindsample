@@ -106,6 +106,9 @@ export async function scorePrivateCsvSample(
   }
 }
 
-function outputTokenLimit(questionCount: number, rowCount: number) {
-  return Math.min(4_096, 700 + questionCount * 320 + rowCount * 24);
+export function outputTokenLimit(questionCount: number, rowCount: number) {
+  return Math.min(
+    40_960,
+    (700 + questionCount * 320 + rowCount * 24) * 10,
+  );
 }

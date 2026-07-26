@@ -7,6 +7,7 @@ import {
 } from "../zero-g/client";
 import {
   PrivateScoringError,
+  outputTokenLimit,
   scorePrivateCsvSample,
 } from "./score-sample";
 
@@ -279,6 +280,16 @@ describe("scorePrivateCsvSample", () => {
         ],
       },
     });
+  });
+});
+
+describe("outputTokenLimit", () => {
+  it("provides ten times the previous allowance for a three-question five-row evaluation", () => {
+    expect(outputTokenLimit(3, 5)).toBe(17_800);
+  });
+
+  it("caps unusually large evaluations at the proportionally raised ceiling", () => {
+    expect(outputTokenLimit(20, 2_000)).toBe(40_960);
   });
 });
 
