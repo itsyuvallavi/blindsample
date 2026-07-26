@@ -788,3 +788,16 @@ Acceptance:
 - Local rendered-browser inspection found one name field, plain-text question
   fields, zero selectors, and none of the retired scoring-configuration labels.
 - No live 0G request or paid end-to-end test was run.
+
+Production handoff:
+
+- Vercel deployed commit `4dde769` from `main` to production with status
+  `READY`.
+- Created a completely new production evaluation,
+  `f703eb2f-0b8e-4db7-9321-8901750d0f80`, containing the two BTC acceptance
+  questions. No legacy evaluation contract or link was reused.
+- The rendered handoff exposed separate seller and private-results capability
+  links. Their secret tokens are intentionally not stored in the repository or
+  this log.
+- Link creation made no 0G inference request. No CSV was submitted and no paid
+  end-to-end test was run.
