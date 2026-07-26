@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { readCapabilityToken } from "../browser/capability";
 import { getSupabaseServerClient } from "../supabase/client";
+import { paidLiveEnabled } from "../testing/paid-live";
 import {
   handleCreateEvaluation,
   handleGetEvaluation,
@@ -10,7 +11,7 @@ import {
 } from "./evaluations";
 
 const describeLive =
-  process.env.END_TO_END_LIVE === "1" ? describe : describe.skip;
+  paidLiveEnabled("END_TO_END_LIVE") ? describe : describe.skip;
 const createdIds: string[] = [];
 const criteria = [
   {
@@ -142,6 +143,13 @@ describeLive("live evaluation API flow", () => {
       );
       const buyerView = (await buyerResponse.json()) as {
         evaluation: {
+          inferenceDiagnostics: {
+            requestCount: {
+              made: number;
+              maximum: number;
+            };
+            requests: unknown[];
+          };
           results: Array<{
             evidence: {
               zeroG: {
@@ -162,13 +170,19 @@ describeLive("live evaluation API flow", () => {
         criteria.length,
       );
       expect(
+        buyerView.evaluation.inferenceDiagnostics.requestCount,
+      ).toEqual({ made: 2, maximum: 2 });
+      expect(
+        buyerView.evaluation.inferenceDiagnostics.requests,
+      ).toHaveLength(2);
+      expect(
         buyerView.evaluation.results.map((result) => result.questionId),
       ).toEqual(criteria.map((criterion) => criterion.id));
-      expect(
-        buyerView.evaluation.results.find(
-          (result) => result.questionId === "relevance",
-        )?.evidence.zeroG?.teeVerified,
-      ).toBe(true);
+      const semanticResult = buyerView.evaluation.results.find(
+        (result) => result.questionId === "relevance",
+      );
+      expect(semanticResult?.status).toBe("scored");
+      expect(semanticResult?.evidence.zeroG?.teeVerified).toBe(true);
 
       const sellerResponse = await handleGetEvaluation(
         authorizedRead(created.evaluationId, sellerToken),
