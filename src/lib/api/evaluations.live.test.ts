@@ -39,7 +39,7 @@ type LiveScenario = {
 const describeLive =
   paidLiveEnabled("END_TO_END_LIVE") ? describe.sequential : describe.skip;
 const createdIds: string[] = [];
-const scenarios: LiveScenario[] = [
+const allScenarios: LiveScenario[] = [
   {
     id: "btc-market-quality",
     title: "BTC market quality",
@@ -304,10 +304,36 @@ const scenarios: LiveScenario[] = [
     ],
   },
 ];
+const difficulty = readDifficulty(process.env.E2E_DIFFICULTY);
+const scenarioIdsByDifficulty = {
+  baseline: [
+    "btc-market-quality",
+    "timestamp-integrity",
+    "inventory-validity",
+  ],
+  hard: [
+    "btc-minute-coverage",
+    "support-message-quality",
+    "catalog-quality",
+  ],
+} as const;
+const selectedScenarioIds =
+  difficulty === "full"
+    ? null
+    : new Set<string>(scenarioIdsByDifficulty[difficulty]);
+const scenarios =
+  selectedScenarioIds === null
+    ? allScenarios
+    : allScenarios.filter((scenario) =>
+        selectedScenarioIds.has(scenario.id),
+      );
 let inferenceRequestCount = 0;
+let completedScenarioCount = 0;
+let matchedScoreCount = 0;
 let originalFetch: typeof globalThis.fetch;
+let scoreCheckCount = 0;
 
-describeLive("ten live evaluation API flows", () => {
+describeLive(`${difficulty} live evaluation API flows`, () => {
   beforeAll(() => {
     originalFetch = globalThis.fetch;
     const endpoint = `${getZeroGConfig().baseUrl}/chat/completions`;
@@ -323,7 +349,9 @@ describeLive("ten live evaluation API flows", () => {
       if (url === endpoint) {
         if (inferenceRequestCount >= scenarios.length) {
           throw new Error(
-            "The live E2E request guard blocked inference request 11.",
+            `The live E2E request guard blocked inference request ${
+              scenarios.length + 1
+            }.`,
           );
         }
 
@@ -354,11 +382,23 @@ describeLive("ten live evaluation API flows", () => {
 
   afterAll(() => {
     globalThis.fetch = originalFetch;
+    console.info(
+      JSON.stringify({
+        completedScenarios: completedScenarioCount,
+        difficulty,
+        event: "live_e2e_summary",
+        expectedScoresMatched: matchedScoreCount,
+        expectedScoresTested: scoreCheckCount,
+        inferenceRequests: inferenceRequestCount,
+        maximumInferenceRequests: scenarios.length,
+        scenarios: scenarios.length,
+      }),
+    );
     expect(inferenceRequestCount).toBe(scenarios.length);
   });
 
   it.each(scenarios)(
-    "$id publishes two verified, accurate results",
+    "$id publishes verified, accurate results",
     async (scenario) => {
       const questions = scenario.questions.map((question) => ({
         id: question.id,
@@ -494,7 +534,9 @@ describeLive("ten live evaluation API flows", () => {
           expect(result.score).not.toBeNull();
 
           if (expected && result.score !== null) {
+            scoreCheckCount += 1;
             expectScore(result.score, expected);
+            matchedScoreCount += 1;
           }
 
           return {
@@ -523,10 +565,19 @@ describeLive("ten live evaluation API flows", () => {
       const sellerView = await sellerResponse.json();
       expect(sellerView).toMatchObject({ role: "seller" });
       expect(JSON.stringify(sellerView)).not.toContain('"results"');
+      completedScenarioCount += 1;
     },
     150_000,
   );
 });
+
+function readDifficulty(value: string | undefined) {
+  if (value === "full" || value === "hard") {
+    return value;
+  }
+
+  return "baseline" as const;
+}
 
 function expectScore(score: number, expected: ExpectedScore) {
   if (expected.exact !== undefined) {
