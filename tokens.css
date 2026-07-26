@@ -1,0 +1,80 @@
+:root {
+  --color-paper: oklch(13% 0.014 265);
+  --color-paper-2: oklch(17% 0.016 265);
+  --color-paper-3: oklch(21% 0.018 265);
+  --color-rule: oklch(29% 0.018 265);
+  --color-rule-strong: oklch(42% 0.018 265);
+  --color-muted: oklch(66% 0.012 262);
+  --color-neutral: oklch(76% 0.01 262);
+  --color-ink-2: oklch(87% 0.008 262);
+  --color-ink: oklch(96% 0.006 262);
+  --color-accent: oklch(76% 0.17 50);
+  --color-accent-hover: oklch(82% 0.15 50);
+  --color-accent-2: oklch(68% 0.16 18);
+  --color-accent-soft: oklch(22% 0.04 50);
+  --color-accent-ink: oklch(13% 0.014 265);
+  --color-focus: oklch(86% 0.15 50);
+  --color-glow: oklch(80% 0.16 50 / 0.42);
+  --color-glow-soft: oklch(80% 0.16 50 / 0.16);
+  --color-paper-emit: oklch(76% 0.17 50 / 0.04);
+  --color-rule-blueprint: oklch(96% 0.006 262 / 0.04);
+  --color-error: oklch(72% 0.17 25);
+  --color-error-soft: oklch(22% 0.045 25);
+  --color-success: oklch(77% 0.14 155);
+  --color-success-soft: oklch(22% 0.04 155);
+  --color-disabled: oklch(43% 0.014 265);
+  --color-selection: oklch(38% 0.08 50);
+
+  --font-display: var(--font-instrument-serif), ui-serif, serif;
+  --font-body: var(--font-geist-sans), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-label: var(--font-geist-mono), ui-monospace, monospace;
+  --font-wordmark: var(--font-instrument-serif), ui-serif, serif;
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+  --space-4xl: 9rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.25rem;
+  --text-lg: 1.5625rem;
+  --text-xl: 1.9531rem;
+  --text-2xl: 2.4414rem;
+  --text-3xl: 3.0518rem;
+  --text-display: clamp(2.5rem, 5vw + 0.5rem, 4.75rem);
+  --text-display-small: clamp(2rem, 3.5vw + 0.5rem, 3.5rem);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 200ms;
+  --dur-long: 380ms;
+  --dur-pulse: 4s;
+
+  --rule-thin: 1px;
+  --rule-focus: 2px;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-pill: 999rem;
+
+  --content-wide: 80rem;
+  --content-compact: 56rem;
+  --measure-copy: 62ch;
+  --control-height: 2.75rem;
+  --control-height-large: 3rem;
+
+  --z-base: 1;
+  --z-raised: 10;
+  --z-sticky: 200;
+}

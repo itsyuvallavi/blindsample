@@ -319,3 +319,55 @@ Next:
 
 - Fund the testnet Router balance and rerun both live 0G proofs.
 - Build the buyer creation, seller submission, and buyer results pages.
+
+## 2026-07-26 — Buyer and seller product flow
+
+Completed:
+
+- Replaced the static landing route with the working buyer evaluation form.
+- Added question creation, removal, reordering, limits, loading, errors, and
+  separate buyer and seller capability links.
+- Added the seller page with buyer-question review, bounded CSV selection,
+  explicit privacy consent, safe retry behavior, and no raw-row preview.
+- Added buyer polling with waiting, processing, failed, and complete result
+  states.
+- Added question-level score rendering without an overall score or progress
+  bars.
+- Added the safe 0G trace panel and a qualified explanation of Router-reported
+  TEE verification.
+- Rebuilt the interface around the Hallmark Lumen reference using the
+  Workbench macrostructure, a night-foundry palette, Instrument Serif,
+  blueprint rules, and a purpose-built private-compute topology.
+- Added visible TLS, 0G private TEE, and no-CSV-storage security rails across
+  buyer creation and seller submission.
+- Added no-index metadata, no-referrer headers, and restrictive browser
+  security headers for every route.
+
+Why:
+
+- These three screens turn the verified scoring pipeline into a real
+  two-party product while preserving the agreed privacy and numerical-output
+  contract.
+
+Verified:
+
+- 12 unit-test files and 57 tests pass; three live suites remain opt-in.
+- Lint, typecheck, and production build pass.
+- Browser-tested evaluation creation, fragment-only role links, buyer waiting,
+  seller question review, CSV selection, privacy-consent gating, safe scoring
+  failure, and buyer failure state.
+- The 320, 375, 414, 768, and 1280-pixel layouts have no horizontal overflow
+  or wrapped clickable labels.
+- The primary buyer action is visible within a 1280 by 800 first viewport.
+- The Hallmark slop gates and WCAG contrast pairs pass; the lowest reviewed
+  muted-text pair measures 5.70:1.
+- Browser console checks returned no errors.
+- Private pages emit `noindex, nofollow` and `Referrer-Policy: no-referrer`.
+- Deleted the synthetic browser-test evaluation and confirmed the Supabase
+  table returned to zero rows.
+
+Next:
+
+- Push the UI milestone and verify its Vercel preview.
+- Fund the testnet Router balance, rerun both live proofs, and complete one
+  successful end-to-end browser evaluation.

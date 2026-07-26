@@ -1,0 +1,27 @@
+{
+  "scanned_at": "2026-07-26",
+  "sources": {
+    "package.json": 1785025240,
+    "src/app/globals.css": 1785026542,
+    "src/app/layout.tsx": 1785022306
+  },
+  "findings": {
+    "font_stack": "Geist and Geist Mono via next/font",
+    "palette": "Existing dark zinc foundation with an emerald product accent",
+    "motion": "Motion-cut; no animation library installed",
+    "spacing": "Tailwind utilities; no shared semantic spacing tokens yet",
+    "framework": "Next.js 16 App Router, React 19, Tailwind CSS 4"
+  },
+  "preserve": [
+    "Geist font stack",
+    "Dark product direction",
+    "Next.js App Router and Tailwind CSS implementation"
+  ],
+  "introduce": [
+    "Hallmark macrostructure",
+    "OKLCH design tokens",
+    "4-point semantic spacing scale",
+    "Full interaction-state styling",
+    "Responsive and slop-test verification"
+  ]
+}

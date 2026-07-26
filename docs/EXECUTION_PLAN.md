@@ -479,8 +479,9 @@ Gate:
 
 ### Phase 5 — Build the site
 
-Status: capability-scoped API routes complete on 2026-07-26; browser pages are
-in progress.
+Status: implementation complete on 2026-07-26. Creation, role links, polling,
+upload controls, safe failure, and responsive layouts are browser-verified.
+Successful live scoring remains pending testnet Router funding.
 
 Implementation:
 

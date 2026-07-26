@@ -31,13 +31,29 @@ The first version will support:
 The MVP will not include a marketplace, payments, custom smart contracts,
 0G Storage, key release, or a custom TEE provider.
 
+## Security and privacy boundary
+
+- Browser-to-Vercel and Vercel-to-0G traffic uses HTTPS/TLS encryption.
+- Every scoring request selects 0G `private` trust mode and requires a
+  Router-reported TEE-verified result.
+- Buyer and seller links carry separate high-entropy capabilities in URL
+  fragments; only HMAC hashes are stored.
+- The Vercel function holds the bounded CSV only in memory while scoring. The
+  CSV is never written to Supabase or application logs.
+- Private-link pages use `noindex`, `nofollow`, and `no-referrer`; all routes
+  also emit restrictive framing, content-type, resource, permission, and
+  transport-security headers.
+
+BlindSample does not claim end-to-end encryption: the server function handles
+the sample transiently before sending it to 0G.
+
 ## Current status
 
 The public repository, implementation plan, and reproducible web application
 baseline are complete. The `build/mvp` branch includes:
 
 - Next.js App Router with TypeScript and Node.js 22
-- A minimal BlindSample landing route and health endpoint
+- A Hallmark-based secure evaluation workbench and health endpoint
 - Executable product-contract tests
 - Lint, typecheck, test, and production-build commands
 - One GitHub Actions verification workflow
@@ -46,10 +62,10 @@ The reusable 0G client is implemented and a live private request has returned
 a TEE-verified trace. The Supabase project and private metadata schema are
 deployed, with RLS and browser grants locked down. Live role separation,
 concurrent submission claiming, result persistence, and cleanup are verified.
-The strict CSV and question-to-score pipeline and capability-scoped API routes
-are implemented. The replacement testnet key authenticates successfully; its
-final live proof is waiting for testnet Router balance. The buyer and seller
-pages are the next implementation milestone.
+The strict scoring pipeline, capability-scoped APIs, buyer creation page,
+seller upload page, and buyer results page are implemented. The replacement
+testnet key authenticates successfully; final live scoring and successful
+end-to-end verification are waiting for testnet Router balance.
 
 ## Local development
 
