@@ -11,6 +11,7 @@ import { readCapabilityToken } from "../browser/capability";
 import { getSupabaseServerClient } from "../supabase/client";
 import { paidLiveEnabled } from "../testing/paid-live";
 import { getZeroGConfig } from "../zero-g/client";
+import type { EvaluationResult } from "../scoring/types";
 import {
   handleCreateEvaluation,
   handleGetEvaluation,
@@ -321,12 +322,24 @@ const selectedScenarioIds =
   difficulty === "full"
     ? null
     : new Set<string>(scenarioIdsByDifficulty[difficulty]);
-const scenarios =
+const difficultyScenarios =
   selectedScenarioIds === null
     ? allScenarios
     : allScenarios.filter((scenario) =>
         selectedScenarioIds.has(scenario.id),
       );
+const requestedScenarioId = process.env.E2E_SCENARIO_ID?.trim();
+const scenarios = requestedScenarioId
+  ? difficultyScenarios.filter(
+      (scenario) => scenario.id === requestedScenarioId,
+    )
+  : difficultyScenarios;
+
+if (requestedScenarioId && scenarios.length !== 1) {
+  throw new Error(
+    "E2E_SCENARIO_ID must identify exactly one scenario in the selected difficulty.",
+  );
+}
 let inferenceRequestCount = 0;
 let completedScenarioCount = 0;
 let matchedScoreCount = 0;
@@ -476,6 +489,33 @@ describeLive(`${difficulty} live evaluation API flows`, () => {
         authorizedRead(created.evaluationId, buyerToken),
         created.evaluationId,
       );
+      const { data: stored, error: storedError } =
+        await getSupabaseServerClient()
+          .from("evaluations")
+          .select("results")
+          .eq("id", created.evaluationId)
+          .single();
+
+      if (storedError) {
+        throw new Error("Unable to read safe stored test results.", {
+          cause: storedError,
+        });
+      }
+
+      const safeModelResults = Array.isArray(stored.results)
+        ? (stored.results as unknown as EvaluationResult[]).map(
+            (result) => ({
+              confidence: result.confidence,
+              denominator: result.denominator,
+              evaluationBasis: result.evaluationBasis.unit,
+              explanation: result.explanation,
+              numerator: result.numerator,
+              questionId: result.questionId,
+              score: result.score,
+              status: result.status,
+            }),
+          )
+        : [];
       const buyerView = (await buyerResponse.json()) as {
         evaluation: {
           inferenceDiagnostics: {
@@ -539,6 +579,7 @@ describeLive(`${difficulty} live evaluation API flows`, () => {
           diagnostics:
             buyerView.evaluation.inferenceDiagnostics.requests[0],
           results: reportedResults,
+          safeModelResults,
           scenario: scenario.id,
         }),
       );
