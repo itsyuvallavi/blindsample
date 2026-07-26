@@ -515,3 +515,30 @@ Blocked:
 Needed:
 
 - Top up the current 0G testnet Router balance, then run `npm run test:e2e`.
+
+## 2026-07-26 — Mainnet semantic diagnostic
+
+Completed:
+
+- Consolidated runtime configuration around one server-only 0G inference key.
+- Selected mainnet `glm-5.2` after the Router API rejected the dashboard-listed
+  OGM models with HTTP 403 and omitted them from the authenticated model
+  catalog.
+- Ran the hard-capped original-pass semantic diagnostic with no retry.
+- Received a TEE-verified response that passed strict JSON parsing, returned
+  all five classifications, and passed every calibration control.
+- Updated the checked-in environment example and client fallback to the
+  verified mainnet Router configuration.
+
+Verified:
+
+- The diagnostic made exactly one successful inference request.
+- The full local suite passes: 98 tests passed and five opt-in live suites
+  remained skipped.
+- TypeScript and lint pass.
+
+Remaining:
+
+- Run the two-pass semantic acceptance test only under a separately approved
+  two-request budget.
+- Run the browser evaluation after restarting the local development server.
