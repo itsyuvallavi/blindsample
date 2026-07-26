@@ -119,6 +119,78 @@ describe("evaluation prompt contract", () => {
     ).toBe(false);
   });
 
+  it("uses one globally scored schema when every question is answerable", () => {
+    const questions = [
+      {
+        id: "complete",
+        question:
+          "What percentage of id values are non-empty?",
+      },
+      {
+        id: "relevant",
+        question: "Is each description relevant?",
+      },
+    ];
+    const tool = buildEvaluationFunctionTool({
+      columns: SAMPLE.columns,
+      evaluationId: "evaluation-2",
+      questions,
+      rowCount: SAMPLE.rowCount,
+    });
+    const parameters = tool.parameters as {
+      properties: {
+        results: {
+          items: {
+            properties: {
+              denominator: { minimum: number; type: string };
+              numerator: { minimum: number; type: string };
+              question_id: { enum: string[] };
+              score: {
+                maximum: number;
+                minimum: number;
+                type: string;
+              };
+              status: { enum: string[] };
+            };
+          };
+        };
+      };
+    };
+    const resultSchema = parameters.properties.results.items;
+
+    expect(resultSchema.properties.question_id.enum).toEqual([
+      "complete",
+      "relevant",
+    ]);
+    expect(resultSchema.properties.status.enum).toEqual(["scored"]);
+    expect(resultSchema.properties.score).toEqual({
+      maximum: 100,
+      minimum: 0,
+      type: "integer",
+    });
+    expect(resultSchema.properties.numerator).toEqual({
+      minimum: 0,
+      type: "integer",
+    });
+    expect(resultSchema.properties.denominator).toEqual({
+      minimum: 1,
+      type: "integer",
+    });
+
+    const messages = buildEvaluationMessages({
+      evaluationId: "evaluation-2",
+      questions,
+      sample: SAMPLE,
+    });
+    const userPayload = JSON.parse(messages[1].content) as {
+      required_output: { status_values: string[] };
+    };
+
+    expect(userPayload.required_output.status_values).toEqual([
+      "scored",
+    ]);
+  });
+
   it("tells the model the exact tool, order, count, and status literals", () => {
     const messages = buildEvaluationMessages({
       evaluationId: "evaluation-1",

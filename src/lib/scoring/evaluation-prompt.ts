@@ -13,6 +13,11 @@ export function buildEvaluationMessages(input: {
   questions: EvaluationQuestion[];
   sample: ParsedCsvSample;
 }): ZeroGMessage[] {
+  const requiredStatusValues = input.questions.every((question) =>
+    requiresScoredResult(question, input.sample.columns),
+  )
+    ? ["scored"]
+    : ["scored", "unable"];
   const records = input.sample.rows.map((row, index) => ({
     row_number: index + 1,
     values: Object.fromEntries(
@@ -81,7 +86,7 @@ export function buildEvaluationMessages(input: {
             (question) => question.id,
           ),
           result_count: input.questions.length,
-          status_values: ["scored", "unable"],
+          status_values: requiredStatusValues,
           tool_name: EVALUATION_TOOL_NAME,
         },
       }),
@@ -95,6 +100,27 @@ export function buildEvaluationFunctionTool(input: {
   questions: EvaluationQuestion[];
   rowCount: number;
 }): ZeroGFunctionTool {
+  const everyQuestionRequiresScore = input.questions.every(
+    (question) => requiresScoredResult(question, input.columns),
+  );
+  const resultItems = everyQuestionRequiresScore
+    ? resultSchema(
+        input.questions.map((question) => question.id),
+        ["scored"],
+        input.rowCount,
+      )
+    : {
+        oneOf: input.questions.map((question) =>
+          resultSchema(
+            [question.id],
+            requiresScoredResult(question, input.columns)
+              ? ["scored"]
+              : ["scored", "unable"],
+            input.rowCount,
+          ),
+        ),
+      };
+
   return {
     description:
       "Submit the complete atomic BlindSample result set for every supplied buyer question.",
@@ -107,15 +133,7 @@ export function buildEvaluationFunctionTool(input: {
           type: "string",
         },
         results: {
-          items: {
-            oneOf: input.questions.map((question) =>
-              resultSchema(
-                question,
-                input.columns,
-                input.rowCount,
-              ),
-            ),
-          },
+          items: resultItems,
           maxItems: input.questions.length,
           minItems: input.questions.length,
           type: "array",
@@ -151,13 +169,12 @@ export function requiresScoredResult(
 }
 
 function resultSchema(
-  question: EvaluationQuestion,
-  columns: string[],
+  questionIds: string[],
+  statusValues: string[],
   rowCount: number,
 ) {
-  const statusValues = requiresScoredResult(question, columns)
-    ? ["scored"]
-    : ["scored", "unable"];
+  const scoreRequired =
+    statusValues.length === 1 && statusValues[0] === "scored";
 
   return {
     additionalProperties: false,
@@ -167,7 +184,9 @@ function resultSchema(
         minimum: 0,
         type: "integer",
       },
-      denominator: nullableInteger(1),
+      denominator: scoreRequired
+        ? integerRange(1)
+        : nullableInteger(1),
       evaluation_basis: {
         additionalProperties: false,
         properties: {
@@ -239,12 +258,16 @@ function resultSchema(
         minLength: 1,
         type: "string",
       },
-      numerator: nullableInteger(0),
+      numerator: scoreRequired
+        ? integerRange(0)
+        : nullableInteger(0),
       question_id: {
-        enum: [question.id],
+        enum: questionIds,
         type: "string",
       },
-      score: nullableInteger(0, 100),
+      score: scoreRequired
+        ? integerRange(0, 100)
+        : nullableInteger(0, 100),
       score_definition: {
         additionalProperties: false,
         properties: {
@@ -314,5 +337,13 @@ function nullableInteger(minimum: number, maximum?: number) {
       },
       { type: "null" },
     ],
+  };
+}
+
+function integerRange(minimum: number, maximum?: number) {
+  return {
+    ...(maximum === undefined ? {} : { maximum }),
+    minimum,
+    type: "integer",
   };
 }
