@@ -10,6 +10,13 @@ export type EvaluationStatus =
 
 export type SellerEvaluation = {
   approvedAt: string;
+  completion: {
+    privateInferenceUsed: boolean;
+    questionCount: number;
+    rowCount: number;
+    scoredCount: number;
+    unableCount: number;
+  } | null;
   expiresAt: string;
   failure: {
     code: string | null;

@@ -123,6 +123,7 @@ describe("evaluation API boundary", () => {
   it("returns only the buyer view for a buyer capability", async () => {
     const getBuyer = vi.fn().mockResolvedValue({
       approvedAt: "2026-07-26T00:00:00.000Z",
+      completion: null,
       completedAt: null,
       errorCode: null,
       expiresAt: "2026-07-27T01:00:00.000Z",
@@ -161,6 +162,7 @@ describe("evaluation API boundary", () => {
     const getBuyer = vi.fn().mockResolvedValue(null);
     const getSeller = vi.fn().mockResolvedValue({
       approvedAt: "2026-07-26T00:00:00.000Z",
+      completion: null,
       expiresAt: "2026-07-27T01:00:00.000Z",
       failure: {
         code: null,

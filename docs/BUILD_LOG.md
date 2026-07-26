@@ -967,6 +967,9 @@ Planning and implementation:
 
 - Commit `e5247a4` contains the seller flow, buyer results, privacy boundary,
   responsive styles, and regression tests.
+- A follow-up acceptance slice adds the seller-only completion summary:
+  records evaluated, questions completed, unable count, and private-inference
+  use. These values are never added to the buyer view.
 - No live 0G request was made.
 
 Acceptance:

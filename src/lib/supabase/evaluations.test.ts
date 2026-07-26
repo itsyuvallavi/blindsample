@@ -66,7 +66,7 @@ describe("buyer result privacy boundary", () => {
     });
 
     expect(result.explanation).toBe(
-      "0G could not safely answer this question from the submitted sample.",
+      "0G could not identify enough relevant evidence in the submitted sample to score this question safely.",
     );
     expect(JSON.stringify(result)).not.toContain("private value");
   });

@@ -58,6 +58,13 @@ export type CreatedEvaluation = {
 
 export type SellerEvaluationView = {
   approvedAt: string;
+  completion: {
+    privateInferenceUsed: boolean;
+    questionCount: number;
+    rowCount: number;
+    scoredCount: number;
+    unableCount: number;
+  } | null;
   expiresAt: string;
   failure: {
     code: string | null;
@@ -166,7 +173,7 @@ export async function getSellerEvaluation(
   const { data, error } = await client
     .from("evaluations")
     .select(
-      "id, title, status, contracts, approved_at, expires_at, error_code, inference_diagnostics",
+      "id, title, status, contracts, approved_at, expires_at, error_code, inference_diagnostics, results, sample_row_count",
     )
     .eq("id", id)
     .eq("environment", environment)
@@ -182,15 +189,36 @@ export async function getSellerEvaluation(
     return null;
   }
 
+  const questions = readStoredQuestions(data.contracts);
+  const storedResults = data.results as EvaluationResult[] | null;
+  const completion =
+    data.status === "complete" &&
+    storedResults &&
+    data.sample_row_count !== null
+      ? {
+          privateInferenceUsed:
+            readRequestCount(data.inference_diagnostics) === 1,
+          questionCount: questions.length,
+          rowCount: data.sample_row_count,
+          scoredCount: storedResults.filter(
+            (result) => result.status === "scored",
+          ).length,
+          unableCount: storedResults.filter(
+            (result) => result.status === "unable",
+          ).length,
+        }
+      : null;
+
   return {
     approvedAt: data.approved_at,
+    completion,
     expiresAt: data.expires_at,
     failure: {
       code: data.error_code,
       requestMade: readRequestCount(data.inference_diagnostics) > 0,
     },
     id: data.id,
-    questions: readStoredQuestions(data.contracts),
+    questions,
     status: data.status as EvaluationStatus,
     title: data.title,
   };
@@ -240,6 +268,7 @@ export async function getBuyerEvaluation(
 
   return {
     approvedAt: data.approved_at,
+    completion: null,
     completedAt: data.completed_at,
     errorCode: data.error_code,
     expiresAt: data.expires_at,
@@ -453,7 +482,7 @@ export function toBuyerQuestionResult(
       confidence: result.confidence,
       evaluatedBy: "0g",
       explanation:
-        "0G could not safely answer this question from the submitted sample.",
+        "0G could not identify enough relevant evidence in the submitted sample to score this question safely.",
       questionId: result.questionId,
       score: null,
       status: "unable",

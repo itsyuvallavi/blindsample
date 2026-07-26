@@ -232,10 +232,13 @@ export function SellerSubmission({
         description="The buyer can now view one 0G result for each question. Your CSV was not stored."
       >
         <StatusMessage tone="success">
-          {submittedRowCount !== null
-            ? `${submittedRowCount} submitted records were checked against ${evaluation.questions.length} buyer question${evaluation.questions.length === 1 ? "" : "s"}.`
-            : `${evaluation.questions.length} buyer question${evaluation.questions.length === 1 ? " was" : "s were"} evaluated in one private request.`}
+          The buyer’s result link is ready. You can close this page.
         </StatusMessage>
+        <CompletionFacts
+          completion={evaluation.completion}
+          fallbackQuestionCount={evaluation.questions.length}
+          fallbackRowCount={submittedRowCount}
+        />
       </PageIntro>
     );
   }
@@ -278,7 +281,10 @@ export function SellerSubmission({
       </header>
 
       <section className="buyer-question-card" aria-labelledby="buyer-questions">
-        <h2 id="buyer-questions">What the buyer wants to know</h2>
+        <h2 id="buyer-questions">
+          What the buyer wants to know
+          <span>{evaluation.questions.length}</span>
+        </h2>
         <ol>
           {evaluation.questions.map((question, index) => (
             <li key={question.id}>
@@ -489,6 +495,43 @@ function ProcessingSteps() {
         <li data-state="queued">Verifying complete results</li>
       </ol>
     </div>
+  );
+}
+
+function CompletionFacts({
+  completion,
+  fallbackQuestionCount,
+  fallbackRowCount,
+}: {
+  completion: SellerEvaluation["completion"];
+  fallbackQuestionCount: number;
+  fallbackRowCount: number | null;
+}) {
+  const facts = [
+    ["Records evaluated", completion?.rowCount ?? fallbackRowCount],
+    [
+      "Questions completed",
+      completion?.questionCount ?? fallbackQuestionCount,
+    ],
+    ["No score produced", completion?.unableCount],
+    [
+      "Private inference",
+      completion?.privateInferenceUsed === false ? "No" : "Used",
+    ],
+  ].filter(
+    (fact): fact is [string, number | string] =>
+      fact[1] !== null && fact[1] !== undefined,
+  );
+
+  return (
+    <dl className="seller-completion-facts">
+      {facts.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

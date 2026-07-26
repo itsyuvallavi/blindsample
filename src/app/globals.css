@@ -1092,6 +1092,25 @@ select.text-input {
   font-size: var(--text-md);
 }
 
+.buyer-question-card h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.buyer-question-card h2 span {
+  display: grid;
+  min-width: var(--space-xl);
+  height: var(--space-xl);
+  place-items: center;
+  border: var(--rule-thin) solid var(--color-rule-strong);
+  border-radius: 50%;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
 .buyer-question-card ol {
   display: grid;
   gap: var(--rule-thin);
@@ -1372,6 +1391,30 @@ select.text-input {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-align: center;
+}
+
+.seller-completion-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rule-thin);
+  margin: var(--space-md) 0 0;
+  background: var(--color-rule);
+}
+
+.seller-completion-facts > div {
+  background: var(--color-paper-2);
+  padding: var(--space-md);
+}
+
+.seller-completion-facts dt {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.seller-completion-facts dd {
+  margin: var(--space-2xs) 0 0;
+  color: var(--color-ink-2);
 }
 
 .role-state {
@@ -1688,6 +1731,10 @@ select.text-input {
   }
 
   .preflight-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-completion-facts {
     grid-template-columns: 1fr;
   }
 
