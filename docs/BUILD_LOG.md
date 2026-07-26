@@ -986,3 +986,27 @@ Acceptance:
   returned a blank capture even though the rendered DOM remained populated.
 - The temporary evaluation used for browser verification was deleted from
   Supabase and a follow-up query confirmed zero matching rows.
+
+## 2026-07-26 — 0G output allowance increase
+
+Inspection:
+
+- A verified one-request evaluation with three questions and five rows received
+  HTTP 200 from 0G but ended with `finish_reason: length`.
+- The request used its full 1,780-token output allowance, leaving the strict
+  JSON response incomplete and therefore correctly unpublished.
+
+Mitigation:
+
+- Increased the existing output-token formula and hard ceiling by 10×.
+- The same three-question, five-row evaluation now permits 17,800 output
+  tokens; the ceiling is now 40,960.
+- Preserved the atomic one-request rule. No retries or additional inference
+  requests were added.
+
+Acceptance:
+
+- Added regression coverage for the 17,800-token case and the 40,960-token
+  ceiling.
+- Targeted tests, TypeScript, and lint pass.
+- No live or paid 0G request was made.
