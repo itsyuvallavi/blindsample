@@ -592,11 +592,21 @@ function fileIssue(code: SampleError["code"]) {
     invalid_csv:
       "Check that every row has the same number of cells and every header is unique, then choose the CSV again.",
     invalid_encoding:
-      "Export the CSV using UTF-8 encoding, then choose it again.",
+      "Export the text sample using UTF-8 encoding, then choose it again.",
+    invalid_jsonl:
+      "Check that every JSONL line is one valid object with unambiguous keys.",
+    invalid_parquet:
+      "Export the Parquet sample again and check that its schema is valid.",
+    normalized_sample_too_large:
+      "Reduce the decoded content in this sample.",
     sample_too_large:
-      "Choose a CSV no larger than 200 KB.",
+      "Choose a sample no larger than 200 KB.",
     too_many_columns: `Reduce the sample to ${PRODUCT_LIMITS.maximumColumns} columns or fewer.`,
     too_many_rows: `Reduce the sample to ${PRODUCT_LIMITS.maximumRows} records or fewer.`,
+    unsupported_format:
+      "Choose a CSV, JSONL, NDJSON, or Parquet sample.",
+    unsupported_parquet:
+      "Use a flat Parquet table with supported primitive columns.",
   }[code];
 
   return `${action} No 0G request was made.`;
