@@ -20,5 +20,11 @@ describe("paidLiveEnabled", () => {
         SCORING_LIVE: "1",
       }),
     ).toBe(true);
+    expect(
+      paidLiveEnabled("SEMANTIC_DIAGNOSTIC_LIVE", {
+        ALLOW_PAID_0G: "1",
+        SEMANTIC_DIAGNOSTIC_LIVE: "1",
+      }),
+    ).toBe(true);
   });
 });

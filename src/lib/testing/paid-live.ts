@@ -1,7 +1,11 @@
 const PAID_APPROVAL_FLAG = "ALLOW_PAID_0G";
 
 export function paidLiveEnabled(
-  suiteFlag: "END_TO_END_LIVE" | "SCORING_LIVE" | "ZERO_G_LIVE",
+  suiteFlag:
+    | "END_TO_END_LIVE"
+    | "SCORING_LIVE"
+    | "SEMANTIC_DIAGNOSTIC_LIVE"
+    | "ZERO_G_LIVE",
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ) {
   return (

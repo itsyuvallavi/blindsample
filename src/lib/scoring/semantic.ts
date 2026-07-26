@@ -35,6 +35,10 @@ export const SEMANTIC_RELIABILITY = {
   requiredControlRatio: 1,
 } as const;
 
+export function semanticOutputTokenLimit(recordCount: number) {
+  return Math.min(2_048, 320 + recordCount * 28);
+}
+
 const RUBRIC_POINTS: Record<
   Exclude<RubricLabel, "insufficient">,
   number
@@ -113,13 +117,13 @@ export async function evaluateSemanticContract(
     0,
     Math.min(SEMANTIC_RELIABILITY.repeatSubsetSize, records.length),
   );
-  const controls = semanticControls(contract);
+  const controls = prepareSemanticControls(contract);
   const requestCompletion =
     options.requestCompletion ??
     ((messages) =>
       requestVerifiedPrivateCompletion(messages, {
         disableThinking: true,
-        maxTokens: Math.min(2_048, 320 + records.length * 28),
+        maxTokens: semanticOutputTokenLimit(records.length),
         responseFormat: "json_object",
       }));
   const guardedRequest = async (
@@ -143,7 +147,7 @@ export async function evaluateSemanticContract(
     "original",
   );
   const traces = [verifiedTrace(original)];
-  const parsedOriginal = parseCompletion(
+  const parsedOriginal = parseSemanticCompletion(
     original,
     records.map((record) => record.recordId),
     controls.map((control) => control.controlId),
@@ -154,7 +158,7 @@ export async function evaluateSemanticContract(
     return unableResult(
       contract,
       sample,
-      failureReason(parsedOriginal.failure.kind),
+      semanticFailureReason(parsedOriginal.failure.kind),
       0,
       0,
       traces,
@@ -175,7 +179,7 @@ export async function evaluateSemanticContract(
     "repeat",
   );
   traces.push(verifiedTrace(repeated));
-  const parsedRepeated = parseCompletion(
+  const parsedRepeated = parseSemanticCompletion(
     repeated,
     repeatRecords.map((record) => record.recordId),
     controls.map((control) => control.controlId),
@@ -186,7 +190,7 @@ export async function evaluateSemanticContract(
     return unableResult(
       contract,
       sample,
-      failureReason(parsedRepeated.failure.kind),
+      semanticFailureReason(parsedRepeated.failure.kind),
       0,
       0,
       traces,
@@ -351,7 +355,7 @@ export function prepareSemanticRecords(
     }));
 }
 
-function semanticControls(
+export function prepareSemanticControls(
   contract: EvaluationContract,
 ): SemanticControl[] {
   if (contract.criterion.kind !== "semantic_relevance") {
@@ -500,7 +504,7 @@ function evidenceFor(
   };
 }
 
-function parseCompletion(
+export function parseSemanticCompletion(
   completion: VerifiedCompletion,
   recordIds: string[],
   controlIds: string[],
@@ -538,7 +542,7 @@ function parseCompletion(
   }
 }
 
-function failureReason(
+export function semanticFailureReason(
   kind: SemanticOutputFailure["kind"],
 ): UnableToScoreReason {
   switch (kind) {
