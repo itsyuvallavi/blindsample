@@ -195,6 +195,19 @@ describe("scorePrivateCsvSample", () => {
         ],
       }),
     ],
+    [
+      "non-text explanation",
+      completion({
+        evaluation_id: "evaluation-1",
+        results: [
+          {
+            ...validOutput().results[0],
+            explanation: 42,
+          },
+          validOutput().results[1],
+        ],
+      }),
+    ],
   ])("rejects %s without returning partial scores", async (_, response) => {
     const requestCompletion = vi.fn().mockResolvedValue(response);
 
@@ -251,6 +264,30 @@ describe("scorePrivateCsvSample", () => {
     expect(JSON.stringify(result.results)).not.toContain(
       "unit_judgments",
     );
+  });
+
+  it("bounds verbose non-authoritative model prose", async () => {
+    const output = validOutput();
+    output.results[1] = {
+      ...output.results[1],
+      explanation: "x".repeat(1_000),
+    };
+
+    const result = await scorePrivateCsvSample(
+      {
+        evaluationId: "evaluation-1",
+        questions: QUESTIONS,
+        sample: SAMPLE,
+      },
+      {
+        requestCompletion: vi
+          .fn()
+          .mockResolvedValue(completion(output)),
+      },
+    );
+
+    expect(result.results[1].explanation).toHaveLength(240);
+    expect(result.results[1].explanation.endsWith("…")).toBe(true);
   });
 
   it("redacts copied private cell values before returning results", async () => {

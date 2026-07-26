@@ -57,7 +57,9 @@ export function buildEvaluationMessages(input: {
         "Use an integer score from 0 through 100. When unit_judgments is non-empty, set numerator to the number of true values, denominator to the array length, and score to round(numerator / denominator * 100), with .5 rounded upward. The application will independently derive those three numbers from your judgments.",
         "When a question genuinely cannot be answered safely, return status unable, score null, numerator null, denominator null, and an empty unit_judgments array.",
         "Evidence may contain only 1-based row numbers, aggregate counts, and short sanitized reasons. Never copy or quote a dataset cell value.",
+        "For count-based results, return empty row_numbers, aggregate_counts, and reasons arrays because unit_judgments is the authoritative evidence and the application will construct safe aggregates.",
         "Explanations must remain aggregate and must not quote dataset cell values.",
+        "Keep each score-definition sentence under 160 characters, evaluation_basis.description under 200 characters, and explanation under 240 characters.",
         "confidence is an integer from 0 through 100.",
         "Use only these evaluation_basis.unit values: records, expected_intervals, fields, events, holistic_rubric.",
         "The top-level object must have exactly evaluation_id and results.",
@@ -198,7 +200,7 @@ function resultSchema(
         additionalProperties: false,
         properties: {
           description: {
-            maxLength: 400,
+            maxLength: 200,
             minLength: 1,
             type: "string",
           },
@@ -225,7 +227,7 @@ function resultSchema(
               properties: {
                 count: { minimum: 0, type: "integer" },
                 label: {
-                  maxLength: 120,
+                  maxLength: 80,
                   minLength: 1,
                   type: "string",
                 },
@@ -237,7 +239,7 @@ function resultSchema(
           },
           reasons: {
             items: {
-              maxLength: 240,
+              maxLength: 120,
               minLength: 1,
               type: "string",
             },
@@ -261,7 +263,7 @@ function resultSchema(
         type: "object",
       },
       explanation: {
-        maxLength: 800,
+        maxLength: 240,
         minLength: 1,
         type: "string",
       },
@@ -279,12 +281,12 @@ function resultSchema(
         additionalProperties: false,
         properties: {
           one_hundred: {
-            maxLength: 400,
+            maxLength: 160,
             minLength: 1,
             type: "string",
           },
           zero: {
-            maxLength: 400,
+            maxLength: 160,
             minLength: 1,
             type: "string",
           },

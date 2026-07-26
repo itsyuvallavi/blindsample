@@ -168,7 +168,7 @@ function parseResult(
     value.explanation,
     "explanation",
     forbiddenValues,
-    800,
+    240,
   );
   const modelEvidence = readEvidence(
     value.evidence,
@@ -426,13 +426,13 @@ function readScoreDefinition(
       value.one_hundred,
       "score definition",
       forbiddenValues,
-      400,
+      160,
     ),
     zero: readSafeText(
       value.zero,
       "score definition",
       forbiddenValues,
-      400,
+      160,
     ),
   };
 }
@@ -458,7 +458,7 @@ function readEvaluationBasis(
       value.description,
       "evaluation basis",
       forbiddenValues,
-      400,
+      200,
     ),
     unit: value.unit as EvaluationBasisUnit,
   };
@@ -501,7 +501,7 @@ function readEvidence(
     readAggregateCount(item, forbiddenValues),
   );
   const reasons = value.reasons.map((reason) =>
-    readSafeText(reason, "evidence reason", forbiddenValues, 240),
+    readSafeText(reason, "evidence reason", forbiddenValues, 120),
   );
 
   return { aggregateCounts, reasons, rowNumbers };
@@ -527,7 +527,7 @@ function readAggregateCount(
       value.label,
       "aggregate count label",
       forbiddenValues,
-      120,
+      80,
     ),
   };
 }
@@ -547,17 +547,14 @@ function readSafeText(
 
   const text = value.trim();
 
-  if (text.length < 1 || text.length > maximumLength) {
-    throw new EvaluationOutputError(
-      "invalid_text",
-      `The ${field} has an invalid length.`,
-    );
-  }
-
-  const normalized = text.toLocaleLowerCase("en-US");
+  const safeSource =
+    text.length > 0
+      ? text
+      : `No ${field} was supplied by the private evaluator.`;
+  const normalized = safeSource.toLocaleLowerCase("en-US");
 
   if (!forbiddenValues.some((cell) => normalized.includes(cell))) {
-    return text;
+    return boundText(safeSource, maximumLength);
   }
 
   const redacted = forbiddenValues
@@ -571,12 +568,10 @@ function readSafeText(
           new RegExp(escapeRegExp(cell), "giu"),
           "[private value]",
         ),
-      text,
+      safeSource,
     );
 
-  return redacted.length <= maximumLength
-    ? redacted
-    : `The ${field} contained private sample details that were redacted.`;
+  return boundText(redacted, maximumLength);
 }
 
 function privateCellValues(
@@ -641,4 +636,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function boundText(value: string, maximumLength: number) {
+  if (value.length <= maximumLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maximumLength - 1).trimEnd()}…`;
 }
