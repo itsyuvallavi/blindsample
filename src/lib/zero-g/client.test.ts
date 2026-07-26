@@ -260,6 +260,122 @@ describe("requestVerifiedPrivateCompletion", () => {
     });
   });
 
+  it("forces one named function and parses only its JSON arguments", async () => {
+    const argumentsJson =
+      '{"evaluation_id":"evaluation-1","results":[]}';
+    const functionTool = {
+      description: "Submit one evaluation.",
+      name: "submit_blindsample_evaluation",
+      parameters: {
+        additionalProperties: false,
+        properties: {
+          evaluation_id: { type: "string" },
+          results: { type: "array" },
+        },
+        required: ["evaluation_id", "results"],
+        type: "object",
+      },
+    };
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      response({
+        choices: [
+          {
+            finish_reason: "tool_calls",
+            message: {
+              content: null,
+              tool_calls: [
+                {
+                  function: {
+                    arguments: argumentsJson,
+                    name: functionTool.name,
+                  },
+                  type: "function",
+                },
+              ],
+            },
+          },
+        ],
+        x_0g_trace: {
+          provider: "0xprovider",
+          request_id: "request-tool",
+          tee_verified: true,
+        },
+      }),
+    );
+
+    const result = await requestVerifiedPrivateCompletion(
+      [{ content: "Evaluate.", role: "user" }],
+      {
+        config: { ...TEST_CONFIG, model: "glm-5.2" },
+        disableThinking: true,
+        fetchImplementation,
+        functionTool,
+      },
+    );
+    const body = JSON.parse(
+      String(fetchImplementation.mock.calls[0]?.[1]?.body),
+    ) as {
+      tool_choice?: unknown;
+      tools?: unknown;
+    };
+
+    expect(result.content).toBe(argumentsJson);
+    expect(result.diagnostics[0]?.responseLength).toBe(
+      argumentsJson.length,
+    );
+    expect(body.tool_choice).toEqual({
+      function: { name: functionTool.name },
+      type: "function",
+    });
+    expect(body.tools).toEqual([
+      { function: functionTool, type: "function" },
+    ]);
+  });
+
+  it("rejects assistant text when a function result is required", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      response({
+        choices: [{ message: { content: "private model text" } }],
+        x_0g_trace: {
+          provider: "0xprovider",
+          request_id: "request-missing-tool",
+          tee_verified: true,
+        },
+      }),
+    );
+
+    const rejected = requestVerifiedPrivateCompletion(
+      [{ content: "Evaluate.", role: "user" }],
+      {
+        config: TEST_CONFIG,
+        fetchImplementation,
+        functionTool: {
+          description: "Submit one evaluation.",
+          name: "submit_blindsample_evaluation",
+          parameters: { type: "object" },
+        },
+      },
+    );
+
+    await expect(rejected).rejects.toMatchObject({
+      code: "invalid_response",
+      diagnostics: [
+        expect.objectContaining({
+          outcome: "invalid_response",
+          responseLength: null,
+        }),
+      ],
+    });
+
+    try {
+      await rejected;
+    } catch (error) {
+      expect(JSON.stringify(error)).not.toContain(
+        "private model text",
+      );
+    }
+  });
+
   it("captures safe failure metadata without retaining response bodies", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       new Response("private provider error", { status: 400 }),

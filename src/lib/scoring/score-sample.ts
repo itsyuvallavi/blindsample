@@ -5,7 +5,10 @@ import {
   type VerifiedCompletion,
   type ZeroGMessage,
 } from "../zero-g/client";
-import { buildEvaluationMessages } from "./evaluation-prompt";
+import {
+  buildEvaluationFunctionTool,
+  buildEvaluationMessages,
+} from "./evaluation-prompt";
 import {
   EvaluationOutputError,
   parseEvaluationOutput,
@@ -67,11 +70,15 @@ export async function scorePrivateCsvSample(
     ((requestMessages) =>
       requestVerifiedPrivateCompletion(requestMessages, {
         disableThinking: true,
+        functionTool: buildEvaluationFunctionTool({
+          evaluationId: input.evaluationId,
+          questions: input.questions,
+          rowCount: input.sample.rowCount,
+        }),
         maxTokens: outputTokenLimit(
           input.questions.length,
           input.sample.rowCount,
         ),
-        responseFormat: "json_object",
       }));
   let completion: VerifiedCompletion;
 

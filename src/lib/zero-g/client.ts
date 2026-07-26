@@ -7,6 +7,12 @@ export type ZeroGMessage = {
   role: "assistant" | "system" | "user";
 };
 
+export type ZeroGFunctionTool = {
+  description: string;
+  name: string;
+  parameters: Record<string, unknown>;
+};
+
 export type ZeroGTrace = {
   model: string;
   provider: string;
@@ -56,6 +62,7 @@ type RequestOptions = {
   config?: ZeroGClientConfig;
   disableThinking?: boolean;
   fetchImplementation?: typeof fetch;
+  functionTool?: ZeroGFunctionTool;
   maxTokens?: number;
   responseFormat?: "json_object";
   signal?: AbortSignal;
@@ -70,6 +77,13 @@ type RouterResponse = {
         reasoning_content?: unknown;
       };
       reasoning_content?: unknown;
+      tool_calls?: Array<{
+        function?: {
+          arguments?: unknown;
+          name?: unknown;
+        };
+        type?: unknown;
+      }>;
     };
   }>;
   model?: unknown;
@@ -191,6 +205,22 @@ export async function requestVerifiedPrivateCompletion(
           max_tokens: options.maxTokens ?? 256,
           messages,
           model: config.model,
+          ...(options.functionTool
+            ? {
+                tool_choice: {
+                  function: {
+                    name: options.functionTool.name,
+                  },
+                  type: "function",
+                },
+                tools: [
+                  {
+                    function: options.functionTool,
+                    type: "function",
+                  },
+                ],
+              }
+            : {}),
           ...(options.responseFormat
             ? {
                 response_format: {
@@ -272,6 +302,7 @@ export async function requestVerifiedPrivateCompletion(
     attempt,
     elapsedMs(startedAt),
     response.status,
+    options.functionTool?.name,
   );
 }
 
@@ -282,8 +313,9 @@ function parseVerifiedResponse(
   attempt: number,
   durationMs: number,
   httpStatus: number,
+  expectedToolName?: string,
 ): VerifiedCompletion {
-  const content = payload.choices?.[0]?.message?.content;
+  const content = completionContent(payload, expectedToolName);
   const provider = payload.x_0g_trace?.provider;
   const requestId = payload.x_0g_trace?.request_id;
   const teeVerified = payload.x_0g_trace?.tee_verified;
@@ -293,6 +325,7 @@ function parseVerifiedResponse(
     durationMs,
     httpStatus,
     teeVerified === true ? "succeeded" : "unverified_response",
+    expectedToolName,
   );
   const diagnostics = [...priorDiagnostics, responseDiagnostics];
 
@@ -340,10 +373,11 @@ function diagnosticsFromPayload(
   durationMs: number,
   httpStatus: number,
   outcome: ZeroGRequestDiagnostics["outcome"],
+  expectedToolName?: string,
 ): ZeroGRequestDiagnostics {
   const billing = payload.x_0g_trace?.billing;
   const choice = payload.choices?.[0];
-  const content = choice?.message?.content;
+  const content = completionContent(payload, expectedToolName);
   const reasoningContent =
     choice?.message?.reasoning_content ??
     choice?.message?.provider_specific_fields?.reasoning_content;
@@ -375,6 +409,35 @@ function diagnosticsFromPayload(
       totalTokens: tokenCount(usage?.total_tokens),
     },
   };
+}
+
+function completionContent(
+  payload: RouterResponse,
+  expectedToolName?: string,
+) {
+  const message = payload.choices?.[0]?.message;
+
+  if (!expectedToolName) {
+    return message?.content;
+  }
+
+  const calls = message?.tool_calls;
+
+  if (!Array.isArray(calls) || calls.length !== 1) {
+    return undefined;
+  }
+
+  const call = calls[0];
+
+  if (
+    call?.type !== "function" ||
+    call.function?.name !== expectedToolName ||
+    typeof call.function.arguments !== "string"
+  ) {
+    return undefined;
+  }
+
+  return call.function.arguments;
 }
 
 function emptyDiagnostics(
