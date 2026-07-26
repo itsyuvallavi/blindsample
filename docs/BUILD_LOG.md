@@ -469,3 +469,49 @@ Next:
 - Rerun the opt-in 0G and calibrated semantic live tests with the current
   funded testnet key.
 - Complete one successful synthetic end-to-end browser evaluation.
+
+## 2026-07-26 — Acceptance run and repeatable live lifecycle test
+
+Completed:
+
+- Added an opt-in live lifecycle test covering contract preview, exact-hash
+  activation, separate capabilities, seller submission, buyer results, and
+  seller result denial.
+- Added automatic cleanup that removes the synthetic evaluation after success
+  or failure without printing raw capability tokens.
+- Reran the deployed Supabase authorization, concurrency, persistence, and
+  cleanup test.
+- Completed a current private, TEE-verified 0G request.
+- Completed the current calibrated two-pass semantic scoring test.
+- Pushed the lifecycle test as `2583f25 test: cover the live evaluation
+  lifecycle`.
+- Confirmed the Git-connected Vercel Preview deployed exact commit
+  `2583f25ba01caff95943490f4f9262c65c73fa0c`.
+- Confirmed Preview status `READY`, Next.js detection, health HTTP 200, and
+  the configured CSP, no-referrer, no-frame, no-sniff, permissions, transport,
+  and no-index headers.
+- Found no build errors and no error/fatal runtime logs for the deployment.
+
+Verified:
+
+- `npm run check`: 78 unit tests pass; four opt-in live suites remain skipped
+  during normal CI.
+- `npm run test:supabase`: pass.
+- `npm run test:0g`: pass before the remaining testnet balance was consumed.
+- `npm run test:scoring`: pass before the remaining testnet balance was
+  consumed.
+- Protected Preview:
+  `https://blindsample-git-build-mvp-yuval-lavis-projects.vercel.app`.
+
+Blocked:
+
+- The final synthetic end-to-end submission now receives HTTP 402 from 0G.
+  The same key successfully authenticated and completed the two preceding live
+  suites, then its Router balance was exhausted.
+- The application records the safe `zero_g_unavailable` state, returns HTTP
+  502 to the seller, publishes no result, and the live test removes its
+  synthetic row.
+
+Needed:
+
+- Top up the current 0G testnet Router balance, then run `npm run test:e2e`.

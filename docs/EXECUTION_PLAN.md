@@ -311,6 +311,15 @@ Status: in progress.
 7. Inspect runtime logs and browser security headers.
 8. Commit and push documentation and acceptance evidence.
 
+Acceptance run:
+
+- Steps 1–4, 6, and 7 passed on 2026-07-26.
+- The current testnet key completed a private TEE-verified request and the
+  calibrated semantic test, then the remaining Router balance was exhausted.
+- Step 5 fails closed with HTTP 402 from 0G and removes the synthetic
+  evaluation during cleanup. It requires a testnet balance top-up, not a code
+  change.
+
 ### Commit discipline
 
 - One coherent concern per commit.
@@ -362,11 +371,11 @@ Status: in progress.
 
 ### Final live gates
 
-- [ ] Current testnet key completes a private, TEE-verified 0G request.
-- [ ] Current testnet key completes the calibrated semantic scoring test.
+- [x] Current testnet key completes a private, TEE-verified 0G request.
+- [x] Current testnet key completes the calibrated semantic scoring test.
 - [ ] One browser evaluation completes end to end with synthetic data.
-- [ ] Current pushed commit is available on Vercel Preview.
-- [ ] Preview health, security headers, and runtime logs pass inspection.
+- [x] Current pushed commit is available on Vercel Preview.
+- [x] Preview health, security headers, and runtime logs pass inspection.
 - [ ] Demo video, project description, team details, and submission form are
   complete.
 

@@ -165,9 +165,12 @@ Optional live verification:
 npm run test:0g
 npm run test:scoring
 npm run test:supabase
+npm run test:e2e
 ```
 
 Testnet and mainnet 0G keys, endpoints, and Router balances are separate.
+The end-to-end test uses synthetic data and removes its evaluation row in
+cleanup, including after a failed scoring attempt.
 
 ## Important implementation paths
 
