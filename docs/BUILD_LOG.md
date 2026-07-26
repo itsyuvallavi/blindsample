@@ -365,9 +365,20 @@ Verified:
 - Private pages emit `noindex, nofollow` and `Referrer-Policy: no-referrer`.
 - Deleted the synthetic browser-test evaluation and confirmed the Supabase
   table returned to zero rows.
+- Committed the complete UI milestone as `53397cf` and pushed it to
+  `build/mvp`.
+- Updated all six Vercel Preview variables from the local testnet
+  configuration without exposing their values.
+- Deployed the exact committed worktree to the protected
+  `blindsample-git-build-mvp-yuval-lavis-projects.vercel.app` preview.
+- Confirmed the deployed health route returns HTTP 200 with the expected
+  security headers.
+- Confirmed the deployed creation API persists an evaluation and returns
+  separate fragment-only buyer and seller paths.
+- Deleted that isolated Vercel verification evaluation, confirmed Supabase
+  returned to zero rows, and found no preview runtime warnings or errors.
 
 Next:
 
-- Push the UI milestone and verify its Vercel preview.
 - Fund the testnet Router balance, rerun both live proofs, and complete one
   successful end-to-end browser evaluation.
