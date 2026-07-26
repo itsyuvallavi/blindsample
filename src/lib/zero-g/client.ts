@@ -1,5 +1,5 @@
 const DEFAULT_BASE_URL = "https://router-api.0g.ai/v1";
-const DEFAULT_TIMEOUT_MS = 30_000;
+export const ZERO_G_REQUEST_TIMEOUT_MS = 120_000;
 const PRIVATE_TRUST_MODE = "private";
 
 export type ZeroGMessage = {
@@ -170,7 +170,7 @@ export async function requestVerifiedPrivateCompletion(
   const config = options.config ?? getZeroGConfig();
   const fetchImplementation = options.fetchImplementation ?? fetch;
   const signal =
-    options.signal ?? AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
+    options.signal ?? AbortSignal.timeout(ZERO_G_REQUEST_TIMEOUT_MS);
   const diagnostics: ZeroGRequestDiagnostics[] = [];
   const attempt = 1;
   const startedAt = Date.now();

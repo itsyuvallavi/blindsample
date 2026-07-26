@@ -1,6 +1,8 @@
 import { handleSubmitEvaluation } from "../../../../../lib/api/evaluations";
 
-export const maxDuration = 60;
+// Keep enough function headroom around the 120-second 0G request timeout for
+// CSV parsing, result validation, and atomic persistence.
+export const maxDuration = 150;
 export const runtime = "nodejs";
 
 export function POST(

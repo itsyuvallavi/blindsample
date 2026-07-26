@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getZeroGConfig,
   requestVerifiedPrivateCompletion,
+  ZERO_G_REQUEST_TIMEOUT_MS,
   ZeroGClientError,
   type ZeroGClientConfig,
 } from "./client";
@@ -57,6 +58,37 @@ describe("getZeroGConfig", () => {
 });
 
 describe("requestVerifiedPrivateCompletion", () => {
+  it("allows one verified request to run for up to two minutes", async () => {
+    const timeoutSignal = new AbortController().signal;
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(timeoutSignal);
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      response({
+        choices: [{ message: { content: "OK" } }],
+        x_0g_trace: {
+          provider: "0xprovider",
+          request_id: "request-timeout",
+          tee_verified: true,
+        },
+      }),
+    );
+
+    try {
+      await requestVerifiedPrivateCompletion(
+        [{ content: "Return OK.", role: "user" }],
+        { config: TEST_CONFIG, fetchImplementation },
+      );
+
+      expect(ZERO_G_REQUEST_TIMEOUT_MS).toBe(120_000);
+      expect(timeoutSpy).toHaveBeenCalledOnce();
+      expect(timeoutSpy).toHaveBeenCalledWith(120_000);
+      expect(fetchImplementation).toHaveBeenCalledOnce();
+    } finally {
+      timeoutSpy.mockRestore();
+    }
+  });
+
   it("forces private routing and TEE verification", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       response({
