@@ -281,6 +281,41 @@ Verified:
 
 Next:
 
-- Replace or reactivate `ZERO_G_API_KEY` locally and in Vercel.
-- Rerun `npm run test:0g` and `npm run test:scoring`.
-- Build the buyer and seller API routes and pages after the live gate passes.
+- Match the replacement key to its 0G network and rerun the live proofs.
+- Build the buyer and seller API routes and pages.
+
+## 2026-07-26 — Capability-scoped application API
+
+Completed:
+
+- Matched the replacement testnet Router key to 0G's separate testnet API
+  endpoint.
+- Added evaluation creation with strict JSON validation and separate buyer and
+  seller paths whose tokens remain in URL fragments.
+- Added role-aware evaluation reads using bearer capabilities and uncached
+  responses.
+- Added a bounded multipart seller upload route that passes one CSV sample
+  directly to the in-memory scoring pipeline.
+- Added safe HTTP mappings for invalid input, unavailable links, concurrent
+  submissions, scoring failures, and persistence failures.
+- Added request-size checks and rejected undeclared form fields.
+
+Why:
+
+- The browser pages need a narrow server boundary that preserves role
+  separation and never exposes internal errors, raw samples, prompts, or
+  secrets.
+
+Verified:
+
+- The original mainnet request rejected the testnet key with HTTP 401.
+- The official testnet endpoint authenticated the same key and returned HTTP
+  402, proving that Router funding is now the remaining live-inference gate.
+- 11 unit-test files and 52 tests pass; three live suites remain opt-in.
+- Lint, typecheck, and the production build pass with all three evaluation
+  routes compiled as dynamic Node.js handlers.
+
+Next:
+
+- Fund the testnet Router balance and rerun both live 0G proofs.
+- Build the buyer creation, seller submission, and buyer results pages.

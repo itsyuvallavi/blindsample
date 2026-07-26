@@ -84,8 +84,12 @@ export function verifyCapabilityToken(
   return timingSafeEqual(actual, expected);
 }
 
+export function isCapabilityToken(token: unknown): token is string {
+  return typeof token === "string" && TOKEN_PATTERN.test(token);
+}
+
 function assertCapabilityToken(token: string) {
-  if (!TOKEN_PATTERN.test(token)) {
+  if (!isCapabilityToken(token)) {
     throw new CapabilityError("Capability token has an invalid format.");
   }
 }

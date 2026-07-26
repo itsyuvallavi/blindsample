@@ -46,9 +46,10 @@ The reusable 0G client is implemented and a live private request has returned
 a TEE-verified trace. The Supabase project and private metadata schema are
 deployed, with RLS and browser grants locked down. Live role separation,
 concurrent submission claiming, result persistence, and cleanup are verified.
-The strict CSV and question-to-score pipeline is implemented. Its final live
-proof awaits a refreshed 0G inference key; the buyer/seller product flows are
-the next implementation milestone.
+The strict CSV and question-to-score pipeline and capability-scoped API routes
+are implemented. The replacement testnet key authenticates successfully; its
+final live proof is waiting for testnet Router balance. The buyer and seller
+pages are the next implementation milestone.
 
 ## Local development
 
@@ -56,7 +57,7 @@ Requirements:
 
 - Node.js 22
 - npm 10.9.4
-- A funded 0G Private Computer inference key with Private trust mode
+- A funded 0G testnet Router key created with Private trust mode
 - A Supabase `sb_secret_...` key for the BlindSample project
 - A random capability-token pepper containing at least 32 characters
 
@@ -76,6 +77,9 @@ npm run dev
 ```
 
 Never commit `.env.local` or a real dataset sample.
+
+Testnet Router keys must use the testnet endpoint in `.env.example`. Testnet
+and mainnet keys and balances are separate.
 
 ## 0G integration
 
@@ -97,6 +101,18 @@ npm run test:0g
 
 The returned `tee_verified` value is verification reported by 0G Router. It is
 not an independently reproduced attestation inside BlindSample.
+
+## Application API
+
+- `POST /api/evaluations` validates the buyer's title and questions, stores
+  only metadata and token hashes, and returns separate buyer and seller paths.
+- `GET /api/evaluations/[id]` requires a capability in the
+  `Authorization: Bearer ...` header and returns only that role's view.
+- `POST /api/evaluations/[id]/submit` accepts one bounded CSV sample in memory,
+  performs private scoring, and persists only scores plus safe trace metadata.
+
+Capability tokens live in URL fragments so browsers do not send them in HTTP
+requests until the page explicitly places them in an authorization header.
 
 ## Strict scoring pipeline
 

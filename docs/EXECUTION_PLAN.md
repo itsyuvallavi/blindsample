@@ -445,9 +445,9 @@ Gate:
 
 ### Phase 4 — Build the scoring pipeline
 
-Status: implementation complete on 2026-07-26; live scoring verification is
-pending a refreshed 0G inference key after the current key began returning
-HTTP 401.
+Status: implementation complete on 2026-07-26. The replacement testnet key
+authenticates against the testnet Router; live scoring verification is pending
+testnet Router funding after the authenticated request returned HTTP 402.
 
 Implementation:
 
@@ -478,6 +478,9 @@ Gate:
 - N questions always produce N valid scores and no overall score.
 
 ### Phase 5 — Build the site
+
+Status: capability-scoped API routes complete on 2026-07-26; browser pages are
+in progress.
 
 Implementation:
 

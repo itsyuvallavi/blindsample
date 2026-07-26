@@ -1,4 +1,5 @@
-const DEFAULT_BASE_URL = "https://router-api.0g.ai/v1";
+const DEFAULT_BASE_URL =
+  "https://router-api-testnet.integratenetwork.work/v1";
 const DEFAULT_RETRY_DELAY_MS = 250;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const PRIVATE_TRUST_MODE = "private";
