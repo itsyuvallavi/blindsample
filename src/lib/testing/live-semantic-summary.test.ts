@@ -71,9 +71,14 @@ describe("buildLiveSemanticSummary", () => {
             },
           },
           questionId: "semantic",
-          reason: "semantic_output_empty",
+          error: {
+            code: "private_compute_invalid_response",
+            httpStatus: 200,
+            outcome: "invalid_response",
+            requestMade: true,
+          },
           score: null,
-          status: "unable_to_score",
+          status: "error",
         },
       ],
       semanticVerification: "verified",
@@ -95,9 +100,13 @@ describe("buildLiveSemanticSummary", () => {
       ],
       semantic: {
         controlCheck: "failed",
-        reason: "semantic_output_empty",
+        error: {
+          code: "private_compute_invalid_response",
+          requestMade: true,
+        },
+        reason: null,
         semanticFailure: { kind: "empty", pass: "original" },
-        status: "unable_to_score",
+        status: "error",
       },
     });
     expect(serialized).not.toContain("promptContent");

@@ -32,6 +32,10 @@ export function buildLiveSemanticSummary(
           agreement: { ...semantic.evidence.agreement },
           controlCheck: semantic.evidence.controlCheck,
           coverageRatio: semantic.evidence.coverageRatio,
+          error:
+            semantic.status === "error"
+              ? { ...semantic.error }
+              : null,
           reason:
             semantic.status === "unable_to_score"
               ? semantic.reason
@@ -45,6 +49,7 @@ export function buildLiveSemanticSummary(
           agreement: null,
           controlCheck: null,
           coverageRatio: null,
+          error: null,
           reason: "missing_result",
           semanticFailure: null,
           status: "missing",

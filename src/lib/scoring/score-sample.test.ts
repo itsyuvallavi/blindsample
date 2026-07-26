@@ -317,12 +317,17 @@ describe("scorePrivateCsvSample", () => {
       semanticVerification: "verified",
     });
     expect(scoring.results[1]).toMatchObject({
+      error: {
+        code: "private_compute_invalid_response",
+        requestMade: true,
+      },
       evidence: {
+        coverageRatio: null,
+        recordsEvaluated: null,
         semanticFailure: { kind: "empty", pass: "original" },
       },
-      reason: "semantic_output_empty",
       score: null,
-      status: "unable_to_score",
+      status: "error",
     });
   });
 

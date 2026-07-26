@@ -180,17 +180,12 @@ export async function evaluateSemanticContract(
   );
 
   if ("failure" in parsedOriginal) {
-    return unableResult(
+    return semanticOutputErrorResult(
       contract,
       sample,
-      semanticFailureReason(parsedOriginal.failure.kind),
-      0,
-      0,
       traces,
-      {
-        controlCheck: "failed",
-        semanticFailure: parsedOriginal.failure,
-      },
+      parsedOriginal.failure,
+      original.diagnostics.at(-1)?.httpStatus ?? null,
     );
   }
   const originalOutput = parsedOriginal.output;
@@ -212,17 +207,12 @@ export async function evaluateSemanticContract(
   );
 
   if ("failure" in parsedRepeated) {
-    return unableResult(
+    return semanticOutputErrorResult(
       contract,
       sample,
-      semanticFailureReason(parsedRepeated.failure.kind),
-      0,
-      0,
       traces,
-      {
-        controlCheck: "failed",
-        semanticFailure: parsedRepeated.failure,
-      },
+      parsedRepeated.failure,
+      repeated.diagnostics.at(-1)?.httpStatus ?? null,
     );
   }
   const repeatedOutput = parsedRepeated.output;
@@ -505,11 +495,42 @@ function unableResult(
   };
 }
 
+function semanticOutputErrorResult(
+  contract: EvaluationContract,
+  sample: ParsedCsvSample,
+  traces: ZeroGTrace[],
+  semanticFailure: SemanticOutputFailure,
+  httpStatus: number | null,
+): EvaluationResult {
+  return {
+    error: {
+      code: "private_compute_invalid_response",
+      httpStatus,
+      outcome: "invalid_response",
+      requestMade: true,
+    },
+    evidence: evidenceFor(
+      contract,
+      sample,
+      null,
+      null,
+      traces,
+      {
+        controlCheck: "failed",
+        semanticFailure,
+      },
+    ),
+    questionId: contract.questionId,
+    score: null,
+    status: "error",
+  };
+}
+
 function evidenceFor(
   contract: EvaluationContract,
   sample: ParsedCsvSample,
-  recordsEvaluated: number,
-  coverageRatio: number,
+  recordsEvaluated: number | null,
+  coverageRatio: number | null,
   traces: ZeroGTrace[],
   state: SemanticEvidenceState,
 ): ResultEvidence {
@@ -537,7 +558,8 @@ function evidenceFor(
           ),
         }
       : {}),
-    coverageRatio: roundRatio(coverageRatio),
+    coverageRatio:
+      coverageRatio === null ? null : roundRatio(coverageRatio),
     limitation:
       sample.rowCount === 1
         ? ONE_RECORD_LIMITATION

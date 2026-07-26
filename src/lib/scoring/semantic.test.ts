@@ -241,15 +241,21 @@ describe("evaluateSemanticContract", () => {
         requestCompletion,
       }),
     ).resolves.toMatchObject({
+      error: {
+        code: "private_compute_invalid_response",
+        httpStatus: 200,
+        requestMade: true,
+      },
       evidence: {
+        coverageRatio: null,
+        recordsEvaluated: null,
         semanticFailure: {
           kind: "invalid_json",
           pass: "original",
         },
       },
-      reason: "semantic_output_invalid_json",
       score: null,
-      status: "unable_to_score",
+      status: "error",
     });
 
     expect(requestCompletion).toHaveBeenCalledTimes(1);
@@ -259,13 +265,11 @@ describe("evaluateSemanticContract", () => {
     {
       content: "",
       expectedFailure: "empty",
-      expectedReason: "semantic_output_empty",
       finishReason: "stop",
     },
     {
       content: '{"classifications":[',
       expectedFailure: "truncated",
-      expectedReason: "semantic_output_truncated",
       finishReason: "length",
     },
   ])(
@@ -273,7 +277,6 @@ describe("evaluateSemanticContract", () => {
     async ({
       content,
       expectedFailure,
-      expectedReason,
       finishReason,
     }) => {
       const requestCompletion = vi.fn().mockResolvedValueOnce({
@@ -286,15 +289,21 @@ describe("evaluateSemanticContract", () => {
           requestCompletion,
         }),
       ).resolves.toMatchObject({
+        error: {
+          code: "private_compute_invalid_response",
+          httpStatus: 200,
+          requestMade: true,
+        },
         evidence: {
+          coverageRatio: null,
+          recordsEvaluated: null,
           semanticFailure: {
             kind: expectedFailure,
             pass: "original",
           },
         },
-        reason: expectedReason,
         score: null,
-        status: "unable_to_score",
+        status: "error",
       });
 
       expect(requestCompletion).toHaveBeenCalledTimes(1);
@@ -320,15 +329,21 @@ describe("evaluateSemanticContract", () => {
         requestCompletion,
       }),
     ).resolves.toMatchObject({
+      error: {
+        code: "private_compute_invalid_response",
+        httpStatus: 200,
+        requestMade: true,
+      },
       evidence: {
+        coverageRatio: null,
+        recordsEvaluated: null,
         semanticFailure: {
           kind: "truncated",
           pass: "repeat",
         },
       },
-      reason: "semantic_output_truncated",
       score: null,
-      status: "unable_to_score",
+      status: "error",
     });
 
     expect(requestCompletion).toHaveBeenCalledTimes(2);
