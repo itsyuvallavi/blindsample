@@ -1150,3 +1150,15 @@ Acceptance:
 - A focused secret scan found only documented placeholders and explicit
   test-only credentials; `.env.example` remains the only tracked env file.
 - No paid or live 0G request was made.
+
+## 2026-07-26 — Protected-service messaging
+
+- Reframed the public, buyer, seller, results, and Docs copy around the actual
+  protection path: TLS-encrypted transport, memory-only handling, 0G Private
+  Computer, TEE verification, and no raw-row disclosure.
+- Avoided an end-to-end-encryption claim because the server parses the bounded
+  CSV in memory before the private 0G request.
+- Updated metadata and copy-contract tests to keep the protection message
+  consistent across routes.
+- Lint, TypeScript, 97 non-live tests, the production build, and the refreshed
+  localhost page pass. No live or paid 0G request was made.

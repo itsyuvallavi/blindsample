@@ -219,8 +219,9 @@ function CompletedResults({
         <div>
           <strong>Private execution verified</strong>
           <small>
-            One complete 0G request passed TEE verification. This confirms the
-            protected execution path, not the accuracy of every judgment.
+            The sample used encrypted transport, and one complete 0G request
+            passed TEE verification. This confirms the protected execution
+            path, not the accuracy of every judgment.
           </small>
         </div>
       </section>

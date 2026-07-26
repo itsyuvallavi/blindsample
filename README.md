@@ -1,8 +1,9 @@
 # BlindSample
 
-BlindSample lets a buyer test a private CSV sample without receiving its rows.
-The buyer writes plain-language questions, the seller submits a bounded CSV,
-and 0G evaluates every question in one private, TEE-verified request.
+BlindSample is a secure evaluation layer for private CSV data. The seller's
+sample travels over encrypted transport, is handled only in memory, and is
+evaluated through one private, TEE-verified 0G request. The buyer receives
+question-level answers without receiving the raw rows.
 
 Built for the **Best AI Product on 0G** track at ETHGlobal Lisbon 2026.
 

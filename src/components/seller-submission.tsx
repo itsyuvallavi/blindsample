@@ -272,13 +272,14 @@ export function SellerSubmission({
           Private seller task
           <span className="link-validity">Link verified</span>
         </p>
-        <h1 className="role-title">Submit a private CSV sample</h1>
+        <h1 className="role-title">Submit your CSV securely</h1>
         <p className="seller-for">
           Evaluation <strong>{evaluation.title}</strong>
         </p>
         <p className="role-description">
-          Your raw rows stay private. The buyer receives one result for each
-          question, never the CSV itself.
+          Your CSV travels over encrypted transport, is handled only in
+          memory, and is evaluated through 0G Private Computer. The buyer gets
+          question-level results, never the file or its rows.
         </p>
       </header>
 
@@ -375,10 +376,10 @@ export function SellerSubmission({
             </span>
           </label>
           <details className="privacy-disclosure">
-            <summary>How the sample stays private</summary>
+            <summary>How BlindSample protects your CSV</summary>
             <p>
-              The CSV is sent over a protected connection, held in server
-              memory only for this evaluation, and processed through 0G
+              The CSV travels over TLS-encrypted transport, is held in server
+              memory only for this evaluation, and is processed through 0G
               private compute. Raw rows are not stored or shown to the buyer.
             </p>
           </details>

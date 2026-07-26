@@ -8,16 +8,17 @@ export default function Home() {
       <div className="marketing-page">
         <section className="hero-section">
           <div className="hero-copy">
-            <p className="eyebrow">Private data due diligence</p>
+            <p className="eyebrow">Secure private data evaluation</p>
             <h1 className="hero-title">
-              Inspect the data.
+              Verify private data.
               <br />
-              <span>Not the dataset.</span>
+              <span>Without exposing it.</span>
             </h1>
             <p className="hero-lede">
-              Ask what matters before you buy. A seller submits a private CSV
-              sample, and 0G returns a separate, verified answer for every
-              question without revealing the rows.
+              BlindSample gives buyers useful answers while sellers keep
+              control of their data. The sample travels over encrypted
+              transport, is handled only in memory, and is evaluated inside
+              0G Private Computer.
             </p>
             <div className="hero-actions">
               <Link className="button-primary" href="/new">
@@ -28,9 +29,9 @@ export default function Home() {
               </Link>
             </div>
             <ul className="trust-line" aria-label="Product assurances">
-              <li>One private 0G request</li>
-              <li>TEE verification required</li>
-              <li>No local scoring</li>
+              <li>Encrypted in transit</li>
+              <li>TEE-protected compute</li>
+              <li>Raw rows never shared</li>
             </ul>
           </div>
 
@@ -44,12 +45,14 @@ export default function Home() {
         >
           <div className="section-heading">
             <p className="eyebrow">
-              One evaluation, two private roles
+              One protected path, two private roles
             </p>
-            <h2 id="how-heading">A clear path from question to proof.</h2>
+            <h2 id="how-heading">
+              From encrypted submission to verified answer.
+            </h2>
             <p>
-              BlindSample keeps the buyer&apos;s decision simple and the
-              seller&apos;s data private.
+              The buyer learns what matters. The seller keeps the underlying
+              data private.
             </p>
           </div>
 
@@ -64,18 +67,18 @@ export default function Home() {
             </li>
             <li>
               <span>02</span>
-              <h3>Share separate links</h3>
+              <h3>Submit through a private link</h3>
               <p>
-                The seller gets a submission link. The buyer keeps a private
-                results link.
+                The seller&apos;s CSV travels over TLS-encrypted transport.
+                The buyer keeps a separate private results link.
               </p>
             </li>
             <li>
               <span>03</span>
-              <h3>Receive verified answers</h3>
+              <h3>Evaluate in protected compute</h3>
               <p>
-                The sample and all questions go through one private 0G
-                request. No local fallback can publish a score.
+                The sample and all questions go through one 0G Private
+                Computer request. Results publish only after TEE verification.
               </p>
             </li>
           </ol>
@@ -87,14 +90,14 @@ export default function Home() {
           aria-labelledby="privacy-heading"
         >
           <div className="proof-copy">
-            <p className="eyebrow">Privacy with evidence</p>
+            <p className="eyebrow">Protection at every boundary</p>
             <h2 id="privacy-heading">
-              Private is a system property, not a promise.
+              The sample stays protected from upload to answer.
             </h2>
             <p>
-              BlindSample limits what moves, what persists, and what can be
-              shown to the buyer. The result is useful without becoming a
-              backdoor to the seller&apos;s dataset.
+              BlindSample encrypts transport, limits raw-data handling to
+              server memory, and reveals only safe question-level results.
+              The buyer never receives the CSV.
             </p>
             <Link className="text-link" href="/docs#privacy">
               Read the privacy boundary <span aria-hidden="true">→</span>
@@ -103,24 +106,24 @@ export default function Home() {
 
           <dl className="proof-list">
             <div>
-              <dt>In memory only</dt>
+              <dt>Encrypted transport</dt>
               <dd>
-                The parsed CSV exists only for the evaluation request and is
-                not written to Supabase.
+                TLS protects the seller&apos;s submission and buyer&apos;s
+                questions while they travel.
               </dd>
             </div>
             <div>
-              <dt>One atomic evaluation</dt>
+              <dt>Memory-only handling</dt>
               <dd>
-                All buyer questions and the complete bounded sample travel
-                together to 0G Private Computer.
+                The parsed CSV exists only for the evaluation request. It is
+                never written to Supabase.
               </dd>
             </div>
             <div>
-              <dt>Verified before publish</dt>
+              <dt>TEE-verified compute</dt>
               <dd>
-                BlindSample requires a complete response and a positive TEE
-                trace before showing any score.
+                One 0G private request handles the complete sample and every
+                question. A positive TEE trace is required before publication.
               </dd>
             </div>
           </dl>
@@ -143,8 +146,8 @@ export default function Home() {
 
         <section className="closing-section">
           <div>
-            <p className="eyebrow">Start with the questions</p>
-            <h2>Know what the sample can prove.</h2>
+            <p className="eyebrow">Protected from upload to result</p>
+            <h2>Keep the rows private. Share only the answer.</h2>
           </div>
           <div className="closing-actions">
             <Link className="button-primary" href="/new">
@@ -190,7 +193,7 @@ function ProductPreview() {
         </p>
       </div>
       <div className="preview-footer">
-        <span>One question. One score.</span>
+        <span>Protected submission.</span>
         <span>No raw rows exposed.</span>
       </div>
     </aside>

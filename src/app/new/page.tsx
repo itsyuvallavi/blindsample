@@ -5,9 +5,9 @@ import { EvaluationBuilder } from "../../components/evaluation-builder";
 import { SiteFrame } from "../../components/site-frame";
 
 export const metadata: Metadata = {
-  title: "Create an evaluation",
+  title: "Create a secure evaluation",
   description:
-    "Create private seller and buyer links from plain-language dataset questions.",
+    "Create protected seller and buyer links for a private, TEE-verified dataset evaluation.",
 };
 
 export default function NewEvaluationPage() {
@@ -19,16 +19,16 @@ export default function NewEvaluationPage() {
             <span aria-hidden="true">←</span> Back to overview
           </Link>
           <p className="eyebrow">Buyer setup</p>
-          <h1>Create a private evaluation.</h1>
+          <h1>Create a secure data evaluation.</h1>
           <p>
-            Write the questions that matter to your purchase. BlindSample will
-            create one link for the seller and one private results link for
-            you.
+            Ask what matters to your purchase. The seller submits through
+            encrypted transport, 0G evaluates the sample privately, and you
+            receive only verified answers.
           </p>
           <ul className="creation-promises">
-            <li>Questions stay plain text</li>
+            <li>Encrypted seller submission</li>
+            <li>0G TEE-verified compute</li>
             <li>No 0G tokens spent yet</li>
-            <li>Draft saved in this browser</li>
           </ul>
         </header>
 

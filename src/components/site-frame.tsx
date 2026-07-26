@@ -65,8 +65,8 @@ export function SiteFrame({
       <footer className="site-footer">
         {publicFrame ? (
           <>
-            <span>BlindSample · Private dataset due diligence</span>
-            <span>Built with 0G Private Computer</span>
+            <span>BlindSample · Secure private data evaluation</span>
+            <span>Encrypted transport · 0G private compute</span>
           </>
         ) : (
           <>

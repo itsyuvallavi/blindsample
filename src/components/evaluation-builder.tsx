@@ -202,8 +202,9 @@ export function EvaluationBuilder() {
           <p className="builder-step">Evaluation ready</p>
           <h2 id="links-title">Share one link. Keep one private.</h2>
           <p>
-            Creating these links did not call 0G or spend tokens. The private
-            evaluation starts only after the seller submits a CSV.
+            Creating these links did not call 0G or spend tokens. After the
+            seller submits, the CSV travels over encrypted transport into 0G
+            private compute.
           </p>
         </div>
 
@@ -258,10 +259,10 @@ export function EvaluationBuilder() {
     <form onSubmit={handleCreate} className="builder-card">
       <div className="builder-header">
         <p className="builder-step">Step 1 of 2</p>
-        <h2>What do you need to learn?</h2>
+        <h2>What must the private sample prove?</h2>
         <p>
-          Ask in plain language. BlindSample reads the submitted CSV headers
-          and decides how each question can be evaluated.
+          Ask in plain language. BlindSample securely reads the submitted CSV
+          headers and decides how each question can be evaluated.
         </p>
       </div>
 
@@ -354,7 +355,8 @@ export function EvaluationBuilder() {
           {submitting ? "Creating private links…" : "Create private links"}
         </button>
         <p className="builder-footnote">
-          No CSV is uploaded and no 0G request is made in this step.
+          No CSV is uploaded and no 0G request is made in this step. The
+          seller&apos;s later submission uses TLS-encrypted transport.
         </p>
         <button
           type="button"

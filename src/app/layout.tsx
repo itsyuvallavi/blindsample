@@ -4,15 +4,15 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://blindsample.vercel.app"),
   title: {
-    default: "BlindSample | Verify private data before you buy it",
+    default: "BlindSample | Evaluate private data without exposing it",
     template: "%s | BlindSample",
   },
   description:
-    "Ask questions about a seller's private CSV and receive question-level, TEE-verified answers from 0G without seeing the raw rows.",
+    "Secure dataset evaluation with encrypted transport, memory-only handling, and TEE-verified 0G Private Computer.",
   openGraph: {
     description:
-      "Question-level answers about private data, evaluated through 0G Private Computer without exposing the seller's rows.",
-    title: "BlindSample | Verify private data before you buy it",
+      "Evaluate a seller's private CSV through encrypted transport and TEE-verified 0G compute without exposing the raw rows.",
+    title: "BlindSample | Evaluate private data without exposing it",
     type: "website",
   },
 };

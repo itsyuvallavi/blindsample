@@ -19,6 +19,9 @@ describe("public information architecture", () => {
   it("keeps marketing and evaluation creation on separate routes", () => {
     expect(HOME_SOURCE).toContain('href="/new"');
     expect(HOME_SOURCE).toContain("Illustrative result");
+    expect(HOME_SOURCE).toContain("Encrypted in transit");
+    expect(HOME_SOURCE).toContain("TEE-protected compute");
+    expect(HOME_SOURCE).toContain("Raw rows never shared");
     expect(HOME_SOURCE).not.toContain("EvaluationBuilder");
     expect(NEW_SOURCE).toContain("<EvaluationBuilder />");
   });
@@ -27,6 +30,7 @@ describe("public information architecture", () => {
     expect(DOCS_SOURCE).toContain("No overall score.");
     expect(DOCS_SOURCE).toContain("one private request");
     expect(DOCS_SOURCE).toContain("TEE verification");
+    expect(DOCS_SOURCE).toContain("TLS encrypts the CSV in transit");
     expect(DOCS_SOURCE).toContain("publishes no scores");
     expect(DOCS_SOURCE).toMatch(
       /Questions do\s+not need to reference columns or scoring types/,

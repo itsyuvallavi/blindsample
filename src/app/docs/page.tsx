@@ -6,7 +6,7 @@ import { SiteFrame } from "../../components/site-frame";
 export const metadata: Metadata = {
   title: "Documentation",
   description:
-    "How BlindSample evaluates a private CSV through 0G Private Computer and publishes question-level results.",
+    "How BlindSample protects a private CSV with encrypted transport, memory-only handling, and TEE-verified 0G compute.",
 };
 
 const sections = [
@@ -40,10 +40,10 @@ export default function DocsPage() {
             <p className="eyebrow">BlindSample docs</p>
             <h1>Private evaluation, explained clearly.</h1>
             <p>
-              BlindSample helps a buyer evaluate a bounded CSV sample without
-              receiving the seller&apos;s raw rows. The buyer asks questions;
-              0G Private Computer evaluates them; BlindSample publishes only a
-              complete, verified result set.
+              BlindSample is a secure evaluation layer for private data. The
+              seller&apos;s bounded CSV travels over encrypted transport, is
+              handled only in memory, and is evaluated through 0G Private
+              Computer. The buyer receives verified answers, never raw rows.
             </p>
           </header>
 
@@ -69,8 +69,9 @@ export default function DocsPage() {
                 <li>
                   <strong>The seller submits a sample.</strong>
                   <span>
-                    A free browser check validates a UTF-8 CSV with 1–50
+                    TLS-encrypted transport protects a UTF-8 CSV with 1–50
                     records, up to 20 columns, and a maximum size of 200 KB.
+                    A free browser check runs before any paid request.
                   </span>
                 </li>
                 <li>
@@ -123,10 +124,10 @@ export default function DocsPage() {
             <div>
               <h2>Privacy boundary</h2>
               <p>
-                The CSV, the full private prompt, and the raw 0G response exist
-                only in server memory for the duration of the request. They are
-                not written to Supabase, browser storage, analytics, or
-                application logs.
+                TLS encrypts the CSV in transit. The CSV, the full private
+                prompt, and the raw 0G response then exist only in server
+                memory for the duration of the request. They are not written
+                to Supabase, browser storage, analytics, or application logs.
               </p>
               <p>
                 The buyer receives the original questions, question-level
