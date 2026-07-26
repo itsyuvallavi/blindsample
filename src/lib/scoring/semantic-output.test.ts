@@ -6,6 +6,13 @@ import {
 } from "./semantic-output";
 
 describe("parseSemanticClassificationOutput", () => {
+  const validOutput = {
+    classifications: [
+      { label: "positive", recordId: "record_001" },
+    ],
+    controls: [{ controlId: "control_a", label: "negative" }],
+  };
+
   it("distinguishes empty, invalid JSON, and invalid shape", () => {
     for (const [content, code] of [
       ["", "empty_output"],
@@ -26,45 +33,48 @@ describe("parseSemanticClassificationOutput", () => {
     }
   });
 
-  it("accepts classifications only and rejects model-authored scores", () => {
-    expect(
-      parseSemanticClassificationOutput(
-        JSON.stringify({
-          classifications: [
-            { label: "positive", recordId: "record_001" },
-          ],
-          controls: [
-            { controlId: "control_a", label: "negative" },
-          ],
-        }),
-        ["record_001"],
-        ["control_a"],
-      ),
-    ).toEqual({
-      classifications: [
-        { label: "positive", recordId: "record_001" },
-      ],
-      controls: [{ controlId: "control_a", label: "negative" }],
-    });
-
+  it("rejects valid JSON wrapped in Markdown fences", () => {
     expect(() =>
       parseSemanticClassificationOutput(
-        JSON.stringify({
-          classifications: [
-            {
-              label: "positive",
-              recordId: "record_001",
-              score: 100,
-            },
-          ],
-          controls: [
-            { controlId: "control_a", label: "negative" },
-          ],
-        }),
+        `\`\`\`json\n${JSON.stringify(validOutput)}\n\`\`\``,
         ["record_001"],
         ["control_a"],
       ),
-    ).toThrowError(SemanticOutputError);
+    ).toThrowError(
+      expect.objectContaining({ code: "invalid_json" }),
+    );
+  });
+
+  it("accepts classifications only and rejects extra keys", () => {
+    expect(
+      parseSemanticClassificationOutput(
+        JSON.stringify(validOutput),
+        ["record_001"],
+        ["control_a"],
+      ),
+    ).toEqual(validOutput);
+
+    for (const output of [
+      { ...validOutput, score: 100 },
+      {
+        ...validOutput,
+        classifications: [
+          {
+            label: "positive",
+            recordId: "record_001",
+            score: 100,
+          },
+        ],
+      },
+    ]) {
+      expect(() =>
+        parseSemanticClassificationOutput(
+          JSON.stringify(output),
+          ["record_001"],
+          ["control_a"],
+        ),
+      ).toThrowError(SemanticOutputError);
+    }
   });
 
   it("rejects missing, duplicate, extra, and unknown classifications", () => {

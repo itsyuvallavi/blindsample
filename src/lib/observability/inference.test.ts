@@ -23,6 +23,7 @@ describe("emitInferenceRunEvents", () => {
           pass: "original",
           provider: "test-provider",
           questionId: "relevance",
+          reasoningContentPresent: false,
           requestId: "request-1",
           responseLength: 80,
           teeVerified: true,
@@ -51,7 +52,7 @@ describe("emitInferenceRunEvents", () => {
     expect(logged).not.toContain("messages");
     expect(logged).not.toContain("promptContent");
     expect(logged).not.toContain("responseContent");
-    expect(logged).not.toContain("reasoningContent");
+    expect(JSON.parse(logged)).not.toHaveProperty("reasoningContent");
 
     info.mockRestore();
   });

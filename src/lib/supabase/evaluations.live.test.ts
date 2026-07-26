@@ -109,6 +109,7 @@ describeLive("live Supabase evaluation persistence", () => {
             pass: "original",
             provider: "live-test-provider",
             questionId: "relevance",
+            reasoningContentPresent: false,
             requestId: "live-test-request",
             responseLength: 100,
             teeVerified: true,

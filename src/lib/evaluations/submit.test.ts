@@ -52,6 +52,7 @@ const INFERENCE_DIAGNOSTICS = {
       pass: "original" as const,
       provider: "test-provider",
       questionId: "q-orders",
+      reasoningContentPresent: false,
       requestId: "test-request",
       responseLength: 100,
       teeVerified: true,

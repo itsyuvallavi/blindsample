@@ -19,6 +19,7 @@ describe("InferenceAuditRecorder", () => {
           finishReason: "stop",
           httpStatus: 200,
           outcome: "succeeded",
+          reasoningContentPresent: false,
           responseLength: 22,
           usage: {
             completionTokens: 20,

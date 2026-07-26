@@ -20,6 +20,7 @@ export function emitInferenceRunEvents(
         pass: request.pass,
         provider: request.provider,
         questionId: request.questionId,
+        reasoningContentPresent: request.reasoningContentPresent,
         requestId: request.requestId,
         responseLength: request.responseLength,
         status,

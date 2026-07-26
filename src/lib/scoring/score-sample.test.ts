@@ -77,6 +77,7 @@ function semanticCompletion(requestId: string) {
         finishReason: "stop",
         httpStatus: 200,
         outcome: "succeeded" as const,
+        reasoningContentPresent: false,
         responseLength: 100,
         usage: {
           completionTokens: 20,
@@ -165,6 +166,41 @@ describe("scorePrivateCsvSample", () => {
       status: "unable_to_score",
     });
     expect(requestCompletion).not.toHaveBeenCalled();
+  });
+
+  it("retains sanitized diagnostics when the original output is unusable", async () => {
+    const requestCompletion = vi.fn().mockResolvedValueOnce({
+      ...semanticCompletion("invalid-original"),
+      content: "",
+    });
+
+    const scoring = await scorePrivateCsvSample(CONTRACTS, SAMPLE, {
+      requestCompletion,
+    });
+
+    expect(requestCompletion).toHaveBeenCalledTimes(1);
+    expect(scoring).toMatchObject({
+      diagnostics: {
+        requestCount: { made: 1, maximum: 6 },
+        requests: [
+          {
+            pass: "original",
+            questionId: "relevance",
+            requestId: "invalid-original",
+          },
+        ],
+      },
+      inferenceRequests: { made: 1, maximum: 6 },
+      semanticVerification: "verified",
+    });
+    expect(scoring.results[1]).toMatchObject({
+      evidence: {
+        semanticFailure: { kind: "empty", pass: "original" },
+      },
+      reason: "semantic_output_empty",
+      score: null,
+      status: "unable_to_score",
+    });
   });
 
   it("rejects an all-deterministic contract set", async () => {

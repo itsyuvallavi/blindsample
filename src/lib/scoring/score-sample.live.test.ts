@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCsvSample } from "../csv/parse-sample";
 import { compileEvaluationContracts } from "../evaluation-contracts/compile";
+import { buildLiveSemanticSummary } from "../testing/live-semantic-summary";
 import { paidLiveEnabled } from "../testing/paid-live";
+import {
+  createLiveSemanticSample,
+  LIVE_SEMANTIC_CRITERION,
+} from "../testing/semantic-live-fixture";
 import { scorePrivateCsvSample } from "./score-sample";
 
 const describeLive =
@@ -19,36 +23,9 @@ describeLive("live defensible private evaluation", () => {
           kind: "column_availability",
           question: "Is the message field available?",
         },
-        {
-          columns: ["message"],
-          controls: {
-            intermediate:
-              "Could you tell me more about your subscription options?",
-            negative:
-              "Today will be sunny with a light wind from the west.",
-            positive:
-              "My account is locked and I need an agent to restore access.",
-          },
-          id: "support_relevance",
-          kind: "semantic_relevance",
-          question:
-            "Are these useful examples of customer requests needing support?",
-          target:
-            "Customer requests that require a support agent to take action.",
-        },
+        LIVE_SEMANTIC_CRITERION,
       ]);
-      const sample = parseCsvSample(
-        new TextEncoder().encode(
-          [
-            "message",
-            "My invoice has the wrong amount.",
-            "Please help me reset my account password.",
-            "I need a refund for a duplicate charge.",
-            "The dashboard will not load.",
-            "Please update the email on my account.",
-          ].join("\n"),
-        ),
-      );
+      const sample = createLiveSemanticSample();
 
       const result = await scorePrivateCsvSample(contracts, sample, {
         maximumInferenceRequests: 2,
@@ -56,7 +33,12 @@ describeLive("live defensible private evaluation", () => {
       const semantic = result.results.find(
         (item) => item.questionId === "support_relevance",
       );
+      const summary = buildLiveSemanticSummary(
+        result,
+        "support_relevance",
+      );
 
+      console.info(JSON.stringify(summary));
       expect(result.results).toHaveLength(contracts.length);
       expect(result.inferenceRequests).toEqual({
         made: 2,

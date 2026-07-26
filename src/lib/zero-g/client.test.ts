@@ -109,6 +109,7 @@ describe("requestVerifiedPrivateCompletion", () => {
         finishReason: "stop",
         httpStatus: 200,
         outcome: "succeeded",
+        reasoningContentPresent: true,
         responseLength: 2,
         usage: {
           completionTokens: 4,

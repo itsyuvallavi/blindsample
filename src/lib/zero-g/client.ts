@@ -31,6 +31,7 @@ export type ZeroGRequestDiagnostics = {
     | "network_error"
     | "succeeded"
     | "unverified_response";
+  reasoningContentPresent: boolean | null;
   responseLength: number | null;
   usage: {
     completionTokens: number | null;
@@ -66,6 +67,10 @@ type RouterResponse = {
     finish_reason?: unknown;
     message?: {
       content?: unknown;
+      provider_specific_fields?: {
+        reasoning_content?: unknown;
+      };
+      reasoning_content?: unknown;
     };
   }>;
   model?: unknown;
@@ -330,6 +335,9 @@ function diagnosticsFromPayload(
   const billing = payload.x_0g_trace?.billing;
   const choice = payload.choices?.[0];
   const content = choice?.message?.content;
+  const reasoningContent =
+    choice?.message?.reasoning_content ??
+    choice?.message?.provider_specific_fields?.reasoning_content;
   const usage = payload.usage;
 
   return {
@@ -343,6 +351,10 @@ function diagnosticsFromPayload(
     finishReason: boundedString(choice?.finish_reason),
     httpStatus,
     outcome,
+    reasoningContentPresent:
+      typeof reasoningContent === "string"
+        ? reasoningContent.length > 0
+        : null,
     responseLength:
       typeof content === "string" ? content.length : null,
     usage: {
@@ -373,6 +385,7 @@ function emptyDiagnostics(
     finishReason: null,
     httpStatus,
     outcome,
+    reasoningContentPresent: null,
     responseLength: null,
     usage: {
       completionTokens: null,

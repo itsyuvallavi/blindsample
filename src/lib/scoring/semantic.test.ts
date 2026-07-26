@@ -57,6 +57,7 @@ const DIAGNOSTICS: ZeroGRequestDiagnostics = {
   finishReason: "stop",
   httpStatus: 200,
   outcome: "succeeded",
+  reasoningContentPresent: false,
   responseLength: 100,
   usage: {
     completionTokens: 20,
@@ -211,6 +212,52 @@ describe("evaluateSemanticContract", () => {
 
     expect(requestCompletion).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    {
+      content: "",
+      expectedFailure: "empty",
+      expectedReason: "semantic_output_empty",
+      finishReason: "stop",
+    },
+    {
+      content: '{"classifications":[',
+      expectedFailure: "truncated",
+      expectedReason: "semantic_output_truncated",
+      finishReason: "length",
+    },
+  ])(
+    "fails closed after one original request for $expectedFailure output",
+    async ({
+      content,
+      expectedFailure,
+      expectedReason,
+      finishReason,
+    }) => {
+      const requestCompletion = vi.fn().mockResolvedValueOnce({
+        ...completion([], [], { finishReason }),
+        content,
+      });
+
+      await expect(
+        evaluateSemanticContract(CONTRACT, SAMPLE, {
+          requestCompletion,
+        }),
+      ).resolves.toMatchObject({
+        evidence: {
+          semanticFailure: {
+            kind: expectedFailure,
+            pass: "original",
+          },
+        },
+        reason: expectedReason,
+        score: null,
+        status: "unable_to_score",
+      });
+
+      expect(requestCompletion).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("identifies a truncated repeat without publishing a score", async () => {
     const ids = prepareSemanticRecords(CONTRACT, SAMPLE).map(
