@@ -126,13 +126,16 @@ describe("evaluation API boundary", () => {
       completedAt: null,
       errorCode: null,
       expiresAt: "2026-07-27T01:00:00.000Z",
+      failure: {
+        code: null,
+        requestMade: false,
+      },
       id: EVALUATION_ID,
       questions: QUESTIONS,
       results: null,
-      sampleColumnCount: null,
-      sampleRowCount: null,
       status: "waiting_for_seller",
       title: "Forecast sample",
+      verifiedComplete: false,
     });
     const getSeller = vi.fn();
 
@@ -149,6 +152,8 @@ describe("evaluation API boundary", () => {
     expect(response.status).toBe(200);
     expect(body.role).toBe("buyer");
     expect(body.evaluation).toHaveProperty("results", null);
+    expect(body.evaluation).not.toHaveProperty("sampleRowCount");
+    expect(body.evaluation).not.toHaveProperty("sampleColumnCount");
     expect(getSeller).not.toHaveBeenCalled();
   });
 
@@ -157,6 +162,10 @@ describe("evaluation API boundary", () => {
     const getSeller = vi.fn().mockResolvedValue({
       approvedAt: "2026-07-26T00:00:00.000Z",
       expiresAt: "2026-07-27T01:00:00.000Z",
+      failure: {
+        code: null,
+        requestMade: false,
+      },
       id: EVALUATION_ID,
       questions: QUESTIONS,
       status: "waiting_for_seller",

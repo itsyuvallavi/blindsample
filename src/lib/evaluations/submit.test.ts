@@ -20,6 +20,10 @@ const QUESTIONS = [
 const SELLER_VIEW: SellerEvaluationView = {
   approvedAt: "2026-07-26T00:00:00.000Z",
   expiresAt: "2099-01-01T00:00:00.000Z",
+  failure: {
+    code: null,
+    requestMade: false,
+  },
   id: "evaluation-1",
   questions: [...QUESTIONS],
   status: "waiting_for_seller",

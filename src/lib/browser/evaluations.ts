@@ -1,6 +1,6 @@
 import type { EvaluationQuestion } from "../evaluation-plans/types";
 import type { EvaluationRunDiagnostics } from "../scoring/run-diagnostics";
-import type { EvaluationResult } from "../scoring/types";
+import type { BuyerQuestionResult } from "../supabase/evaluations";
 
 export type EvaluationStatus =
   | "waiting_for_seller"
@@ -11,6 +11,10 @@ export type EvaluationStatus =
 export type SellerEvaluation = {
   approvedAt: string;
   expiresAt: string;
+  failure: {
+    code: string | null;
+    requestMade: boolean;
+  };
   id: string;
   questions: EvaluationQuestion[];
   status: EvaluationStatus;
@@ -21,9 +25,8 @@ export type BuyerEvaluation = SellerEvaluation & {
   completedAt: string | null;
   errorCode: string | null;
   inferenceDiagnostics: EvaluationRunDiagnostics;
-  results: EvaluationResult[] | null;
-  sampleColumnCount: number | null;
-  sampleRowCount: number | null;
+  results: BuyerQuestionResult[] | null;
+  verifiedComplete: boolean;
 };
 
 export type EvaluationResponse =

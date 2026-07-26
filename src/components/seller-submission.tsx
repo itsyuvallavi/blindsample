@@ -9,10 +9,19 @@ import {
   submitSample,
   type SellerEvaluation,
 } from "../lib/browser/evaluations";
+import {
+  CsvSampleError,
+  parseCsvSample,
+} from "../lib/csv/parse-sample";
 import { PRODUCT_LIMITS } from "../lib/product-contract";
-import { SecurityRail } from "./security-rail";
 import { StatusMessage } from "./status-message";
-import { CommandLine, TerminalBar } from "./evaluation-builder";
+
+type FilePreflight = {
+  columnCount: number;
+  columns: string[];
+  file: File;
+  rowCount: number;
+};
 
 export function SellerSubmission({
   evaluationId,
@@ -20,14 +29,26 @@ export function SellerSubmission({
   evaluationId: string;
 }) {
   const tokenRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const selectionVersionRef = useRef(0);
   const [evaluation, setEvaluation] =
     useState<SellerEvaluation | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [preflight, setPreflight] = useState<FilePreflight | null>(
+    null,
+  );
+  const [submittedRowCount, setSubmittedRowCount] = useState<
+    number | null
+  >(null);
   const [consent, setConsent] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [inspecting, setInspecting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [complete, setComplete] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     let active = true;
@@ -38,7 +59,7 @@ export function SellerSubmission({
 
       if (!token) {
         if (active) {
-          setError("This seller link is invalid or incomplete.");
+          setRequestError("This seller link is invalid or incomplete.");
           setLoading(false);
         }
         return;
@@ -54,7 +75,7 @@ export function SellerSubmission({
         }
 
         if (response.role !== "seller") {
-          setError("This link does not grant seller access.");
+          setRequestError("This link does not grant seller access.");
           setLoading(false);
           return;
         }
@@ -63,7 +84,7 @@ export function SellerSubmission({
         setComplete(response.evaluation.status === "complete");
       } catch (caught) {
         if (active) {
-          setError(errorMessage(caught));
+          setRequestError(errorMessage(caught));
         }
       } finally {
         if (active) {
@@ -78,47 +99,110 @@ export function SellerSubmission({
     };
   }, [evaluationId]);
 
-  function selectFile(selected: File | null) {
-    setError(null);
+  async function inspectFile(selected: File | null) {
+    const selectionVersion = selectionVersionRef.current + 1;
+    selectionVersionRef.current = selectionVersion;
+    setFileError(null);
+    setRequestError(null);
+    setPreflight(null);
 
     if (!selected) {
-      setFile(null);
+      setInspecting(false);
       return;
     }
 
     if (selected.size > PRODUCT_LIMITS.maximumFileBytes) {
-      setFile(null);
-      setError("The CSV sample must not exceed 200 KB.");
+      setFileError(fileIssue("sample_too_large"));
       return;
     }
 
-    setFile(selected);
+    setInspecting(true);
+
+    try {
+      const parsed = parseCsvSample(
+        new Uint8Array(await selected.arrayBuffer()),
+      );
+
+      if (selectionVersionRef.current !== selectionVersion) {
+        return;
+      }
+
+      setPreflight({
+        columnCount: parsed.columnCount,
+        columns: parsed.columns,
+        file: selected,
+        rowCount: parsed.rowCount,
+      });
+    } catch (caught) {
+      if (selectionVersionRef.current !== selectionVersion) {
+        return;
+      }
+
+      setFileError(
+        caught instanceof CsvSampleError
+          ? fileIssue(caught.code)
+          : fileIssue("invalid_csv"),
+      );
+    } finally {
+      if (selectionVersionRef.current === selectionVersion) {
+        setInspecting(false);
+      }
+    }
+  }
+
+  async function refreshEvaluation() {
+    const token = tokenRef.current;
+
+    if (!token) {
+      return;
+    }
+
+    try {
+      const response = await readEvaluation(evaluationId, token);
+
+      if (response.role === "seller") {
+        setEvaluation(response.evaluation);
+      }
+    } catch {
+      // The original submission error remains the useful seller message.
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setRequestError(null);
 
     const token = tokenRef.current;
 
-    if (!file || !consent || !token) {
-      setError("Select a CSV file and confirm the privacy notice.");
+    if (!preflight || !consent || !token) {
+      setRequestError(
+        "Choose a valid CSV sample and confirm the sample limitation. No 0G request was made.",
+      );
       return;
     }
 
     setSubmitting(true);
 
     try {
-      await submitSample(evaluationId, token, file);
+      await submitSample(evaluationId, token, preflight.file);
+      setSubmittedRowCount(preflight.rowCount);
       setComplete(true);
       setEvaluation((current) =>
         current ? { ...current, status: "complete" } : current,
       );
-      setFile(null);
+      setPreflight(null);
     } catch (caught) {
-      setError(errorMessage(caught));
+      setRequestError(errorMessage(caught));
+      await refreshEvaluation();
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function openFilePicker() {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
     }
   }
 
@@ -129,12 +213,12 @@ export function SellerSubmission({
   if (!evaluation) {
     return (
       <PageIntro
-        label="Seller submission"
+        label="Seller"
         title="This private link is unavailable."
         description="Ask the buyer to create a new evaluation link."
       >
         <StatusMessage tone="error">
-          {error ?? "The evaluation could not be loaded."}
+          {requestError ?? "The evaluation could not be loaded."}
         </StatusMessage>
       </PageIntro>
     );
@@ -143,13 +227,14 @@ export function SellerSubmission({
   if (complete) {
     return (
       <PageIntro
-        label="Submission complete"
-        title="Evaluation complete — all questions evaluated by 0G."
-        description="BlindSample evaluated only the submitted records and did not save the CSV or expose its rows to the buyer."
+        label="Seller"
+        title="Private evaluation complete"
+        description="The buyer can now view one 0G result for each question. Your CSV was not stored."
       >
         <StatusMessage tone="success">
-          One private, TEE-verified 0G response produced the complete result
-          set.
+          {submittedRowCount !== null
+            ? `${submittedRowCount} submitted records were checked against ${evaluation.questions.length} buyer question${evaluation.questions.length === 1 ? "" : "s"}.`
+            : `${evaluation.questions.length} buyer question${evaluation.questions.length === 1 ? " was" : "s were"} evaluated in one private request.`}
         </StatusMessage>
       </PageIntro>
     );
@@ -158,145 +243,251 @@ export function SellerSubmission({
   if (evaluation.status === "processing") {
     return (
       <PageIntro
-        label="0G evaluation"
-        title="0G evaluation in progress."
-        description="The buyer result will update only after every question has a valid result from one verified response."
+        label="Seller"
+        title="0G evaluation in progress"
+        description="The sample is being evaluated privately. Results are published only after the complete response is verified."
       >
-        <StatusMessage>
-          Keep this page open or return later with the same seller link.
-        </StatusMessage>
+        <ProcessingSteps />
       </PageIntro>
     );
   }
 
-  return (
-    <div className="role-workbench">
-      <section>
-        <p className="role-kicker">SELLER SUBMISSION</p>
-        <h1 className="role-title">{evaluation.title}</h1>
-        <p className="role-description">
-          Your CSV travels over TLS into 0G private compute. The buyer receives
-          only secured, question-level scores—never your sample rows.
-        </p>
+  const buttonLabel = inspecting
+    ? "Checking CSV…"
+    : !preflight
+      ? "Choose a CSV first"
+      : !consent
+        ? "Confirm the sample limitation"
+        : submitting
+          ? "0G evaluation in progress…"
+          : "Run private evaluation";
 
-        <div className="question-review">
-          <h2>Questions from the buyer</h2>
-          <ol className="review-list">
-            {evaluation.questions.map((question, index) => (
-              <li key={question.id}>
-                <span className="question-index">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span>
-                  <strong>{question.question}</strong>
-                  <small>
-                    This question is included in the single 0G evaluation
-                    request.
-                  </small>
-                </span>
-              </li>
-            ))}
-          </ol>
+  return (
+    <main className="seller-flow">
+      <header className="seller-flow__intro">
+        <div className="seller-role-line">
+          <span>Seller</span>
+          <span className="link-validity">Valid private link</span>
         </div>
+        <h1 className="role-title">Submit a private CSV sample</h1>
+        <p className="seller-for">For: {evaluation.title}</p>
+        <p className="role-description">
+          Your raw rows stay private. The buyer receives one result for each
+          question—never the CSV itself.
+        </p>
+      </header>
+
+      <section className="buyer-question-card" aria-labelledby="buyer-questions">
+        <h2 id="buyer-questions">What the buyer wants to know</h2>
+        <ol>
+          {evaluation.questions.map((question, index) => (
+            <li key={question.id}>
+              <span>{index + 1}</span>
+              <p>{question.question}</p>
+            </li>
+          ))}
+        </ol>
       </section>
 
-      <form
-        onSubmit={handleSubmit}
-        className="terminal-window submission-panel"
-      >
-        <TerminalBar path="~/blindsample/submit" status="AUTHORIZED" />
-        <div className="terminal-body">
-          <CommandLine>sample submit --memory-only</CommandLine>
-          <SecurityRail />
-          <h2 className="terminal-title">Submit a CSV sample</h2>
-          <p className="terminal-copy">
-            1–50 parsed data records, maximum 200 KB and 20 columns. The header
-            is excluded from the record count. All parsed records and buyer
-            questions are evaluated together by 0G.
-          </p>
-          <p className="cost-boundary">
-            Selecting a file is free. 0G tokens are spent only when you start
-            the private evaluation.
+      <form className="seller-submit-card" onSubmit={handleSubmit}>
+        <section aria-labelledby="sample-heading">
+          <h2 id="sample-heading">Choose your sample</h2>
+          <p className="section-support">
+            CSV only · up to {PRODUCT_LIMITS.maximumRows} records ·{" "}
+            {PRODUCT_LIMITS.maximumColumns} columns · 200 KB
           </p>
 
-          <label className="field-label field-group">
-            CSV file
+          <div
+            className={`csv-dropzone${dragActive ? " csv-dropzone--active" : ""}`}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setDragActive(true);
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDragLeave={(event) => {
+              if (event.currentTarget === event.target) {
+                setDragActive(false);
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragActive(false);
+              void inspectFile(event.dataTransfer.files[0] ?? null);
+            }}
+          >
             <input
+              ref={fileInputRef}
               id="sample-file"
               type="file"
               accept=".csv,text/csv"
-              aria-invalid={Boolean(error) && !file}
+              aria-describedby="sample-file-help"
+              aria-invalid={Boolean(fileError)}
               aria-required="true"
               onChange={(event) =>
-                selectFile(event.target.files?.[0] ?? null)
+                void inspectFile(event.target.files?.[0] ?? null)
               }
-              className="file-input"
             />
-          </label>
-
-          {file ? (
-            <div className="selected-file">
-              <span>{file.name}</span>
-              <span>{formatBytes(file.size)}</span>
-            </div>
-          ) : null}
-
-          <div className="privacy-note">
-            <h3>Protected transit. Private 0G execution.</h3>
-            <p>
-              TLS protects the file in transit. The Vercel function holds it
-              only in memory. Every buyer question is evaluated by private 0G
-              compute and requires TEE verification. The CSV is never written
-              to Supabase.
-            </p>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={consent}
-                aria-required="true"
-                onChange={(event) => setConsent(event.target.checked)}
-              />
-              <span>
-                I understand the result describes only these submitted
-                records, not my complete dataset.
+            <label htmlFor="sample-file">
+              <strong>
+                {inspecting
+                  ? "Checking your CSV…"
+                  : "Drop a CSV here or choose a file"}
+              </strong>
+              <span id="sample-file-help">
+                The free check runs in this browser before any 0G request.
               </span>
             </label>
           </div>
 
-          {evaluation.status === "failed" ? (
-            <div className="message-wrap">
-              <StatusMessage>
-                The previous attempt failed safely. You can retry with this
-                seller link.
-              </StatusMessage>
-            </div>
+          {preflight ? (
+            <PreflightSummary
+              preflight={preflight}
+              onReplace={openFilePicker}
+            />
           ) : null}
 
-          {error ? (
-            <div className="message-wrap">
-              <StatusMessage tone="error">{error}</StatusMessage>
+          {fileError ? (
+            <div className="message-wrap" aria-live="polite">
+              <StatusMessage tone="error">{fileError}</StatusMessage>
             </div>
           ) : null}
+        </section>
 
-          <button
-            type="submit"
-            disabled={!file || !consent || submitting}
-            aria-busy={submitting}
-            className="button-primary button-wide"
-          >
-            {submitting
-              ? "0G evaluation in progress…"
-              : "Start private evaluation"}
-          </button>
-          <p className="readiness-note" aria-live="polite">
-            {!file
-              ? "Select a CSV sample to continue."
-              : !consent
-                ? "Confirm the submitted-data limitation."
-                : "Ready to evaluate all questions in one 0G request."}
-          </p>
-        </div>
+        <section className="seller-consent" aria-labelledby="privacy-heading">
+          <h2 id="privacy-heading">Before you run it</h2>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={consent}
+              aria-required="true"
+              onChange={(event) => setConsent(event.target.checked)}
+            />
+            <span>
+              I understand the results apply only to this sample.
+            </span>
+          </label>
+          <details className="privacy-disclosure">
+            <summary>How the sample stays private</summary>
+            <p>
+              The CSV is sent over a protected connection, held in server
+              memory only for this evaluation, and processed through 0G
+              private compute. Raw rows are not stored or shown to the buyer.
+            </p>
+          </details>
+        </section>
+
+        {evaluation.status === "failed" ? (
+          <FailureNotice evaluation={evaluation} />
+        ) : null}
+
+        {requestError ? (
+          <div className="message-wrap" aria-live="assertive">
+            <StatusMessage tone="error">{requestError}</StatusMessage>
+          </div>
+        ) : null}
+
+        {submitting ? <ProcessingSteps /> : null}
+
+        <button
+          type="submit"
+          disabled={!preflight || !consent || inspecting || submitting}
+          aria-busy={submitting}
+          className="button-primary button-wide seller-run-button"
+        >
+          {buttonLabel}
+        </button>
+        <p className="token-disclosure" aria-live="polite">
+          No 0G tokens are spent before this click.
+        </p>
       </form>
+    </main>
+  );
+}
+
+function PreflightSummary({
+  onReplace,
+  preflight,
+}: {
+  onReplace: () => void;
+  preflight: FilePreflight;
+}) {
+  const visibleHeaders = preflight.columns.slice(0, 8);
+  const hiddenHeaderCount =
+    preflight.columns.length - visibleHeaders.length;
+
+  return (
+    <div className="preflight-card" aria-live="polite">
+      <div className="preflight-card__header">
+        <div>
+          <p className="preflight-status">Ready to evaluate</p>
+          <strong>{preflight.file.name}</strong>
+          <small>{formatBytes(preflight.file.size)}</small>
+        </div>
+        <button
+          type="button"
+          className="button-quiet"
+          onClick={onReplace}
+        >
+          Replace
+        </button>
+      </div>
+      <dl className="preflight-facts">
+        <div>
+          <dt>Records</dt>
+          <dd>{preflight.rowCount}</dd>
+        </div>
+        <div>
+          <dt>Columns</dt>
+          <dd>{preflight.columnCount}</dd>
+        </div>
+        <div>
+          <dt>Validation</dt>
+          <dd>Passed locally</dd>
+        </div>
+      </dl>
+      <div className="header-preview">
+        <span>Headers</span>
+        <div>
+          {visibleHeaders.map((header) => (
+            <code key={header}>{header}</code>
+          ))}
+          {hiddenHeaderCount > 0 ? (
+            <code>+{hiddenHeaderCount} more</code>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FailureNotice({
+  evaluation,
+}: {
+  evaluation: SellerEvaluation;
+}) {
+  return (
+    <div className="seller-failure" role="alert">
+      <strong>The previous evaluation did not complete.</strong>
+      <p>{failureReason(evaluation.failure.code)}</p>
+      <p>
+        {evaluation.failure.requestMade
+          ? "A 0G request was made and may have used tokens. Retrying starts one new request."
+          : "No 0G request was made. You can retry after checking the file and service configuration."}
+      </p>
+    </div>
+  );
+}
+
+function ProcessingSteps() {
+  return (
+    <div className="evaluation-progress" aria-live="polite">
+      <p>0G evaluation in progress</p>
+      <ol>
+        <li data-state="complete">Sample validated</li>
+        <li data-state="complete">Questions prepared</li>
+        <li data-state="current">Running private evaluation</li>
+        <li data-state="queued">Verifying complete results</li>
+      </ol>
     </div>
   );
 }
@@ -336,9 +527,49 @@ function SellerLoading() {
 }
 
 function errorMessage(caught: unknown) {
-  return caught instanceof BrowserApiError
-    ? caught.message
-    : "BlindSample could not complete this submission.";
+  if (caught instanceof BrowserApiError) {
+    if (caught.code === "scoring_failed") {
+      return "The private evaluation did not complete, so no results were published.";
+    }
+
+    return caught.message;
+  }
+
+  return "BlindSample could not complete this submission.";
+}
+
+function fileIssue(code: CsvSampleError["code"]) {
+  const action = {
+    empty_sample:
+      "Add one header row and at least one data row, then choose the CSV again.",
+    invalid_csv:
+      "Check that every row has the same number of cells and every header is unique, then choose the CSV again.",
+    invalid_encoding:
+      "Export the CSV using UTF-8 encoding, then choose it again.",
+    sample_too_large:
+      "Choose a CSV no larger than 200 KB.",
+    too_many_columns: `Reduce the sample to ${PRODUCT_LIMITS.maximumColumns} columns or fewer.`,
+    too_many_rows: `Reduce the sample to ${PRODUCT_LIMITS.maximumRows} records or fewer.`,
+  }[code];
+
+  return `${action} No 0G request was made.`;
+}
+
+function failureReason(code: string | null) {
+  switch (code) {
+    case "tee_verification_failed":
+      return "The private execution could not be verified.";
+    case "zero_g_authentication_failed":
+      return "0G rejected the configured service credential.";
+    case "zero_g_invalid_response":
+      return "0G returned a response that did not pass validation.";
+    case "zero_g_unavailable":
+      return "0G did not finish the request in time.";
+    case "result_persistence_failed":
+      return "The verified result could not be published.";
+    default:
+      return "No complete, verified result set was available.";
+  }
 }
 
 function formatBytes(bytes: number) {

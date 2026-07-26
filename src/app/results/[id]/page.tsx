@@ -4,9 +4,9 @@ import { BuyerResults } from "../../../components/buyer-results";
 import { SiteFrame } from "../../../components/site-frame";
 
 export const metadata: Metadata = {
-  title: "Secured private dataset scores | BlindSample",
+  title: "Private dataset results | BlindSample",
   description:
-    "View secured, question-level dataset suitability scores from 0G private compute.",
+    "View one verified 0G result for each buyer question.",
   robots: {
     follow: false,
     index: false,

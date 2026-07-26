@@ -4,9 +4,9 @@ import { SellerSubmission } from "../../../components/seller-submission";
 import { SiteFrame } from "../../../components/site-frame";
 
 export const metadata: Metadata = {
-  title: "Submit a secured private sample | BlindSample",
+  title: "Submit a private CSV sample | BlindSample",
   description:
-    "Review the buyer's questions and send a TLS-encrypted CSV sample into 0G private compute.",
+    "Review the buyer's questions and run one private 0G evaluation without storing the CSV.",
   robots: {
     follow: false,
     index: false,

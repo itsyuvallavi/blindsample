@@ -8,14 +8,7 @@ import {
   readEvaluation,
   type BuyerEvaluation,
 } from "../lib/browser/evaluations";
-import {
-  isAtomicVerifiedResultSet,
-  type EvaluationResult,
-} from "../lib/scoring/types";
-import {
-  CommandLine,
-  TerminalBar,
-} from "./evaluation-builder";
+import type { BuyerQuestionResult } from "../lib/supabase/evaluations";
 import { StatusMessage } from "./status-message";
 
 const POLL_INTERVAL_MS = 3_000;
@@ -40,7 +33,7 @@ export function BuyerResults({
 
       if (!token) {
         if (active) {
-          setError("This buyer capability is invalid or incomplete.");
+          setError("This buyer link is invalid or incomplete.");
           setLoading(false);
         }
         return;
@@ -54,7 +47,7 @@ export function BuyerResults({
         }
 
         if (response.role !== "buyer") {
-          setError("This capability does not grant buyer access.");
+          setError("This link does not grant buyer access.");
           setLoading(false);
           return;
         }
@@ -93,50 +86,42 @@ export function BuyerResults({
 
   if (!evaluation) {
     return (
-      <ResultIntro
-        status="DENIED"
-        command="capability inspect --role buyer"
-        title="Buyer capability unavailable"
+      <ResultsState
+        label="Buyer results"
+        title="This private results link is unavailable."
+        description="Ask the buyer who created the evaluation for a new link."
       >
         <StatusMessage tone="error">
           {error ?? "The evaluation could not be loaded."}
         </StatusMessage>
-      </ResultIntro>
+      </ResultsState>
     );
   }
 
   if (evaluation.status === "waiting_for_seller") {
     return (
-      <ResultIntro
-        status="WAITING"
-        command="evaluation watch --seller-submission"
+      <ResultsState
+        label="Buyer results"
         title={evaluation.title}
+        description="Your questions are ready. Results will appear here after the seller submits a private sample."
       >
-        <p className="terminal-copy">
-          {evaluation.questions.length} plain-language question
-          {evaluation.questions.length === 1 ? "" : "s"} ready. The seller
-          has not submitted records yet.
-        </p>
-        <StatusMessage>
-          Share only the separate seller capability URL.
-        </StatusMessage>
-      </ResultIntro>
+        <StatusMessage>Waiting for the seller.</StatusMessage>
+      </ResultsState>
     );
   }
 
   if (evaluation.status === "processing") {
     return (
-      <ResultIntro
-        status="RUNNING"
-        command="evaluation watch --0g"
-        title={evaluation.title}
+      <ResultsState
+        label="Buyer results"
+        title="0G evaluation in progress"
+        description="All questions are being evaluated together in one private request."
       >
-        <StatusMessage>0G evaluation in progress.</StatusMessage>
-        <p className="terminal-copy">
-          The sample and all buyer questions are being evaluated together in
-          one private, TEE-verified request.
-        </p>
-      </ResultIntro>
+        <div className="buyer-progress" aria-live="polite">
+          <span />
+          Running and verifying the 0G evaluation…
+        </div>
+      </ResultsState>
     );
   }
 
@@ -144,24 +129,17 @@ export function BuyerResults({
     return <FailedEvaluation evaluation={evaluation} />;
   }
 
-  if (
-    !isAtomicVerifiedResultSet(
-      evaluation.questions,
-      evaluation.results,
-      evaluation.inferenceDiagnostics,
-    )
-  ) {
+  if (!evaluation.verifiedComplete || !evaluation.results) {
     return (
-      <ResultIntro
-        status="FAILED SAFE"
-        command="evaluation inspect --invalid-result"
+      <ResultsState
+        label="Buyer results"
         title="Evaluation failed — no scores were produced."
+        description="BlindSample found no complete, verified 0G result set to display."
       >
         <StatusMessage tone="error">
-          The stored result is not a complete verified 0G evaluation, so
-          BlindSample will not display it.
+          No partial or previous scores were published.
         </StatusMessage>
-      </ResultIntro>
+      </ResultsState>
     );
   }
 
@@ -179,20 +157,17 @@ function FailedEvaluation({
   evaluation: BuyerEvaluation;
 }) {
   return (
-    <ResultIntro
-      status="FAILED SAFE"
-      command="evaluation inspect --failure"
+    <ResultsState
+      label="Buyer results"
       title="Evaluation failed — no scores were produced."
+      description={failureMessage(evaluation.errorCode)}
     >
       <StatusMessage tone="error">
-        {failureMessage(evaluation.errorCode)}
+        {evaluation.failure.requestMade
+          ? "A private 0G request was made, but no complete verified result was published."
+          : "The evaluation stopped before a private 0G request was made."}
       </StatusMessage>
-      <p className="terminal-copy">
-        Recorded 0G requests:{" "}
-        {evaluation.inferenceDiagnostics.requestCount.made}. No local,
-        partial, or previous score was published.
-      </p>
-    </ResultIntro>
+    </ResultsState>
   );
 }
 
@@ -201,248 +176,157 @@ function CompletedResults({
   results,
 }: {
   evaluation: BuyerEvaluation;
-  results: EvaluationResult[];
+  results: BuyerQuestionResult[];
 }) {
   const resultByQuestion = new Map(
     results.map((result) => [result.questionId, result]),
   );
+  const scoredResults = results.filter(
+    (result) => result.status === "scored",
+  );
+  const noScores = scoredResults.length === 0;
   const request = evaluation.inferenceDiagnostics.requests[0];
+  const technicalDetails = [
+    ["Model", request?.model],
+    ["Provider", request?.provider],
+    ["Request ID", request?.requestId],
+    ["Reported tokens", reportedTokens(evaluation)],
+    ["Reported cost", reportedCost(evaluation)],
+  ].filter(
+    (item): item is [string, string] =>
+      typeof item[1] === "string" && item[1].length > 0,
+  );
 
   return (
-    <section className="terminal-window">
-      <TerminalBar path="~/blindsample/results" status="COMPLETE" />
-      <div className="terminal-body">
-        <CommandLine>
-          results read --source 0g --questions{" "}
-          {evaluation.questions.length}
-        </CommandLine>
-        <div className="results-header">
-          <div>
-            <p className="terminal-success">
-              Evaluation complete — all questions evaluated by 0G.
-            </p>
-            <h1 className="terminal-title">{evaluation.title}</h1>
-            <p className="terminal-copy">
-              No overall dataset score is calculated. Each result applies
-              only to its original question and the submitted sample.
-            </p>
-          </div>
-          <span className="verification-badge">
-            0G · TEE VERIFIED
-          </span>
-        </div>
+    <main className="buyer-results-page">
+      <header className="buyer-results-header">
+        <p className="role-kicker">BUYER RESULTS</p>
+        <h1 className="role-title">
+          {noScores
+            ? "No scores were produced"
+            : "Evaluation complete"}
+        </h1>
+        <p className="buyer-results-title">{evaluation.title}</p>
+        <p className="role-description">
+          {noScores
+            ? "0G could not safely score these questions from the submitted sample. This does not mean the dataset failed your requirements."
+            : "All questions were evaluated by 0G. Each score answers only its own question—there is no overall dataset score."}
+        </p>
+      </header>
 
-        <div className="score-list">
-          {evaluation.questions.map((question, index) => (
-            <ResultRecord
-              key={question.id}
-              index={index}
-              question={question.question}
-              result={
-                resultByQuestion.get(question.id) as EvaluationResult
-              }
-            />
-          ))}
-        </div>
-
-        <details className="verification-trace">
-          <summary>0G verification metadata</summary>
-          <p className="verification-copy">
-            TEE verification proves that the single response came from the
-            requested protected 0G execution path. It does not by itself
-            guarantee that a model judgment is correct.
+      <section className="verification-summary" aria-label="0G verification">
+        <span className="verification-mark">✓</span>
+        <div>
+          <strong>Private execution verified</strong>
+          <p>
+            One private 0G request completed and produced this full result
+            set.
           </p>
-          <dl className="trace-grid">
-            <TraceItem
-              label="submitted records"
-              value={String(evaluation.sampleRowCount ?? 0)}
-            />
-            <TraceItem
-              label="submitted columns"
-              value={String(evaluation.sampleColumnCount ?? 0)}
-            />
-            <TraceItem label="0G requests" value="1/1" />
-            <TraceItem
-              label="model"
-              value={request.model ?? "not reported"}
-            />
-            <TraceItem
-              label="provider"
-              value={request.provider ?? "not reported"}
-            />
-            <TraceItem
-              label="request ID"
-              value={request.requestId ?? "not reported"}
-            />
-            <TraceItem
-              label="reported tokens"
-              value={reportedTokens(evaluation.inferenceDiagnostics)}
-            />
-            <TraceItem
-              label="reported cost"
-              value={reportedCost(evaluation.inferenceDiagnostics)}
-            />
+          <small>
+            Verification confirms protected execution. It does not guarantee
+            that every model judgment is correct.
+          </small>
+        </div>
+      </section>
+
+      <section className="buyer-score-list" aria-label="Question results">
+        {evaluation.questions.map((question, index) => (
+          <ResultCard
+            key={question.id}
+            index={index}
+            question={question.question}
+            result={
+              resultByQuestion.get(question.id) as BuyerQuestionResult
+            }
+          />
+        ))}
+      </section>
+
+      <aside className="sample-limitation">
+        <strong>About these results</strong>
+        <p>
+          They describe only the private sample the seller submitted. They do
+          not prove that the seller’s complete dataset has the same quality.
+        </p>
+      </aside>
+
+      {technicalDetails.length > 0 ? (
+        <details className="buyer-technical-details">
+          <summary>Technical verification details</summary>
+          <dl>
+            {technicalDetails.map(([label, value]) => (
+              <TraceItem key={label} label={label} value={value} />
+            ))}
           </dl>
         </details>
-      </div>
-    </section>
+      ) : null}
+    </main>
   );
 }
 
-function ResultRecord({
+function ResultCard({
   index,
   question,
   result,
 }: {
   index: number;
   question: string;
-  result: EvaluationResult;
+  result: BuyerQuestionResult;
 }) {
   return (
-    <article className="score-row result-record">
+    <article className="buyer-result-card">
       <header>
         <div>
-          <p className="question-index">
-            result[{String(index).padStart(2, "0")}] · Evaluated by 0G
+          <p className="result-provenance">
+            Question {index + 1} · Evaluated by 0G
           </p>
-          <h3 className="score-question">{question}</h3>
+          <h2>{question}</h2>
         </div>
         {result.status === "scored" ? (
-          <div className="score-value">
+          <div className="score-value" aria-label={`${result.score} out of 100`}>
             <span>{result.score}</span>
             <small>/100</small>
           </div>
         ) : (
           <div className="unable-value">
-            unable
-            <small>no score</small>
+            Unable
+            <small>No score</small>
           </div>
         )}
       </header>
 
-      <p className="terminal-copy">{result.explanation}</p>
+      <p className="result-explanation">{result.explanation}</p>
 
-      <details className="result-audit">
-        <summary>View safe audit evidence</summary>
-        <dl className="result-evidence-grid">
-          <TraceItem
-            label="evaluated by"
-            value="0G · TEE verified"
-          />
-          <TraceItem
-            label="basis"
-            value={`${result.evaluationBasis.unit.replaceAll("_", " ")} · ${result.evaluationBasis.description}`}
-          />
-          <TraceItem
-            label="confidence"
-            value={`${result.confidence}%`}
-          />
-          <TraceItem
-            label="arithmetic"
-            value={
-              result.numerator === null ||
-              result.denominator === null
-                ? "not applicable"
-                : `${result.numerator}/${result.denominator}`
-            }
-          />
-          <TraceItem
-            label="0 means"
-            value={result.scoreDefinition.zero}
-          />
-          <TraceItem
-            label="100 means"
-            value={result.scoreDefinition.oneHundred}
-          />
-          <TraceItem
-            label="row evidence"
-            value={
-              result.evidence.rowNumbers.length > 0
-                ? result.evidence.rowNumbers.join(", ")
-                : "none"
-            }
-          />
-          <TraceItem
-            label="aggregate counts"
-            value={
-              result.evidence.aggregateCounts.length > 0
-                ? result.evidence.aggregateCounts
-                    .map((item) => `${item.label}: ${item.count}`)
-                    .join("; ")
-                : "none"
-            }
-          />
-          <TraceItem
-            label="sanitized reasons"
-            value={
-              result.evidence.reasons.length > 0
-                ? result.evidence.reasons.join("; ")
-                : "none"
-            }
-          />
-        </dl>
+      <details className="result-reading-guide">
+        <summary>How to read this result</summary>
+        <p>
+          {result.status === "scored"
+            ? "0 means the sample did not meet this requirement; 100 means it fully met it."
+            : "No score was published because 0G could not answer this question safely from the sample."}
+        </p>
+        <p>Model confidence: {result.confidence}%</p>
       </details>
     </article>
   );
 }
 
-function reportedTokens(
-  diagnostics: BuyerEvaluation["inferenceDiagnostics"],
-) {
-  const counts = diagnostics.requests
-    .map((request) => request.usage.totalTokens)
-    .filter((value): value is number => value !== null);
-
-  return counts.length > 0
-    ? String(counts.reduce((sum, value) => sum + value, 0))
-    : "not reported";
-}
-
-function reportedCost(
-  diagnostics: BuyerEvaluation["inferenceDiagnostics"],
-) {
-  const costs = diagnostics.requests
-    .map((request) => request.billing.totalCostNeuron)
-    .filter((value): value is string => value !== null);
-
-  if (costs.length === 0) {
-    return "not reported";
-  }
-
-  return `${costs.reduce(
-    (sum, value) => sum + BigInt(value),
-    BigInt(0),
-  )} neuron`;
-}
-
-function TraceItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="trace-label">{label}</dt>
-      <dd className="trace-value">{value}</dd>
-    </div>
-  );
-}
-
-function ResultIntro({
+function ResultsState({
   children,
-  command,
-  status,
+  description,
+  label,
   title,
 }: {
   children: React.ReactNode;
-  command: string;
-  status: string;
+  description: string;
+  label: string;
   title: string;
 }) {
   return (
-    <section className="terminal-window role-state">
-      <TerminalBar path="~/blindsample/results" status={status} />
-      <div className="terminal-body">
-        <CommandLine>{command}</CommandLine>
-        <h1 className="terminal-title">{title}</h1>
-        <div className="role-state__content">{children}</div>
-      </div>
+    <section className="role-state buyer-results-state">
+      <p className="role-kicker">{label.toUpperCase()}</p>
+      <h1 className="role-title">{title}</h1>
+      <p className="role-description">{description}</p>
+      <div className="role-state__content">{children}</div>
     </section>
   );
 }
@@ -450,18 +334,48 @@ function ResultIntro({
 function ResultsLoading() {
   return (
     <section
-      className="terminal-window loading-shell"
+      className="loading-shell role-state"
       aria-label="Loading buyer results"
     >
-      <TerminalBar path="~/blindsample/results" status="CONNECTING" />
-      <div className="terminal-body">
-        <CommandLine>capability authenticate --role buyer</CommandLine>
-        <div className="skeleton-line skeleton-line--short" />
-        <div className="skeleton-line" />
-        <div className="skeleton-block" />
-      </div>
+      <div className="skeleton-line skeleton-line--short" />
+      <div className="skeleton-line" />
+      <div className="skeleton-block" />
     </section>
   );
+}
+
+function TraceItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function reportedTokens(evaluation: BuyerEvaluation) {
+  const counts = evaluation.inferenceDiagnostics.requests
+    .map((request) => request.usage.totalTokens)
+    .filter((value): value is number => value !== null);
+
+  return counts.length > 0
+    ? String(counts.reduce((sum, value) => sum + value, 0))
+    : null;
+}
+
+function reportedCost(evaluation: BuyerEvaluation) {
+  const costs = evaluation.inferenceDiagnostics.requests
+    .map((request) => request.billing.totalCostNeuron)
+    .filter((value): value is string => value !== null);
+
+  if (costs.length === 0) {
+    return null;
+  }
+
+  return `${costs.reduce(
+    (sum, value) => sum + BigInt(value),
+    BigInt(0),
+  )} neuron`;
 }
 
 function errorMessage(caught: unknown) {
@@ -473,18 +387,18 @@ function errorMessage(caught: unknown) {
 function failureMessage(errorCode: string | null) {
   switch (errorCode) {
     case "tee_verification_failed":
-      return "0G TEE verification did not pass.";
+      return "The private execution could not be verified.";
     case "zero_g_authentication_failed":
-      return "0G rejected the configured production credential.";
+      return "0G rejected the service credential.";
     case "zero_g_invalid_response":
-      return "0G returned output that failed strict validation.";
+      return "0G returned a response that did not pass validation.";
     case "service_misconfigured":
-      return "The production 0G configuration is incomplete.";
+      return "The private evaluation service is not configured correctly.";
     case "zero_g_unavailable":
       return "0G did not complete the evaluation request.";
     case "result_persistence_failed":
-      return "The verified result set could not be stored atomically.";
+      return "The verified result set could not be published safely.";
     default:
-      return "The evaluation stopped before a complete verified 0G result was available.";
+      return "The evaluation stopped before a complete verified result was available.";
   }
 }

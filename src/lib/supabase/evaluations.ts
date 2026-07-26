@@ -59,19 +59,32 @@ export type CreatedEvaluation = {
 export type SellerEvaluationView = {
   approvedAt: string;
   expiresAt: string;
+  failure: {
+    code: string | null;
+    requestMade: boolean;
+  };
   id: string;
   questions: EvaluationQuestion[];
   status: EvaluationStatus;
   title: string;
 };
 
+export type BuyerQuestionResult = {
+  confidence: number;
+  evaluatedBy: "0g";
+  explanation: string;
+  questionId: string;
+  score: number | null;
+  status: "scored" | "unable";
+  teeVerified: true;
+};
+
 export type BuyerEvaluationView = SellerEvaluationView & {
   completedAt: string | null;
   errorCode: string | null;
   inferenceDiagnostics: EvaluationRunDiagnostics;
-  results: EvaluationResult[] | null;
-  sampleColumnCount: number | null;
-  sampleRowCount: number | null;
+  results: BuyerQuestionResult[] | null;
+  verifiedComplete: boolean;
 };
 
 export type CompletedEvaluationResult = {
@@ -152,7 +165,9 @@ export async function getSellerEvaluation(
 
   const { data, error } = await client
     .from("evaluations")
-    .select("id, title, status, contracts, approved_at, expires_at")
+    .select(
+      "id, title, status, contracts, approved_at, expires_at, error_code, inference_diagnostics",
+    )
     .eq("id", id)
     .eq("environment", environment)
     .eq("seller_token_hash", tokenHash)
@@ -170,6 +185,10 @@ export async function getSellerEvaluation(
   return {
     approvedAt: data.approved_at,
     expiresAt: data.expires_at,
+    failure: {
+      code: data.error_code,
+      requestMade: readRequestCount(data.inference_diagnostics) > 0,
+    },
     id: data.id,
     questions: readStoredQuestions(data.contracts),
     status: data.status as EvaluationStatus,
@@ -192,7 +211,7 @@ export async function getBuyerEvaluation(
   const { data, error } = await client
     .from("evaluations")
     .select(
-      "id, title, status, contracts, results, inference_diagnostics, sample_row_count, sample_column_count, error_code, completed_at, approved_at, expires_at",
+      "id, title, status, contracts, results, inference_diagnostics, error_code, completed_at, approved_at, expires_at",
     )
     .eq("id", id)
     .eq("environment", environment)
@@ -208,20 +227,35 @@ export async function getBuyerEvaluation(
     return null;
   }
 
+  const questions = readStoredQuestions(data.contracts);
+  const diagnostics = readRunDiagnostics(data.inference_diagnostics);
+  const storedResults = data.results as EvaluationResult[] | null;
+  const verifiedComplete =
+    data.status === "complete" &&
+    isAtomicVerifiedResultSet(
+      questions,
+      storedResults,
+      diagnostics,
+    );
+
   return {
     approvedAt: data.approved_at,
     completedAt: data.completed_at,
     errorCode: data.error_code,
     expiresAt: data.expires_at,
+    failure: {
+      code: data.error_code,
+      requestMade: diagnostics.requestCount.made > 0,
+    },
     id: data.id,
-    inferenceDiagnostics:
-      data.inference_diagnostics as EvaluationRunDiagnostics,
-    questions: readStoredQuestions(data.contracts),
-    results: data.results as EvaluationResult[] | null,
-    sampleColumnCount: data.sample_column_count,
-    sampleRowCount: data.sample_row_count,
+    inferenceDiagnostics: diagnostics,
+    questions,
+    results: verifiedComplete
+      ? storedResults.map(toBuyerQuestionResult)
+      : null,
     status: data.status as EvaluationStatus,
     title: data.title,
+    verifiedComplete,
   };
 }
 
@@ -409,6 +443,72 @@ function isRecord(value: Json): value is Record<string, Json> {
     value !== null &&
     !Array.isArray(value)
   );
+}
+
+export function toBuyerQuestionResult(
+  result: EvaluationResult,
+): BuyerQuestionResult {
+  if (result.status === "unable") {
+    return {
+      confidence: result.confidence,
+      evaluatedBy: "0g",
+      explanation:
+        "0G could not safely answer this question from the submitted sample.",
+      questionId: result.questionId,
+      score: null,
+      status: "unable",
+      teeVerified: true,
+    };
+  }
+
+  return {
+    confidence: result.confidence,
+    evaluatedBy: "0g",
+    explanation: scoreSummary(result.score),
+    questionId: result.questionId,
+    score: result.score,
+    status: "scored",
+    teeVerified: true,
+  };
+}
+
+function scoreSummary(score: number) {
+  if (score === 100) {
+    return "The submitted sample fully met this requirement.";
+  }
+
+  if (score >= 80) {
+    return "The submitted sample strongly met this requirement.";
+  }
+
+  if (score >= 60) {
+    return "The submitted sample mostly met this requirement.";
+  }
+
+  if (score >= 40) {
+    return "The submitted sample partially met this requirement.";
+  }
+
+  if (score > 0) {
+    return "The submitted sample rarely met this requirement.";
+  }
+
+  return "The submitted sample did not meet this requirement.";
+}
+
+function readRunDiagnostics(value: Json | null) {
+  if (!value || !isRecord(value)) {
+    return emptyEvaluationRunDiagnostics();
+  }
+
+  return value as unknown as EvaluationRunDiagnostics;
+}
+
+function readRequestCount(value: Json | null) {
+  const diagnostics = readRunDiagnostics(value);
+  return Number.isSafeInteger(diagnostics.requestCount?.made)
+    ? diagnostics.requestCount.made
+    : 0;
 }
 
 function databaseError(message: string, cause: unknown) {

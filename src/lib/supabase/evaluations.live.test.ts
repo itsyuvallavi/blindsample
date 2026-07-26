@@ -125,13 +125,15 @@ describeLive("Supabase atomic evaluation persistence", () => {
       status: "complete",
       results: [
         {
-          provenance: {
-            evaluator: "0g",
-            teeVerified: true,
-          },
+          evaluatedBy: "0g",
           questionId: "q1",
+          score: 75,
+          teeVerified: true,
         },
       ],
+      verifiedComplete: true,
     });
+    expect(buyer).not.toHaveProperty("sampleRowCount");
+    expect(buyer).not.toHaveProperty("sampleColumnCount");
   });
 });
