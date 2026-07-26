@@ -29,6 +29,7 @@ const RESULT_KEYS = [
   "score",
   "score_definition",
   "status",
+  "unit_judgments",
 ];
 
 export type EvaluationOutputFailureCode =
@@ -45,6 +46,7 @@ export type EvaluationOutputFailureCode =
   | "invalid_score_definition"
   | "invalid_status"
   | "invalid_text"
+  | "invalid_unit_judgments"
   | "invalid_unable_arithmetic"
   | "missing_count_arithmetic"
   | "missing_or_duplicate_question"
@@ -162,17 +164,18 @@ function parseResult(
     value.evaluation_basis,
     forbiddenValues,
   );
-  const explanation = readSafeText(
+  const modelExplanation = readSafeText(
     value.explanation,
     "explanation",
     forbiddenValues,
     800,
   );
-  const evidence = readEvidence(
+  const modelEvidence = readEvidence(
     value.evidence,
     sample,
     forbiddenValues,
   );
+  const unitJudgments = readUnitJudgments(value.unit_judgments);
   const provenance = {
     evaluator: "0g" as const,
     model: trace.model,
@@ -201,12 +204,19 @@ function parseResult(
       );
     }
 
+    if (unitJudgments.length !== 0) {
+      throw new EvaluationOutputError(
+        "invalid_unit_judgments",
+        "An unable result must not contain unit judgments.",
+      );
+    }
+
     return {
       confidence,
       denominator: null,
       evaluationBasis,
-      evidence,
-      explanation,
+      evidence: modelEvidence,
+      explanation: modelExplanation,
       numerator: null,
       provenance,
       questionId,
@@ -233,54 +243,148 @@ function parseResult(
     );
   }
 
-  if (
-    evaluationBasis.unit !== "holistic_rubric" &&
-    numerator === null
-  ) {
+  if (evaluationBasis.unit === "holistic_rubric") {
+    if (
+      numerator !== null ||
+      denominator !== null ||
+      unitJudgments.length !== 0
+    ) {
+      throw new EvaluationOutputError(
+        "invalid_unit_judgments",
+        "A holistic result must not contain count arithmetic or unit judgments.",
+      );
+    }
+
+    return {
+      confidence,
+      denominator: null,
+      evaluationBasis,
+      evidence: modelEvidence,
+      explanation: modelExplanation,
+      numerator: null,
+      provenance,
+      questionId,
+      resultVersion: ZERO_G_RESULT_VERSION,
+      score: numericScore,
+      scoreDefinition,
+      status,
+    };
+  }
+
+  if (numerator === null) {
     throw new EvaluationOutputError(
       "missing_count_arithmetic",
       "Count-based results require a numerator and denominator.",
     );
   }
 
-  if (numerator !== null && denominator !== null) {
-    const numericNumerator = readInteger(
-      numerator,
-      0,
-      Number.MAX_SAFE_INTEGER,
-    );
-    const numericDenominator = readInteger(
-      denominator,
-      1,
-      Number.MAX_SAFE_INTEGER,
-    );
+  const claimedNumerator = readInteger(
+    numerator,
+    0,
+    Number.MAX_SAFE_INTEGER,
+  );
+  const claimedDenominator = readInteger(
+    denominator,
+    1,
+    Number.MAX_SAFE_INTEGER,
+  );
 
-    if (
-      numericNumerator > numericDenominator ||
-      Math.round((numericNumerator / numericDenominator) * 100) !==
-        numericScore
-    ) {
-      throw new EvaluationOutputError(
-        "arithmetic_mismatch",
-        "The result score does not match its numerator and denominator.",
-      );
-    }
+  if (claimedNumerator > claimedDenominator) {
+    throw new EvaluationOutputError(
+      "arithmetic_mismatch",
+      "The result numerator cannot exceed its denominator.",
+    );
   }
+
+  if (unitJudgments.length < 1) {
+    throw new EvaluationOutputError(
+      "invalid_unit_judgments",
+      "A count-based result must contain unit judgments.",
+    );
+  }
+
+  if (
+    (evaluationBasis.unit === "records" ||
+      evaluationBasis.unit === "fields") &&
+    unitJudgments.length !== sample.rowCount
+  ) {
+    throw new EvaluationOutputError(
+      "invalid_unit_judgments",
+      "Record and field judgments must cover every submitted row.",
+    );
+  }
+
+  const computedNumerator = unitJudgments.filter(Boolean).length;
+  const computedDenominator = unitJudgments.length;
+  const computedScore = Math.round(
+    (computedNumerator / computedDenominator) * 100,
+  );
+  const unitLabel = evaluationUnitLabel(evaluationBasis.unit);
+  const evidence = {
+    aggregateCounts: [
+      { count: computedDenominator, label: `${unitLabel} evaluated` },
+      {
+        count: computedNumerator,
+        label: `${unitLabel} meeting criterion`,
+      },
+    ],
+    reasons: [],
+    rowNumbers:
+      evaluationBasis.unit === "records" ||
+      evaluationBasis.unit === "fields"
+        ? unitJudgments.flatMap((passed, index) =>
+            passed ? [index + 1] : [],
+          )
+        : [],
+  };
 
   return {
     confidence,
-    denominator: denominator as number | null,
-    evaluationBasis,
+    denominator: computedDenominator,
+    evaluationBasis: {
+      description: `0G evaluated ${computedDenominator} ${unitLabel} against the buyer's stated criterion.`,
+      unit: evaluationBasis.unit,
+    },
     evidence,
-    explanation,
-    numerator: numerator as number | null,
+    explanation: `0G marked ${computedNumerator} of ${computedDenominator} ${unitLabel} as meeting the buyer's stated criterion.`,
+    numerator: computedNumerator,
     provenance,
     questionId,
     resultVersion: ZERO_G_RESULT_VERSION,
-    score: numericScore,
+    score: computedScore,
     scoreDefinition,
     status,
   };
+}
+
+function readUnitJudgments(value: unknown) {
+  if (
+    !Array.isArray(value) ||
+    value.length > 2_000 ||
+    !value.every((judgment) => typeof judgment === "boolean")
+  ) {
+    throw new EvaluationOutputError(
+      "invalid_unit_judgments",
+      "Unit judgments must be a bounded boolean array.",
+    );
+  }
+
+  return value as boolean[];
+}
+
+function evaluationUnitLabel(unit: EvaluationBasisUnit) {
+  switch (unit) {
+    case "events":
+      return "events";
+    case "expected_intervals":
+      return "expected intervals";
+    case "fields":
+      return "field values";
+    case "records":
+      return "records";
+    case "holistic_rubric":
+      return "rubric";
+  }
 }
 
 function readQuestionId(

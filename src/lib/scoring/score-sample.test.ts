@@ -169,14 +169,13 @@ describe("scorePrivateCsvSample", () => {
       }),
     ],
     [
-      "invalid arithmetic",
+      "incomplete unit judgments",
       completion({
         evaluation_id: "evaluation-1",
         results: [
           {
             ...validOutput().results[0],
-            numerator: 1,
-            score: 100,
+            unit_judgments: [true],
           },
           validOutput().results[1],
         ],
@@ -210,6 +209,48 @@ describe("scorePrivateCsvSample", () => {
       ),
     ).rejects.toBeInstanceOf(PrivateScoringError);
     expect(requestCompletion).toHaveBeenCalledOnce();
+  });
+
+  it("derives count arithmetic from 0G unit judgments", async () => {
+    const output = validOutput();
+    output.results[0] = {
+      ...output.results[0],
+      explanation: "An intentionally incorrect model summary.",
+      unit_judgments: [true, false],
+    };
+
+    const result = await scorePrivateCsvSample(
+      {
+        evaluationId: "evaluation-1",
+        questions: QUESTIONS,
+        sample: SAMPLE,
+      },
+      {
+        requestCompletion: vi
+          .fn()
+          .mockResolvedValue(completion(output)),
+      },
+    );
+
+    expect(result.results[0]).toMatchObject({
+      denominator: 2,
+      explanation:
+        "0G marked 1 of 2 records as meeting the buyer's stated criterion.",
+      numerator: 1,
+      score: 50,
+      status: "scored",
+    });
+    expect(result.results[0].evidence).toEqual({
+      aggregateCounts: [
+        { count: 2, label: "records evaluated" },
+        { count: 1, label: "records meeting criterion" },
+      ],
+      reasons: [],
+      rowNumbers: [1],
+    });
+    expect(JSON.stringify(result.results)).not.toContain(
+      "unit_judgments",
+    );
   });
 
   it("redacts copied private cell values before returning results", async () => {
@@ -404,6 +445,7 @@ function validOutput() {
           zero: "No submitted record contains both fields.",
         },
         status: "scored",
+        unit_judgments: [true, true],
       },
       {
         confidence: 80,
@@ -428,6 +470,7 @@ function validOutput() {
           zero: "No context is relevant.",
         },
         status: "scored",
+        unit_judgments: [] as boolean[],
       },
     ],
   };

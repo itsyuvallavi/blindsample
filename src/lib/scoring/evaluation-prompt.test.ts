@@ -43,6 +43,10 @@ describe("evaluation prompt contract", () => {
                 };
                 question_id: { enum: string[] };
                 status: { enum: string[] };
+                unit_judgments: {
+                  items: { type: string };
+                  minItems: number;
+                };
               };
             }>;
           };
@@ -72,6 +76,12 @@ describe("evaluation prompt contract", () => {
     expect(resultSchemas[1].properties.status.enum).toEqual([
       "scored",
     ]);
+    expect(
+      resultSchemas[1].properties.unit_judgments,
+    ).toMatchObject({
+      items: { type: "boolean" },
+      minItems: 1,
+    });
     expect(
       resultSchemas[1].properties.evidence.properties.row_numbers,
     ).toMatchObject({ items: { maximum: 2 }, uniqueItems: true });
@@ -151,6 +161,10 @@ describe("evaluation prompt contract", () => {
                 type: string;
               };
               status: { enum: string[] };
+              unit_judgments: {
+                items: { type: string };
+                minItems: number;
+              };
             };
           };
         };
@@ -175,6 +189,10 @@ describe("evaluation prompt contract", () => {
     expect(resultSchema.properties.denominator).toEqual({
       minimum: 1,
       type: "integer",
+    });
+    expect(resultSchema.properties.unit_judgments).toMatchObject({
+      items: { type: "boolean" },
+      minItems: 1,
     });
 
     const messages = buildEvaluationMessages({
@@ -222,6 +240,9 @@ describe("evaluation prompt contract", () => {
     );
     expect(messages[0].content).toContain(
       "choose the simplest conservative interpretation",
+    );
+    expect(messages[0].content).toContain(
+      "unit_judgments is the authoritative source",
     );
     expect(userPayload.required_output).toEqual({
       evaluation_id: "evaluation-1",
