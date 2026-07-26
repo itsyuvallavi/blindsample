@@ -28,10 +28,7 @@ describeLive("one-request semantic diagnostic", () => {
         LIVE_SEMANTIC_CRITERION,
       ])[0];
       const sample = createLiveSemanticSample();
-      const config = getZeroGConfig({
-        ...process.env,
-        ZERO_G_API_KEY: process.env.MAIN_ZERO_G_API_KEY,
-      });
+      const config = getZeroGConfig();
       const records = prepareSemanticRecords(contract, sample);
       const diagnostic = await runOriginalSemanticDiagnostic(
         contract,
