@@ -382,3 +382,90 @@ Next:
 
 - Fund the testnet Router balance, rerun both live proofs, and complete one
   successful end-to-end browser evaluation.
+
+## 2026-07-26 — Defensible evaluation contracts
+
+Completed:
+
+- Replaced the earlier model-direct scoring path with buyer-approved,
+  versioned evaluation contracts.
+- Enforced 1–50 parsed CSV records, excluding the header and preserving quoted
+  embedded newlines without truncation.
+- Added deterministic scoring for completeness, format validity, uniqueness,
+  freshness, numeric ranges, column availability, and category coverage.
+- Changed semantic inference to return only per-record rubric labels.
+- Added buyer-authored targets plus human-reviewed negative, intermediate, and
+  positive controls.
+- Added a repeated canonical-subset classification, 80% agreement threshold,
+  80% evidence-coverage threshold, and three-record semantic minimum.
+- Added `unable_to_score` for insufficient evidence, failed controls,
+  instability, invalid output, or unverified 0G execution.
+- Added a SHA-256 contract-set hash so link activation is bound to the exact
+  contract set the buyer reviewed.
+- Migrated Supabase from `questions` and `scores` to approved `contracts` and
+  structured `results`, with per-result 0G traces.
+
+Why:
+
+- Privacy and TEE verification do not make an AI judgment accurate. A score
+  must be grounded in an approved rubric, exact evidence rules, calibration,
+  and fail-closed behavior.
+- Exact arithmetic belongs in deterministic application code, not a language
+  model.
+
+Verified:
+
+- Boundary tests cover zero, one, fifty, and fifty-one records, header
+  exclusion, quoted newlines, and no truncation.
+- Reliability tests cover known objective fixtures, missing evidence,
+  control failure, unstable output, row order, irrelevant columns,
+  prompt-injection cells, and false TEE verification.
+- N accepted contracts produce N result records and no overall score.
+- The new migration is deployed to the owned Supabase project.
+- Live role separation, one-winner concurrent claim, structured persistence,
+  token-hash storage, and cleanup passed against the deployed schema.
+- Commits `16e8f36` through `fecb1da` were pushed independently to
+  `build/mvp`.
+
+Supersedes:
+
+- The earlier “Strict independent scoring” model-direct prompt and
+  model-selected score contract.
+- The earlier 200-row limit. The current product contract is 1–50 parsed data
+  records.
+
+## 2026-07-26 — Clean Terminal product interface
+
+Completed:
+
+- Replaced the dense Lumen workbench with the Hallmark Terminal/Cobalt
+  developer-tool direction.
+- Reduced the landing screen to one promise, one creation card, and three
+  short steps.
+- Moved scoring configuration, full contract rules, and result audit evidence
+  behind progressive disclosures.
+- Kept private 0G execution, separate capabilities, and the absence of an
+  overall score visible without overwhelming the primary flow.
+- Updated buyer, seller, and result states for approved contracts and
+  structured result evidence.
+
+Why:
+
+- The product must feel safe and understandable to a non-technical buyer.
+  Security detail should be available on demand instead of competing with the
+  main action.
+
+Verified:
+
+- Browser review confirmed the simplified creation and contract-review states.
+- TypeScript, lint, 78 unit tests, and the production build pass.
+- No secret-like values appear in the UI diff.
+- Committed and pushed as `2c64925 feat: simplify the private terminal
+  workflow`.
+
+Next:
+
+- Refresh the protected Vercel Preview from the exact pushed branch.
+- Rerun the opt-in 0G and calibrated semantic live tests with the current
+  funded testnet key.
+- Complete one successful synthetic end-to-end browser evaluation.
