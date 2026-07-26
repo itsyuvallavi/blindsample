@@ -61,7 +61,7 @@ Still blocked:
 
 Completed:
 
-- Published `itsyuvallavi/blindsample` as a public repository.
+- Published CipherQuery as a public GitHub repository.
 - Created the `build/mvp` implementation branch.
 - Added Next.js 16.2.12, React 19.2.8, TypeScript, Tailwind CSS, and a Node.js
   22 runtime contract.
@@ -162,7 +162,7 @@ Next:
 
 Completed:
 
-- Created the user-owned `BlindSample` Supabase project in `eu-west-1`.
+- Created the user-owned Supabase backend for CipherQuery in `eu-west-1`.
 - Created and deployed one reviewed `evaluations` migration.
 - Added database checks for status, expiry, capability hashes, sample limits,
   and publication of only complete TEE-verified results.
@@ -173,7 +173,7 @@ Completed:
   HMAC-SHA256 hashes.
 - Added environment-scoped evaluation creation, role-specific reads, an
   atomic submission claim, completion, failure, and retry transitions.
-- Created and Git-connected the Vercel `blindsample` project. Local
+- Created and Git-connected the Vercel project for CipherQuery. Local
   `.vercel` metadata remains ignored.
 
 Why:
@@ -369,8 +369,7 @@ Verified:
   `build/mvp`.
 - Updated all six Vercel Preview variables from the local testnet
   configuration without exposing their values.
-- Deployed the exact committed worktree to the protected
-  `blindsample-git-build-mvp-yuval-lavis-projects.vercel.app` preview.
+- Deployed the exact committed worktree to a protected Vercel preview.
 - Confirmed the deployed health route returns HTTP 200 with the expected
   security headers.
 - Confirmed the deployed creation API persists an evaluation and returns
@@ -500,8 +499,7 @@ Verified:
 - `npm run test:0g`: pass before the remaining testnet balance was consumed.
 - `npm run test:scoring`: pass before the remaining testnet balance was
   consumed.
-- Protected Preview:
-  `https://blindsample-git-build-mvp-yuval-lavis-projects.vercel.app`.
+- Protected Vercel preview: verified.
 
 Blocked:
 

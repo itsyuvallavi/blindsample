@@ -294,7 +294,7 @@ describe("requestVerifiedPrivateCompletion", () => {
       '{"evaluation_id":"evaluation-1","results":[]}';
     const functionTool = {
       description: "Submit one evaluation.",
-      name: "submit_blindsample_evaluation",
+      name: "submit_cipherquery_evaluation",
       parameters: {
         additionalProperties: false,
         properties: {
@@ -380,7 +380,7 @@ describe("requestVerifiedPrivateCompletion", () => {
         fetchImplementation,
         functionTool: {
           description: "Submit one evaluation.",
-          name: "submit_blindsample_evaluation",
+          name: "submit_cipherquery_evaluation",
           parameters: { type: "object" },
         },
       },

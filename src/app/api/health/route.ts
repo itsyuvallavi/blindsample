@@ -1,6 +1,6 @@
 export function GET() {
   return Response.json({
-    service: "blindsample",
+    service: "cipherquery",
     status: "ok",
   });
 }

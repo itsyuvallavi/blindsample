@@ -7,6 +7,13 @@ question-level answers without receiving the raw rows.
 
 Built for the **Best AI Product on 0G** track at ETHGlobal Lisbon 2026.
 
+## Naming
+
+**CipherQuery** is the product and package name. Legacy infrastructure slugs,
+database migration comments, and browser storage keys may retain their original
+values so existing deployments, evaluation links, and saved drafts continue to
+work. They are compatibility identifiers, not the public brand.
+
 ## Product flow
 
 1. The buyer names an evaluation and writes 1–20 plain-text questions.

@@ -6,7 +6,7 @@ import type {
 } from "../zero-g/client";
 
 export const EVALUATION_TOOL_NAME =
-  "submit_blindsample_evaluation";
+  "submit_cipherquery_evaluation";
 
 export function buildEvaluationMessages(input: {
   evaluationId: string;
@@ -140,7 +140,7 @@ export function buildEvaluationFunctionTool(input: {
 
   return {
     description:
-      "Submit the complete atomic BlindSample result set for every supplied buyer question.",
+      "Submit the complete atomic CipherQuery result set for every supplied buyer question.",
     name: EVALUATION_TOOL_NAME,
     parameters: {
       additionalProperties: false,
