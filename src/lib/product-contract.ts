@@ -3,7 +3,7 @@ export const PRODUCT_LIMITS = {
   maximumFileBytes: 200_000,
   maximumQuestionCharacters: 300,
   maximumQuestions: 20,
-  maximumRows: 200,
+  maximumRows: 50,
   maximumTitleCharacters: 80,
   scoreMaximum: 100,
   scoreMinimum: 1,
