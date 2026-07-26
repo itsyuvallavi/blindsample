@@ -1,5 +1,5 @@
-import type { ParsedCsvSample } from "../csv/parse-sample";
 import type { EvaluationQuestion } from "../evaluation-plans/types";
+import type { ParsedSample } from "../samples/types";
 import type { ZeroGTrace } from "../zero-g/client";
 import {
   ZERO_G_RESULT_VERSION,
@@ -67,7 +67,7 @@ export function parseEvaluationOutput(input: {
   content: string;
   evaluationId: string;
   questions: EvaluationQuestion[];
-  sample: ParsedCsvSample;
+  sample: ParsedSample;
   trace: ZeroGTrace;
 }): EvaluationResult[] {
   let parsed: unknown;
@@ -135,7 +135,7 @@ function parseResult(
   expectedIds: Set<string>,
   questionsById: Map<string, EvaluationQuestion>,
   seenIds: Set<string>,
-  sample: ParsedCsvSample,
+  sample: ParsedSample,
   forbiddenValues: string[],
   trace: ZeroGTrace,
 ): EvaluationResult {
@@ -466,7 +466,7 @@ function readEvaluationBasis(
 
 function readEvidence(
   value: unknown,
-  sample: ParsedCsvSample,
+  sample: ParsedSample,
   forbiddenValues: string[],
 ): SafeResultEvidence {
   if (
@@ -575,7 +575,7 @@ function readSafeText(
 }
 
 function privateCellValues(
-  sample: ParsedCsvSample,
+  sample: ParsedSample,
   questions: EvaluationQuestion[],
 ) {
   const publicContext = [

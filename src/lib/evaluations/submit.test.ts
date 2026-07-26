@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { CsvSampleError } from "../csv/parse-sample";
+import { SampleError } from "../samples/types";
 import type { SellerEvaluationView } from "../supabase/evaluations";
 import { ZeroGClientError } from "../zero-g/client";
 import {
@@ -108,6 +108,7 @@ function dependencies(
     parseSample: vi.fn(() => ({
       columnCount: 2,
       columns: ["order_id", "order_date"],
+      format: "csv" as const,
       rowCount: 2,
       rows: [
         ["private-order-1", "2026-07-20"],
@@ -168,7 +169,7 @@ describe("submitPrivateSample", () => {
   it("does not claim or call 0G when CSV validation fails", async () => {
     const deps = dependencies({
       parseSample: vi.fn(() => {
-        throw new CsvSampleError("Malformed sample.", "invalid_csv");
+        throw new SampleError("Malformed sample.", "invalid_csv");
       }),
     });
 
@@ -181,7 +182,7 @@ describe("submitPrivateSample", () => {
         },
         deps,
       ),
-    ).rejects.toThrowError(CsvSampleError);
+    ).rejects.toThrowError(SampleError);
     expect(deps.beginSubmission).not.toHaveBeenCalled();
     expect(deps.scoreSample).not.toHaveBeenCalled();
   });

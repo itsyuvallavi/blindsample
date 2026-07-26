@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCsvSample } from "../csv/parse-sample";
+import { parseCsvSample } from "../samples/parse-csv";
 import {
   GENERATED_ADVERSARIAL_SCENARIOS,
   GENERATED_STRESS_SCENARIOS,

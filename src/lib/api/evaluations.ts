@@ -1,5 +1,4 @@
 import { isCapabilityToken } from "../access/capabilities";
-import { CsvSampleError } from "../csv/parse-sample";
 import {
   SampleSubmissionError,
   submitPrivateSample,
@@ -9,6 +8,7 @@ import {
   validateEvaluationDraft,
 } from "../evaluations/validation";
 import { PRODUCT_LIMITS } from "../product-contract";
+import { SampleError } from "../samples/types";
 import {
   createEvaluation,
   EvaluationRepositoryError,
@@ -231,7 +231,7 @@ export async function handleSubmitEvaluation(
 
     return json({ status: "complete" });
   } catch (error) {
-    if (error instanceof CsvSampleError) {
+    if (error instanceof SampleError) {
       return apiError(400, error.code, error.message);
     }
 

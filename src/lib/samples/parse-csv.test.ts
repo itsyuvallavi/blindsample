@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { PRODUCT_LIMITS } from "../product-contract";
-import { CsvSampleError, parseCsvSample } from "./parse-sample";
+import { parseCsvSample } from "./parse-csv";
+import { SampleError } from "./types";
 
 const encode = (value: string) => new TextEncoder().encode(value);
 
@@ -20,6 +21,7 @@ describe("parseCsvSample", () => {
     expect(sample).toEqual({
       columnCount: 3,
       columns: ["customer", "notes", "total"],
+      format: "csv",
       rowCount: 2,
       rows: [
         ["Ada", "asked, then paid", " 42.00 "],
@@ -86,7 +88,7 @@ describe("parseCsvSample", () => {
     ).toEqual(["id", "value"]);
     expect(() =>
       parseCsvSample(Uint8Array.from([0xff, 0xfe, 0xfd])),
-    ).toThrowError(CsvSampleError);
+    ).toThrowError(SampleError);
   });
 
   it("rejects missing, duplicate, and inconsistent headers", () => {
@@ -97,7 +99,7 @@ describe("parseCsvSample", () => {
       "id,value\n1,2,3",
     ]) {
       expect(() => parseCsvSample(encode(csv))).toThrowError(
-        CsvSampleError,
+        SampleError,
       );
     }
   });
@@ -108,7 +110,7 @@ describe("parseCsvSample", () => {
     );
     expect(() =>
       parseCsvSample(encode('id,value\n1,"unterminated')),
-    ).toThrowError(CsvSampleError);
+    ).toThrowError(SampleError);
   });
 
   it("enforces byte, row, and column limits", () => {

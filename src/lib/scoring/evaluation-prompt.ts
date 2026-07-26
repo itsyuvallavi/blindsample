@@ -1,5 +1,5 @@
-import type { ParsedCsvSample } from "../csv/parse-sample";
 import type { EvaluationQuestion } from "../evaluation-plans/types";
+import type { ParsedSample } from "../samples/types";
 import type {
   ZeroGFunctionTool,
   ZeroGMessage,
@@ -11,7 +11,7 @@ export const EVALUATION_TOOL_NAME =
 export function buildEvaluationMessages(input: {
   evaluationId: string;
   questions: EvaluationQuestion[];
-  sample: ParsedCsvSample;
+  sample: ParsedSample;
 }): ZeroGMessage[] {
   const requiredStatusValues = input.questions.every((question) =>
     requiresScoredResult(question, input.sample.columns),

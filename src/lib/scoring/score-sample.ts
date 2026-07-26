@@ -1,5 +1,5 @@
-import type { ParsedCsvSample } from "../csv/parse-sample";
 import type { EvaluationQuestion } from "../evaluation-plans/types";
+import type { ParsedSample } from "../samples/types";
 import {
   requestVerifiedPrivateCompletion,
   type VerifiedCompletion,
@@ -54,7 +54,7 @@ export async function scorePrivateCsvSample(
   input: {
     evaluationId: string;
     questions: EvaluationQuestion[];
-    sample: ParsedCsvSample;
+    sample: ParsedSample;
   },
   options: ScoringOptions = {},
 ): Promise<PrivateScoringResult> {

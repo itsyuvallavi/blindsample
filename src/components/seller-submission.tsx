@@ -10,9 +10,9 @@ import {
   type SellerEvaluation,
 } from "../lib/browser/evaluations";
 import {
-  CsvSampleError,
   parseCsvSample,
-} from "../lib/csv/parse-sample";
+} from "../lib/samples/parse-csv";
+import { SampleError } from "../lib/samples/types";
 import { PRODUCT_LIMITS } from "../lib/product-contract";
 import { StatusMessage } from "./status-message";
 
@@ -139,7 +139,7 @@ export function SellerSubmission({
       }
 
       setFileError(
-        caught instanceof CsvSampleError
+        caught instanceof SampleError
           ? fileIssue(caught.code)
           : fileIssue("invalid_csv"),
       );
@@ -585,7 +585,7 @@ function errorMessage(caught: unknown) {
   return "CipherQuery could not complete this submission.";
 }
 
-function fileIssue(code: CsvSampleError["code"]) {
+function fileIssue(code: SampleError["code"]) {
   const action = {
     empty_sample:
       "Add one header row and at least one data row, then choose the CSV again.",

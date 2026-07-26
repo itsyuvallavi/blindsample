@@ -1,40 +1,18 @@
 import { parse } from "csv-parse/sync";
 
 import { PRODUCT_LIMITS } from "../product-contract";
+import { SampleError, type ParsedSample } from "./types";
 
-export type ParsedCsvSample = {
-  columns: string[];
-  columnCount: number;
-  rowCount: number;
-  rows: string[][];
-};
-
-export class CsvSampleError extends Error {
-  constructor(
-    message: string,
-    readonly code:
-      | "empty_sample"
-      | "invalid_csv"
-      | "invalid_encoding"
-      | "sample_too_large"
-      | "too_many_columns"
-      | "too_many_rows",
-  ) {
-    super(message);
-    this.name = "CsvSampleError";
-  }
-}
-
-export function parseCsvSample(bytes: Uint8Array): ParsedCsvSample {
+export function parseCsvSample(bytes: Uint8Array): ParsedSample {
   if (bytes.byteLength === 0) {
-    throw new CsvSampleError(
+    throw new SampleError(
       "The CSV sample is empty.",
       "empty_sample",
     );
   }
 
   if (bytes.byteLength > PRODUCT_LIMITS.maximumFileBytes) {
-    throw new CsvSampleError(
+    throw new SampleError(
       `The CSV sample must not exceed ${PRODUCT_LIMITS.maximumFileBytes} bytes.`,
       "sample_too_large",
     );
@@ -45,14 +23,14 @@ export function parseCsvSample(bytes: Uint8Array): ParsedCsvSample {
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
-    throw new CsvSampleError(
+    throw new SampleError(
       "The CSV sample must use valid UTF-8 encoding.",
       "invalid_encoding",
     );
   }
 
   if (text.includes("\0")) {
-    throw new CsvSampleError(
+    throw new SampleError(
       "The CSV sample contains unsupported null bytes.",
       "invalid_csv",
     );
@@ -70,14 +48,14 @@ export function parseCsvSample(bytes: Uint8Array): ParsedCsvSample {
       skip_empty_lines: true,
     }) as string[][];
   } catch {
-    throw new CsvSampleError(
+    throw new SampleError(
       "The CSV sample is malformed or has inconsistent columns.",
       "invalid_csv",
     );
   }
 
   if (records.length < 2) {
-    throw new CsvSampleError(
+    throw new SampleError(
       "The CSV sample needs one header row and at least one data row.",
       "empty_sample",
     );
@@ -89,14 +67,14 @@ export function parseCsvSample(bytes: Uint8Array): ParsedCsvSample {
     columns.length < 1 ||
     columns.length > PRODUCT_LIMITS.maximumColumns
   ) {
-    throw new CsvSampleError(
+    throw new SampleError(
       `The CSV sample must contain 1–${PRODUCT_LIMITS.maximumColumns} columns.`,
       "too_many_columns",
     );
   }
 
   if (columns.some((column) => column.length === 0)) {
-    throw new CsvSampleError(
+    throw new SampleError(
       "Every CSV column must have a non-empty header.",
       "invalid_csv",
     );
@@ -107,7 +85,7 @@ export function parseCsvSample(bytes: Uint8Array): ParsedCsvSample {
   );
 
   if (new Set(canonicalHeaders).size !== canonicalHeaders.length) {
-    throw new CsvSampleError(
+    throw new SampleError(
       "CSV headers must be unique.",
       "invalid_csv",
     );
@@ -116,14 +94,14 @@ export function parseCsvSample(bytes: Uint8Array): ParsedCsvSample {
   const rows = records.slice(1);
 
   if (rows.length > PRODUCT_LIMITS.maximumRows) {
-    throw new CsvSampleError(
+    throw new SampleError(
       `The CSV sample must not exceed ${PRODUCT_LIMITS.maximumRows} data rows.`,
       "too_many_rows",
     );
   }
 
   if (rows.some((row) => row.length !== columns.length)) {
-    throw new CsvSampleError(
+    throw new SampleError(
       "Every CSV row must contain the same number of columns.",
       "invalid_csv",
     );
@@ -132,6 +110,7 @@ export function parseCsvSample(bytes: Uint8Array): ParsedCsvSample {
   return {
     columnCount: columns.length,
     columns,
+    format: "csv",
     rowCount: rows.length,
     rows,
   };

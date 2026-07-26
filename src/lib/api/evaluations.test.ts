@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { CsvSampleError } from "../csv/parse-sample";
 import { hashEvaluationQuestions } from "../evaluation-contracts/hash";
 import { SampleSubmissionError } from "../evaluations/submit";
+import { SampleError } from "../samples/types";
 import {
   handleCreateEvaluation,
   handleGetEvaluation,
@@ -244,7 +244,7 @@ describe("evaluation API boundary", () => {
 
   it("maps safe CSV and scoring failures without exposing causes", async () => {
     const csvResponse = await submitWithFailure(
-      new CsvSampleError("The CSV sample is malformed.", "invalid_csv"),
+      new SampleError("The CSV sample is malformed.", "invalid_csv"),
     );
     const scoringResponse = await submitWithFailure(
       new SampleSubmissionError(

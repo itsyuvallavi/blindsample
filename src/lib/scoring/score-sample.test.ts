@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { parseCsvSample } from "../csv/parse-sample";
+import { parseCsvSample } from "../samples/parse-csv";
 import {
   ZeroGClientError,
   type VerifiedCompletion,

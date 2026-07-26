@@ -1,8 +1,6 @@
-import {
-  parseCsvSample,
-  type ParsedCsvSample,
-} from "../csv/parse-sample";
 import { emitInferenceRunEvents } from "../observability/inference";
+import { parseCsvSample } from "../samples/parse-csv";
+import type { ParsedSample } from "../samples/types";
 import {
   PrivateScoringError,
   scorePrivateCsvSample,
@@ -44,7 +42,7 @@ type SubmissionDependencies = {
     id: string,
     token: string,
   ) => Promise<SellerEvaluationView | null>;
-  parseSample: (bytes: Uint8Array) => ParsedCsvSample;
+  parseSample: (bytes: Uint8Array) => ParsedSample;
   scoreSample: typeof scorePrivateCsvSample;
 };
 
