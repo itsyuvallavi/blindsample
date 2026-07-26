@@ -1,10 +1,11 @@
 import { afterAll, describe, expect, it } from "vitest";
 
 import { readCapabilityToken } from "../browser/capability";
+import type { SemanticControlClassification } from "../scoring/types";
 import { getSupabaseServerClient } from "../supabase/client";
 import { paidLiveEnabled } from "../testing/paid-live";
 import {
-  SEMANTIC_E2E_CRITERIA,
+  SEMANTIC_E2E_EXPECTED_QUESTION_RESULTS,
   SEMANTIC_E2E_MAXIMUM_INFERENCE_REQUESTS,
   SEMANTIC_E2E_SCENARIOS,
   type SemanticE2EScenario,
@@ -21,34 +22,38 @@ const describeLive = paidLiveEnabled("SCENARIO_MATRIX_LIVE")
   : describe.skip;
 const createdIds: string[] = [];
 
+type QuestionResult = {
+  agreement: string;
+  controlCheck: string;
+  controlClassifications: SemanticControlClassification[] | null;
+  expectedScore: number;
+  method: string;
+  questionId: string;
+  reason: string | null;
+  score: number | null;
+  status: string;
+  teeVerified: boolean | null;
+};
+
 type ScenarioResult = {
-  agreement: string | null;
-  completenessScore: number | null;
-  controlCheck: string | null;
-  controlClassifications: Array<{
-    controlId: string;
-    expectedLabel: string;
-    originalLabel: string;
-    repeatedLabel: string;
-  }> | null;
   costNeuron: string;
   description: string;
-  expectedSemanticScore: number;
+  expectedInferenceRequests: number;
+  hasOverallScore: boolean;
   id: string;
   inferenceRequests: number;
-  semanticReason: string | null;
-  semanticScore: number | null;
-  semanticStatus: string;
+  questions: QuestionResult[];
   teeVerified: boolean;
 };
 
-describeLive("ten-scenario semantic E2E matrix", () => {
+describeLive("five-scenario multi-question semantic E2E matrix", () => {
   afterAll(async () => {
     if (createdIds.length === 0) {
       return;
     }
 
-    const { error } = await getSupabaseServerClient()
+    const client = getSupabaseServerClient();
+    const { error } = await client
       .from("evaluations")
       .delete()
       .in("id", createdIds);
@@ -58,12 +63,23 @@ describeLive("ten-scenario semantic E2E matrix", () => {
         cause: error,
       });
     }
+
+    const { count, error: verificationError } = await client
+      .from("evaluations")
+      .select("id", { count: "exact", head: true })
+      .in("id", createdIds);
+
+    if (verificationError || count !== 0) {
+      throw new Error("Scenario-matrix cleanup could not be verified.", {
+        cause: verificationError ?? undefined,
+      });
+    }
   });
 
   it(
-    "publishes stable question-level scores across the matrix",
+    "publishes independent question-level scores across five datasets",
     async () => {
-      expect(SEMANTIC_E2E_MAXIMUM_INFERENCE_REQUESTS).toBe(20);
+      expect(SEMANTIC_E2E_MAXIMUM_INFERENCE_REQUESTS).toBe(16);
       const results: ScenarioResult[] = [];
 
       for (const scenario of SEMANTIC_E2E_SCENARIOS) {
@@ -86,6 +102,10 @@ describeLive("ten-scenario semantic E2E matrix", () => {
               BigInt(0),
             )
             .toString(),
+          totalQuestionResults: results.reduce(
+            (sum, result) => sum + result.questions.length,
+            0,
+          ),
         }),
       );
 
@@ -95,28 +115,55 @@ describeLive("ten-scenario semantic E2E matrix", () => {
           (sum, result) => sum + result.inferenceRequests,
           0,
         ),
-      ).toBeLessThanOrEqual(SEMANTIC_E2E_MAXIMUM_INFERENCE_REQUESTS);
+      ).toBe(SEMANTIC_E2E_MAXIMUM_INFERENCE_REQUESTS);
+      expect(
+        results.reduce(
+          (sum, result) => sum + result.questions.length,
+          0,
+        ),
+      ).toBe(SEMANTIC_E2E_EXPECTED_QUESTION_RESULTS);
 
       for (const result of results) {
-        expect(result).toMatchObject({
-          agreement: "passed",
-          completenessScore: 100,
-          controlCheck: "passed",
-          inferenceRequests: 2,
-          semanticReason: null,
-          semanticStatus: "scored",
-          teeVerified: true,
-        });
-        expect(result.semanticScore).toBe(result.expectedSemanticScore);
-      }
+        expect(result.hasOverallScore).toBe(false);
+        expect(result.inferenceRequests).toBe(
+          result.expectedInferenceRequests,
+        );
+        expect(result.questions.length).toBeGreaterThanOrEqual(2);
+        expect(result.teeVerified).toBe(true);
 
-      const balanced = results.find(
-        ({ id }) => id === "balanced_mix",
-      );
-      const reversed = results.find(
-        ({ id }) => id === "balanced_reversed",
-      );
-      expect(reversed?.semanticScore).toBe(balanced?.semanticScore);
+        for (const question of result.questions) {
+          expect(question).toMatchObject({
+            reason: null,
+            status: "scored",
+          });
+          expect(question.score).toBe(question.expectedScore);
+
+          if (question.method === "semantic") {
+            expect(question).toMatchObject({
+              agreement: "passed",
+              controlCheck: "passed",
+              teeVerified: true,
+            });
+            expect(question.controlClassifications).toHaveLength(3);
+
+            for (const control of question.controlClassifications ?? []) {
+              expect(control.originalLabel).toBe(
+                control.expectedLabel,
+              );
+              expect(control.repeatedLabel).toBe(
+                control.expectedLabel,
+              );
+            }
+          } else {
+            expect(question).toMatchObject({
+              agreement: "not_applicable",
+              controlCheck: "not_applicable",
+              controlClassifications: null,
+              teeVerified: null,
+            });
+          }
+        }
+      }
     },
     240_000,
   );
@@ -127,7 +174,7 @@ async function runScenario(
 ): Promise<ScenarioResult> {
   const previewResponse = await handlePreviewEvaluationContracts(
     jsonRequest("/api/evaluation-contracts", {
-      criteria: SEMANTIC_E2E_CRITERIA,
+      criteria: scenario.criteria,
     }),
   );
 
@@ -143,7 +190,7 @@ async function runScenario(
   const createResponse = await handleCreateEvaluation(
     jsonRequest("/api/evaluations", {
       approvedContractSetHash: preview.contractSetHash,
-      criteria: SEMANTIC_E2E_CRITERIA,
+      criteria: scenario.criteria,
       title: `Semantic matrix: ${scenario.id}`,
     }),
   );
@@ -199,12 +246,8 @@ async function runScenario(
         evidence: {
           agreement: { status: string };
           controlCheck: string;
-          controlClassifications?: Array<{
-            controlId: string;
-            expectedLabel: string;
-            originalLabel: string;
-            repeatedLabel: string;
-          }>;
+          controlClassifications?: SemanticControlClassification[];
+          method: string;
           zeroG: { teeVerified: boolean } | null;
         };
         questionId: string;
@@ -229,24 +272,61 @@ async function runScenario(
     );
   }
 
-  const completeness = buyerView.evaluation.results?.find(
-    ({ questionId }) => questionId === "completeness",
-  );
-  const semantic = buyerView.evaluation.results?.find(
-    ({ questionId }) => questionId === "action_required",
-  );
   const diagnostics = buyerView.evaluation.inferenceDiagnostics;
+  const storedResults = buyerView.evaluation.results;
 
-  if (!completeness || !semantic || !diagnostics) {
+  if (!diagnostics || !storedResults) {
     throw new Error(`Scenario ${scenario.id} returned incomplete results.`);
   }
 
+  const expectedQuestionIds = Object.keys(scenario.expectedScores);
+  const returnedQuestionIds = storedResults.map(
+    ({ questionId }) => questionId,
+  );
+
+  if (
+    expectedQuestionIds.length !== returnedQuestionIds.length ||
+    expectedQuestionIds.some(
+      (questionId) => !returnedQuestionIds.includes(questionId),
+    )
+  ) {
+    throw new Error(
+      `Scenario ${scenario.id} returned unexpected question results.`,
+    );
+  }
+
+  const questions = storedResults.map((result): QuestionResult => {
+    const expectedScore = scenario.expectedScores[result.questionId];
+
+    if (expectedScore === undefined) {
+      throw new Error(
+        `Scenario ${scenario.id} returned unknown question ${result.questionId}.`,
+      );
+    }
+
+    return {
+      agreement: result.evidence.agreement.status,
+      controlCheck: result.evidence.controlCheck,
+      controlClassifications:
+        result.evidence.controlClassifications ?? null,
+      expectedScore,
+      method: result.evidence.method,
+      questionId: result.questionId,
+      reason: result.reason ?? null,
+      score: result.score,
+      status: result.status,
+      teeVerified:
+        result.evidence.method === "semantic"
+          ? result.evidence.zeroG?.teeVerified === true
+          : null,
+    };
+  });
+  const expectedInferenceRequests =
+    scenario.criteria.filter(
+      (criterion) => criterion.kind === "semantic_relevance",
+    ).length * 2;
+
   return {
-    agreement: semantic.evidence.agreement.status,
-    completenessScore: completeness.score,
-    controlCheck: semantic.evidence.controlCheck,
-    controlClassifications:
-      semantic.evidence.controlClassifications ?? null,
     costNeuron: diagnostics.requests
       .reduce(
         (sum, request) =>
@@ -255,14 +335,18 @@ async function runScenario(
       )
       .toString(),
     description: scenario.description,
-    expectedSemanticScore: scenario.expectedSemanticScore,
+    expectedInferenceRequests,
+    hasOverallScore: Object.hasOwn(
+      buyerView.evaluation,
+      "overallScore",
+    ),
     id: scenario.id,
     inferenceRequests: diagnostics.requestCount.made,
-    semanticReason: semantic.reason ?? null,
-    semanticScore: semantic.score,
-    semanticStatus: semantic.status,
+    questions,
     teeVerified:
-      semantic.evidence.zeroG?.teeVerified === true &&
+      questions
+        .filter(({ method }) => method === "semantic")
+        .every(({ teeVerified }) => teeVerified === true) &&
       diagnostics.requests.every(
         (request) => request.teeVerified === true,
       ),

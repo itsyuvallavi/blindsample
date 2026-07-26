@@ -15,7 +15,7 @@
     "test": "vitest run",
     "test:0g": "ZERO_G_LIVE=1 ZERO_G_MAX_REQUESTS_PER_EVALUATION=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/zero-g/client.live.test.ts",
     "test:e2e": "END_TO_END_LIVE=1 ZERO_G_MAX_REQUESTS_PER_EVALUATION=2 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/api/evaluations.live.test.ts",
-    "test:e2e:matrix": "SCENARIO_MATRIX_LIVE=1 ZERO_G_MAX_REQUESTS_PER_EVALUATION=2 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/api/evaluation-scenarios.live.test.ts --reporter=verbose --silent=false",
+    "test:e2e:matrix": "SCENARIO_MATRIX_LIVE=1 ZERO_G_MAX_REQUESTS_PER_EVALUATION=4 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/api/evaluation-scenarios.live.test.ts --reporter=verbose --silent=false",
     "test:scoring": "SCORING_LIVE=1 ZERO_G_MAX_REQUESTS_PER_EVALUATION=2 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/scoring/score-sample.live.test.ts",
     "test:semantic:diagnostic": "SEMANTIC_DIAGNOSTIC_LIVE=1 ZERO_G_MAX_REQUESTS_PER_EVALUATION=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/scoring/semantic-diagnostic.live.test.ts",
     "test:supabase": "SUPABASE_LIVE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/supabase/evaluations.live.test.ts",
