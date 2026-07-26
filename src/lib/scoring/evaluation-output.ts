@@ -452,14 +452,27 @@ function readSafeText(
 
   const normalized = text.toLocaleLowerCase("en-US");
 
-  if (forbiddenValues.some((cell) => normalized.includes(cell))) {
-    throw new EvaluationOutputError(
-      "private_value_copy",
-      `The ${field} copied a private dataset cell value.`,
-    );
+  if (!forbiddenValues.some((cell) => normalized.includes(cell))) {
+    return text;
   }
 
-  return text;
+  const redacted = forbiddenValues
+    .filter((cell) =>
+      normalized.includes(cell.toLocaleLowerCase("en-US")),
+    )
+    .sort((left, right) => right.length - left.length)
+    .reduce(
+      (safeText, cell) =>
+        safeText.replace(
+          new RegExp(escapeRegExp(cell), "giu"),
+          "[private value]",
+        ),
+      text,
+    );
+
+  return redacted.length <= maximumLength
+    ? redacted
+    : `The ${field} contained private sample details that were redacted.`;
 }
 
 function privateCellValues(
@@ -520,4 +533,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     value !== null &&
     !Array.isArray(value)
   );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

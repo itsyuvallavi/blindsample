@@ -212,33 +212,35 @@ describe("scorePrivateCsvSample", () => {
     expect(requestCompletion).toHaveBeenCalledOnce();
   });
 
-  it("rejects output that copies a private cell value into evidence", async () => {
+  it("redacts copied private cell values before returning results", async () => {
     const output = validOutput();
     output.results[1].evidence.reasons = [
       "Copied Context one from the private sample.",
     ];
 
-    await expect(
-      scorePrivateCsvSample(
-        {
-          evaluationId: "evaluation-1",
-          questions: QUESTIONS,
-          sample: SAMPLE,
-        },
-        {
-          requestCompletion: vi
-            .fn()
-            .mockResolvedValue(completion(output)),
-        },
-      ),
-    ).rejects.toMatchObject({
-      diagnostics: {
-        outputValidation: {
-          failureCode: "private_value_copy",
-          status: "failed",
-        },
+    const result = await scorePrivateCsvSample(
+      {
+        evaluationId: "evaluation-1",
+        questions: QUESTIONS,
+        sample: SAMPLE,
       },
+      {
+        requestCompletion: vi
+          .fn()
+          .mockResolvedValue(completion(output)),
+      },
+    );
+
+    expect(result.diagnostics.outputValidation).toEqual({
+      failureCode: null,
+      status: "passed",
     });
+    expect(result.results[1].evidence.reasons).toEqual([
+      "Copied [private value] from the private sample.",
+    ]);
+    expect(JSON.stringify(result.results)).not.toContain(
+      "Context one",
+    );
   });
 
   it("rejects unable for an aggregate question tied to real columns", async () => {
