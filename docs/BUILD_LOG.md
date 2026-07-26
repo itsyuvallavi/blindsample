@@ -200,3 +200,32 @@ Next:
 
 - Run live server CRUD and role-separation checks, then build the strict
   question-to-score pipeline.
+
+## 2026-07-26 — Live persistence verification
+
+Completed:
+
+- Added an opt-in live Supabase integration test.
+- Verified separate buyer and seller capabilities against the deployed table.
+- Verified that two concurrent seller claims produce exactly one winner.
+- Verified completion with two independent scores and a TEE-verified trace.
+- Verified that raw capabilities are not stored and that test rows are removed.
+- Added all required 0G, Supabase, and capability variables to Vercel
+  Production and Preview; credentials are stored as sensitive values.
+
+Why:
+
+- The persistence milestone is not complete until authorization, concurrency,
+  state transitions, and cleanup work against the owned cloud project.
+
+Verified:
+
+- `npm run test:supabase`
+- One live integration test passed.
+- The `evaluations` table returned to zero rows after cleanup.
+- Vercel lists all six required variables for Production and Preview without
+  exposing their values.
+
+Next:
+
+- Implement the strict CSV-to-question-score pipeline as a separate commit.

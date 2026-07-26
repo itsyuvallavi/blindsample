@@ -44,8 +44,10 @@ baseline are complete. The `build/mvp` branch includes:
 
 The reusable 0G client is implemented and a live private request has returned
 a TEE-verified trace. The Supabase project and private metadata schema are
-deployed, with RLS and browser grants locked down. Strict scoring and the
-buyer/seller product flows are the next implementation milestones.
+deployed, with RLS and browser grants locked down. Live role separation,
+concurrent submission claiming, result persistence, and cleanup are verified.
+Strict scoring and the buyer/seller product flows are the next implementation
+milestones.
 
 ## Local development
 

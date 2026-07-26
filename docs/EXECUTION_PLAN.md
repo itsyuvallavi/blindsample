@@ -379,8 +379,7 @@ Gate:
 
 ### Phase 2 — Add Supabase persistence
 
-Status: implementation complete on 2026-07-26; live application CRUD awaits
-the server secret in local and Vercel environments.
+Status: complete on 2026-07-26.
 
 Implementation:
 

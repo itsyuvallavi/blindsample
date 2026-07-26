@@ -4,7 +4,7 @@ import {
   getCapabilityPepper,
   hashCapabilityToken,
   issueEvaluationCapabilities,
-} from "@/lib/access/capabilities";
+} from "../access/capabilities";
 
 import { getSupabaseServerClient } from "./client";
 import type {

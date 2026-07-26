@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:0g": "ZERO_G_LIVE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/zero-g/client.live.test.ts",
+    "test:supabase": "SUPABASE_LIVE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/supabase/evaluations.live.test.ts",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
