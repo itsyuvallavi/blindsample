@@ -229,3 +229,20 @@ Verified:
 Next:
 
 - Implement the strict CSV-to-question-score pipeline as a separate commit.
+
+## 2026-07-26 — Current CI action runtimes
+
+Completed:
+
+- Updated GitHub checkout and Node setup actions from v4 to v6.
+- Kept application verification pinned to Node.js 22 and npm 10.9.4.
+
+Why:
+
+- GitHub's hosted runner warned that the v4 action wrappers still targeted the
+  deprecated Node.js 20 runtime.
+
+Verified:
+
+- The preceding application workflow passed; this isolated update will be
+  verified by its own push and pull-request checks.
