@@ -53,6 +53,8 @@ export function buildEvaluationMessages(input: {
         "For records and fields, unit_judgments must contain exactly one boolean per submitted row in ascending row_number order.",
         "For any uniqueness question, first build an internal frequency map across the complete relevant column. A non-empty value that appears more than once must be false for every occurrence, not only for later duplicates. Recheck all repeated groups before returning.",
         "For format and numeric questions, inspect every row exactly once and recheck that the boolean array length equals the submitted record_count.",
+        "Evaluate each question only against the columns relevant to that question. A failure in an unrelated column must never change a unit judgment.",
+        "When the question asks about values in one named field, use evaluation_basis.unit fields and judge only that field value once per row.",
         "For expected_intervals, unit_judgments must contain one boolean per required interval in the order stated by the question.",
         "For events, unit_judgments must contain one boolean per evaluated event in the order described by evaluation_basis.",
         "Use holistic_rubric only when the question genuinely cannot be represented as countable units, and then unit_judgments must be empty.",
@@ -83,6 +85,10 @@ export function buildEvaluationMessages(input: {
       content: JSON.stringify({
         evaluation_id: input.evaluationId,
         questions: input.questions.map((question) => ({
+          explicit_column_references: referencedColumns(
+            question,
+            input.sample.columns,
+          ),
           question_id: question.id,
           question: question.question,
         })),
@@ -173,9 +179,18 @@ export function requiresScoredResult(
 
   return (
     asksForAggregate &&
-    columns.some((column) =>
-      mentionsColumn(normalizedQuestion, normalizeWords(column)),
-    )
+    referencedColumns(question, columns).length > 0
+  );
+}
+
+export function referencedColumns(
+  question: EvaluationQuestion,
+  columns: string[],
+) {
+  const normalizedQuestion = normalizeWords(question.question);
+
+  return columns.filter((column) =>
+    mentionsColumn(normalizedQuestion, normalizeWords(column)),
   );
 }
 

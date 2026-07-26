@@ -5,6 +5,7 @@ import {
   buildEvaluationFunctionTool,
   buildEvaluationMessages,
   EVALUATION_TOOL_NAME,
+  referencedColumns,
   requiresScoredResult,
 } from "./evaluation-prompt";
 
@@ -129,6 +130,29 @@ describe("evaluation prompt contract", () => {
     ).toBe(false);
   });
 
+  it("maps only columns explicitly referenced by each question", () => {
+    expect(
+      referencedColumns(
+        {
+          id: "amount",
+          question:
+            "What percentage of amount values are numeric?",
+        },
+        ["record_id", "amount", "note"],
+      ),
+    ).toEqual(["amount"]);
+    expect(
+      referencedColumns(
+        {
+          id: "records",
+          question:
+            "What percentage of records contain record_id and amount?",
+        },
+        ["record_id", "amount", "note"],
+      ),
+    ).toEqual(["record_id", "amount"]);
+  });
+
   it("uses one globally scored schema when every question is answerable", () => {
     const questions = [
       {
@@ -231,6 +255,10 @@ describe("evaluation prompt contract", () => {
         status_values: string[];
         tool_name: string;
       };
+      questions: Array<{
+        explicit_column_references: string[];
+        question_id: string;
+      }>;
     };
 
     expect(messages[0].content).toContain(EVALUATION_TOOL_NAME);
@@ -258,6 +286,21 @@ describe("evaluation prompt contract", () => {
     expect(messages[0].content).toContain(
       "audit cross-question consistency",
     );
+    expect(messages[0].content).toContain(
+      "A failure in an unrelated column",
+    );
+    expect(userPayload.questions).toEqual([
+      {
+        explicit_column_references: [],
+        question_id: "complete",
+        question: "Are all required fields present?",
+      },
+      {
+        explicit_column_references: ["description"],
+        question_id: "relevant",
+        question: "Is each description relevant?",
+      },
+    ]);
     expect(userPayload.required_output).toEqual({
       evaluation_id: "evaluation-1",
       question_ids_in_order: ["complete", "relevant"],
