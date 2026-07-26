@@ -16,8 +16,8 @@ Built for the **Best AI Product on 0G** track at ETHGlobal Lisbon 2026.
    fingerprinted to both the question and submitted sample.
 5. Exact calculations run in application code. Questions that require
    record-level judgment use private 0G classification.
-6. The buyer sees one `1–100` or `unable_to_score` result per question, plus
-   safe audit evidence.
+6. The buyer sees one `1–100`, `unable_to_score`, or `error` result per
+   question, plus safe audit evidence.
 
 BlindSample never calculates an overall score. A result describes only the
 submitted records and cannot prove that the sample represents the seller's
@@ -56,8 +56,15 @@ A semantic result is published only when:
 - a repeated classification of a canonical subset agrees at least 80%; and
 - both 0G requests are private and TEE verified.
 
-Otherwise the result is `unable_to_score`. Uncertainty is never converted into
-an arbitrary number.
+All submitted records for one question are packaged into a single
+classification request. A second packaged request repeats a canonical subset
+for agreement checking. BlindSample does not make one request per record, and
+a failed first pass prevents the second request.
+
+Insufficient or unreliable evidence produces `unable_to_score`. A
+configuration, Router, model-output, or verification failure produces
+`error`, with evidence coverage shown as unavailable rather than `0%`.
+Neither state is converted into an arbitrary number.
 
 Tests cover control failure, unstable repeated judgments, row-order
 invariance, irrelevant-column invariance, prompt-injection cells, missing
@@ -74,6 +81,7 @@ evidence, and false TEE verification.
 - one buyer question produces one result record
 - scored results are integers from 1 to 100
 - insufficient or unreliable evidence produces `unable_to_score`
+- execution or provider failures produce `error`, never a zero score
 - raw CSV rows, prompts, and capability tokens are never persisted
 
 A one-record CSV is accepted, but its coverage is extremely limited. A

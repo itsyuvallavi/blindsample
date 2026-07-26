@@ -801,3 +801,73 @@ Production handoff:
   this log.
 - Link creation made no 0G inference request. No CSV was submitted and no paid
   end-to-end test was run.
+
+## 2026-07-26 — Private-compute error-state correction
+
+Inspection:
+
+- The production BTC run generated the correct deterministic and semantic
+  plans. The deterministic question scored `100`.
+- The semantic question passed plan and evidence preflight, then made one
+  original-pass request. 0G returned HTTP `401` in 93 ms with no model,
+  provider, TEE trace, token usage, or reported cost.
+- Because the original pass failed, BlindSample correctly did not make the
+  repeat-agreement request.
+- The scorer caught the request error and converted it into
+  `unable_to_score` with zero-valued evidence, while the run-level diagnostics
+  retained the real request. This caused the result card to incorrectly say
+  that no 0G call was needed.
+
+Mapping:
+
+- `scored` means a real integer from 1–100 was calculated.
+- `unable_to_score` means the question or submitted evidence cannot support a
+  safe answer.
+- `error` means private-compute execution failed. Records evaluated and
+  coverage are unavailable, not zero.
+- One semantic question is sent as one packaged set of records plus one
+  sequential repeat-agreement package. It is never one request per record.
+
+Review:
+
+- The 401 was unrelated to batching, row count, the generated plan, or the
+  model's semantic judgment. The model never received an authorized request.
+- Vercel production contained the expected 0G variable names, but the deployed
+  credential was rejected by the Router.
+- Existing completed rows must remain immutable, so legacy
+  `model_or_verification_failed` results are normalized from their stored
+  request diagnostics at display time.
+
+Pre-mortem:
+
+- A provider failure could continue to look like `0%` dataset coverage.
+- A configuration failure could incorrectly imply that a model request was
+  made.
+- A stored legacy result could remain misleading after the code fix.
+- A retry or per-record fan-out could unexpectedly increase paid calls.
+- Raw provider bodies or private submitted records could leak into the audit.
+
+Mitigation:
+
+- Added a typed, sanitized execution-error object with error code, HTTP status,
+  outcome, and whether a request was actually made.
+- Error evidence stores `null` for records evaluated and coverage.
+- Added legacy normalization using the existing allowlisted request audit.
+- Kept the no-retry client and sequential two-pass request budget.
+- Added mocked 401 and packaged-request regressions without logging request
+  content, secrets, or raw records.
+- Updated the three Vercel production 0G variables from the active local
+  configuration. Values were never printed or committed.
+
+Planning and implementation:
+
+- Commit `bfd3410` introduces the execution-error model, legacy normalization,
+  provider-error mapping, and mocked regression coverage.
+- Commit `fc31d5e` renders errors as `ERROR / not scored`, displays `N/A`
+  evidence, and removes the false no-call message.
+
+Acceptance:
+
+- Focused error, packaging, presentation, and source-contract tests pass.
+- TypeScript and lint pass.
+- No live 0G request or paid inference test was run.
