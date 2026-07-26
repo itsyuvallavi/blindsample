@@ -929,3 +929,57 @@ Acceptance so far:
   the Terminal UI uses explicit local system font stacks.
 - Commits `a3b72d3`, `d4abd98`, and `1217e87` were pushed to `main`.
 - No live or paid 0G request was made.
+
+## 2026-07-26 — Seller and buyer UX simplification
+
+Inspection:
+
+- The seller page mixed upload instructions, infrastructure copy, and terminal
+  controls across two columns.
+- CSV validity was checked only after submission except for the file-size
+  limit.
+- The buyer API returned sample row/column counts and complete model evidence,
+  allowing the buyer to infer the seller's submitted sample size.
+
+Mapping and review:
+
+- Replaced the seller page with one centered task flow: buyer questions, CSV
+  choice, free local preflight, sample consent, and one private-evaluation CTA.
+- Replaced terminal-style buyer results with one simple card per question, a
+  clear no-overall-score statement, and a compact 0G verification summary.
+- Moved buyer privacy enforcement to the repository response boundary so old
+  and new links receive the same count-free view.
+
+Pre-mortem and mitigation:
+
+- A hidden API field could leak sample size even if CSS hides it: buyer views
+  no longer contain row/column counts, arithmetic, row numbers, or aggregate
+  evidence.
+- A malformed CSV could spend tokens before the seller understands the
+  problem: the browser now runs the same bounded parser before enabling the
+  CTA and every local error states that no 0G request was made.
+- An all-unable run could imply dataset failure: it now says “No scores were
+  produced” and explicitly explains that this is not a failed requirement.
+- A failed run could appear complete: only a complete verified result set is
+  sanitized and returned to the buyer.
+
+Planning and implementation:
+
+- Commit `e5247a4` contains the seller flow, buyer results, privacy boundary,
+  responsive styles, and regression tests.
+- No live 0G request was made.
+
+Acceptance:
+
+- Lint and TypeScript passed.
+- All 87 non-live tests passed; four opt-in live suites remained skipped.
+- The production build passed.
+- Local browser verification confirmed the seller page loads without an error
+  overlay or horizontal overflow, the free preflight reported the expected
+  record/column/header summary, consent gates the CTA, and the buyer waiting
+  state exposes no record-count label.
+- Desktop visual inspection passed. A 390 px DOM/layout check reported no
+  horizontal overflow; the browser's mobile full-page screenshot renderer
+  returned a blank capture even though the rendered DOM remained populated.
+- The temporary evaluation used for browser verification was deleted from
+  Supabase and a follow-up query confirmed zero matching rows.

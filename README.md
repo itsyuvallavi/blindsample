@@ -64,9 +64,14 @@ Supabase stores only:
 - buyer questions and their question-set hash
 - capability-token HMACs
 - status and timestamps
-- row and column counts
+- internal row and column counts, never returned to the buyer
 - validated aggregate result records
 - safe request diagnostics and TEE metadata
+
+The buyer API exposes only the original questions, count-free result
+summaries, scores or unable states, confidence, and 0G verification metadata.
+It never returns sample size, row references, numerator/denominator values, or
+aggregate counts.
 
 The app does not create or store a dataset fingerprint because the MVP does
 not require deduplication. Capability tokens are independent 256-bit values,
