@@ -416,6 +416,7 @@ function evidenceFor(
     method: "deterministic",
     recordsEvaluated,
     recordsSubmitted: sample.rowCount,
+    semanticFailure: null,
     zeroG: null,
   };
 }

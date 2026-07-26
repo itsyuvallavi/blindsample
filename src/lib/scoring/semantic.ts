@@ -10,6 +10,7 @@ import {
 import type { InferenceRequestBudget } from "../zero-g/request-budget";
 import {
   parseSemanticClassificationOutput,
+  SemanticOutputError,
   type RubricLabel,
   type SemanticClassificationOutput,
 } from "./semantic-output";
@@ -22,6 +23,7 @@ import {
   SUBMITTED_DATA_LIMITATION,
   type EvaluationResult,
   type ResultEvidence,
+  type SemanticOutputFailure,
   type UnableToScoreReason,
   zeroGEvidence,
 } from "./types";
@@ -107,7 +109,9 @@ export async function evaluateSemanticContract(
     options.requestCompletion ??
     ((messages) =>
       requestVerifiedPrivateCompletion(messages, {
+        disableThinking: true,
         maxTokens: Math.min(2_048, 320 + records.length * 28),
+        responseFormat: "json_object",
       }));
   const guardedRequest = (messages: ZeroGMessage[]) => {
     options.requestBudget?.consume();
@@ -118,25 +122,28 @@ export async function evaluateSemanticContract(
     buildSemanticClassificationMessages(contract, records, controls),
   );
   const traces = [verifiedTrace(original)];
-  let originalOutput: SemanticClassificationOutput;
+  const parsedOriginal = parseCompletion(
+    original,
+    records.map((record) => record.recordId),
+    controls.map((control) => control.controlId),
+    "original",
+  );
 
-  try {
-    originalOutput = parseSemanticClassificationOutput(
-      original.content,
-      records.map((record) => record.recordId),
-      controls.map((control) => control.controlId),
-    );
-  } catch {
+  if ("failure" in parsedOriginal) {
     return unableResult(
       contract,
       sample,
-      "invalid_semantic_output",
+      failureReason(parsedOriginal.failure.kind),
       0,
       0,
       traces,
-      { controlCheck: "failed" },
+      {
+        controlCheck: "failed",
+        semanticFailure: parsedOriginal.failure,
+      },
     );
   }
+  const originalOutput = parsedOriginal.output;
 
   const repeated = await guardedRequest(
     buildSemanticClassificationMessages(
@@ -146,25 +153,28 @@ export async function evaluateSemanticContract(
     ),
   );
   traces.push(verifiedTrace(repeated));
-  let repeatedOutput: SemanticClassificationOutput;
+  const parsedRepeated = parseCompletion(
+    repeated,
+    repeatRecords.map((record) => record.recordId),
+    controls.map((control) => control.controlId),
+    "repeat",
+  );
 
-  try {
-    repeatedOutput = parseSemanticClassificationOutput(
-      repeated.content,
-      repeatRecords.map((record) => record.recordId),
-      controls.map((control) => control.controlId),
-    );
-  } catch {
+  if ("failure" in parsedRepeated) {
     return unableResult(
       contract,
       sample,
-      "invalid_semantic_output",
+      failureReason(parsedRepeated.failure.kind),
       0,
       0,
       traces,
-      { controlCheck: "failed" },
+      {
+        controlCheck: "failed",
+        semanticFailure: parsedRepeated.failure,
+      },
     );
   }
+  const repeatedOutput = parsedRepeated.output;
 
   const controlsPassed =
     controlRatio(originalOutput, controls) ===
@@ -398,6 +408,7 @@ function unableResult(
   state: {
     agreementRatio?: number;
     controlCheck?: "failed" | "not_applicable" | "passed";
+    semanticFailure?: SemanticOutputFailure;
   } = {},
 ): EvaluationResult {
   return {
@@ -426,6 +437,7 @@ function evidenceFor(
     agreementRatio?: number;
     controlCheck?: "failed" | "not_applicable" | "passed";
     measurement?: number;
+    semanticFailure?: SemanticOutputFailure;
   },
 ): ResultEvidence {
   const agreementRatio = state.agreementRatio;
@@ -461,8 +473,62 @@ function evidenceFor(
     method: "semantic",
     recordsEvaluated,
     recordsSubmitted: sample.rowCount,
+    semanticFailure: state.semanticFailure ?? null,
     zeroG: traces.length > 0 ? zeroGEvidence(traces) : null,
   };
+}
+
+function parseCompletion(
+  completion: VerifiedCompletion,
+  recordIds: string[],
+  controlIds: string[],
+  pass: SemanticOutputFailure["pass"],
+):
+  | { output: SemanticClassificationOutput }
+  | { failure: SemanticOutputFailure } {
+  const lastDiagnostics = completion.diagnostics?.at(-1);
+
+  if (lastDiagnostics?.finishReason === "length") {
+    return { failure: { kind: "truncated", pass } };
+  }
+
+  try {
+    return {
+      output: parseSemanticClassificationOutput(
+        completion.content,
+        recordIds,
+        controlIds,
+      ),
+    };
+  } catch (error) {
+    if (!(error instanceof SemanticOutputError)) {
+      throw error;
+    }
+
+    const kind =
+      error.code === "empty_output"
+        ? "empty"
+        : error.code === "invalid_json"
+          ? "invalid_json"
+          : "invalid_shape";
+
+    return { failure: { kind, pass } };
+  }
+}
+
+function failureReason(
+  kind: SemanticOutputFailure["kind"],
+): UnableToScoreReason {
+  switch (kind) {
+    case "empty":
+      return "semantic_output_empty";
+    case "invalid_json":
+      return "semantic_output_invalid_json";
+    case "invalid_shape":
+      return "semantic_output_invalid_shape";
+    case "truncated":
+      return "semantic_output_truncated";
+  }
 }
 
 function missingColumns(required: string[], submitted: string[]) {

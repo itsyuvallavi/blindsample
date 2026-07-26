@@ -180,6 +180,41 @@ describe("requestVerifiedPrivateCompletion", () => {
     }
   });
 
+  it("requests JSON mode and disables GLM thinking only when asked", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      response({
+        choices: [{ message: { content: "{}" } }],
+        x_0g_trace: {
+          provider: "0xprovider",
+          request_id: "request-json",
+          tee_verified: true,
+        },
+      }),
+    );
+
+    await requestVerifiedPrivateCompletion(
+      [{ content: "Return JSON.", role: "user" }],
+      {
+        config: { ...TEST_CONFIG, model: "glm-5.2" },
+        disableThinking: true,
+        fetchImplementation,
+        responseFormat: "json_object",
+      },
+    );
+
+    const body = JSON.parse(
+      String(fetchImplementation.mock.calls[0]?.[1]?.body),
+    ) as {
+      chat_template_kwargs?: { enable_thinking?: boolean };
+      response_format?: { type?: string };
+    };
+
+    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(body.chat_template_kwargs).toEqual({
+      enable_thinking: false,
+    });
+  });
+
   it("captures safe failure metadata without retaining response bodies", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       new Response("private provider error", { status: 400 }),

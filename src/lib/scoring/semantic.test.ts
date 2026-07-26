@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ParsedCsvSample } from "../csv/parse-sample";
 import { compileEvaluationContracts } from "../evaluation-contracts/compile";
-import type { VerifiedCompletion } from "../zero-g/client";
+import type {
+  VerifiedCompletion,
+  ZeroGRequestDiagnostics,
+} from "../zero-g/client";
 import {
   evaluateSemanticContract,
   prepareSemanticRecords,
@@ -43,11 +46,32 @@ const TRACE: VerifiedCompletion["trace"] = {
   teeVerified: true,
 };
 
+const DIAGNOSTICS: ZeroGRequestDiagnostics = {
+  attempt: 1,
+  billing: {
+    inputCostNeuron: "10",
+    outputCostNeuron: "20",
+    totalCostNeuron: "30",
+  },
+  durationMs: 10,
+  finishReason: "stop",
+  httpStatus: 200,
+  outcome: "succeeded",
+  responseLength: 100,
+  usage: {
+    completionTokens: 20,
+    promptTokens: 10,
+    reasoningTokens: 0,
+    totalTokens: 30,
+  },
+};
+
 function completion(
   recordIds: string[],
   labels: string[],
   options: {
     controlLabels?: string[];
+    finishReason?: string;
     requestId?: string;
   } = {},
 ) {
@@ -66,6 +90,12 @@ function completion(
         }),
       ),
     }),
+    diagnostics: [
+      {
+        ...DIAGNOSTICS,
+        finishReason: options.finishReason ?? "stop",
+      },
+    ],
     trace: {
       ...TRACE,
       requestId: options.requestId ?? TRACE.requestId,
@@ -168,12 +198,51 @@ describe("evaluateSemanticContract", () => {
         requestCompletion,
       }),
     ).resolves.toMatchObject({
-      reason: "invalid_semantic_output",
+      evidence: {
+        semanticFailure: {
+          kind: "invalid_json",
+          pass: "original",
+        },
+      },
+      reason: "semantic_output_invalid_json",
       score: null,
       status: "unable_to_score",
     });
 
     expect(requestCompletion).toHaveBeenCalledTimes(1);
+  });
+
+  it("identifies a truncated repeat without publishing a score", async () => {
+    const ids = prepareSemanticRecords(CONTRACT, SAMPLE).map(
+      (record) => record.recordId,
+    );
+    const requestCompletion = vi
+      .fn()
+      .mockResolvedValueOnce(completion(ids, ids.map(() => "positive")))
+      .mockResolvedValueOnce(
+        completion(ids, ids.map(() => "positive"), {
+          finishReason: "length",
+          requestId: "request-repeat",
+        }),
+      );
+
+    await expect(
+      evaluateSemanticContract(CONTRACT, SAMPLE, {
+        requestCompletion,
+      }),
+    ).resolves.toMatchObject({
+      evidence: {
+        semanticFailure: {
+          kind: "truncated",
+          pass: "repeat",
+        },
+      },
+      reason: "semantic_output_truncated",
+      score: null,
+      status: "unable_to_score",
+    });
+
+    expect(requestCompletion).toHaveBeenCalledTimes(2);
   });
 
   it("returns unable_to_score for unstable repeated judgments", async () => {

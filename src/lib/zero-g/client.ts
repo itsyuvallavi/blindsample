@@ -54,8 +54,10 @@ export type ZeroGClientConfig = {
 
 type RequestOptions = {
   config?: ZeroGClientConfig;
+  disableThinking?: boolean;
   fetchImplementation?: typeof fetch;
   maxTokens?: number;
+  responseFormat?: "json_object";
   signal?: AbortSignal;
 };
 
@@ -165,9 +167,23 @@ export async function requestVerifiedPrivateCompletion(
       `${config.baseUrl}/chat/completions`,
       {
         body: JSON.stringify({
+          ...(options.disableThinking && isGlmModel(config.model)
+            ? {
+                chat_template_kwargs: {
+                  enable_thinking: false,
+                },
+              }
+            : {}),
           max_tokens: options.maxTokens ?? 256,
           messages,
           model: config.model,
+          ...(options.responseFormat
+            ? {
+                response_format: {
+                  type: options.responseFormat,
+                },
+              }
+            : {}),
           temperature: 0,
           verify_tee: true,
         }),
@@ -387,4 +403,8 @@ function neuronValue(value: unknown) {
 
 function elapsedMs(startedAt: number) {
   return Math.max(0, Date.now() - startedAt);
+}
+
+function isGlmModel(model: string) {
+  return model.toLowerCase().includes("glm");
 }

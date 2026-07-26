@@ -11,9 +11,17 @@ export type UnableToScoreReason =
   | "control_check_failed"
   | "insufficient_coverage"
   | "insufficient_records"
-  | "invalid_semantic_output"
   | "missing_required_columns"
+  | "semantic_output_empty"
+  | "semantic_output_invalid_json"
+  | "semantic_output_invalid_shape"
+  | "semantic_output_truncated"
   | "unstable_classification";
+
+export type SemanticOutputFailure = {
+  kind: "empty" | "invalid_json" | "invalid_shape" | "truncated";
+  pass: "original" | "repeat";
+};
 
 export type ResultEvidence = {
   agreement: {
@@ -33,6 +41,7 @@ export type ResultEvidence = {
   method: EvaluationContract["method"];
   recordsEvaluated: number;
   recordsSubmitted: number;
+  semanticFailure: SemanticOutputFailure | null;
   zeroG: {
     requests: ZeroGTrace[];
     teeVerified: true;

@@ -112,6 +112,7 @@ describeLive("live Supabase evaluation persistence", () => {
             method: "deterministic",
             recordsEvaluated: 12,
             recordsSubmitted: 12,
+            semanticFailure: null,
             zeroG: null,
           },
           questionId: "complete",
@@ -138,6 +139,7 @@ describeLive("live Supabase evaluation persistence", () => {
             method: "semantic",
             recordsEvaluated: 12,
             recordsSubmitted: 12,
+            semanticFailure: null,
             zeroG: {
               requests: [
                 {

@@ -21,7 +21,10 @@ export type SemanticClassificationOutput = {
 };
 
 export class SemanticOutputError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly code: "empty_output" | "invalid_json" | "invalid_shape",
+  ) {
     super(message);
     this.name = "SemanticOutputError";
   }
@@ -32,6 +35,13 @@ export function parseSemanticClassificationOutput(
   expectedRecordIds: string[],
   expectedControlIds: string[],
 ): SemanticClassificationOutput {
+  if (content.trim().length === 0) {
+    throw new SemanticOutputError(
+      "The semantic response was empty.",
+      "empty_output",
+    );
+  }
+
   let value: unknown;
 
   try {
@@ -39,6 +49,7 @@ export function parseSemanticClassificationOutput(
   } catch {
     throw new SemanticOutputError(
       "The semantic response was not valid JSON.",
+      "invalid_json",
     );
   }
 
@@ -48,6 +59,7 @@ export function parseSemanticClassificationOutput(
   ) {
     throw new SemanticOutputError(
       "The semantic response has an invalid top-level shape.",
+      "invalid_shape",
     );
   }
 
@@ -73,6 +85,7 @@ function parseItems<T extends "controlId" | "recordId">(
   if (!Array.isArray(value) || value.length !== expectedIds.length) {
     throw new SemanticOutputError(
       `The semantic response must contain one item per ${idKey}.`,
+      "invalid_shape",
     );
   }
 
@@ -89,6 +102,7 @@ function parseItems<T extends "controlId" | "recordId">(
     ) {
       throw new SemanticOutputError(
         "The semantic response contains an invalid classification.",
+        "invalid_shape",
       );
     }
 
@@ -102,6 +116,7 @@ function parseItems<T extends "controlId" | "recordId">(
   if (seen.size !== expected.size) {
     throw new SemanticOutputError(
       "The semantic response is missing a classification.",
+      "invalid_shape",
     );
   }
 
