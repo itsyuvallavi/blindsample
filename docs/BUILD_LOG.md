@@ -587,3 +587,50 @@ Verified:
 
 - `npm run check` passes after the report-capture change: lint, TypeScript, 102
   unit tests, and the production build.
+
+## 2026-07-26 — One-question UI scoring proof
+
+Inspection:
+
+- Ran the real browser workflow from buyer setup through seller CSV submission
+  and private buyer results.
+- Used one semantic question and five synthetic rows equal to the approved
+  positive customer-support example.
+
+Initial result:
+
+- The UI safely published `UNABLE` instead of a misleading numeric score.
+- Both private `glm-5.2` requests returned HTTP 200, TEE verification, valid
+  structured output, and 100% record agreement.
+- The negative and positive controls passed on both requests.
+- The original default intermediate control, `A general product question.`,
+  was consistently classified as `weak` instead of the required
+  `intermediate`.
+- The exact cause was therefore an incorrectly calibrated product default, not
+  output parsing, inference instability, or record classification.
+
+Mitigation:
+
+- Centralized the default semantic contract in
+  `src/lib/evaluation-contracts/default-semantic.ts`.
+- Replaced the ambiguous intermediate example with a previously verified
+  mixed example that may be answered by documentation or an agent.
+- Reused the same default in the live API flow and added a regression test so
+  the rejected control cannot silently return.
+- Committed the fix as `ba68feb fix: calibrate default semantic control`.
+
+Acceptance:
+
+- Repeated the complete UI flow with the corrected contract.
+- The private buyer page displayed `100/100` for the single approved question.
+- Five of five records were evaluated with 100% coverage.
+- Negative, positive, and intermediate controls all matched their expected
+  labels on both passes.
+- Repeated-classification agreement was 100%.
+- Exactly two inference requests were made. Both used `glm-5.2`, returned HTTP
+  200 with `stop`, were TEE verified, and used attempt 1 with no retry.
+- Usage was 1,662 total tokens: 1,328 prompt and 334 completion.
+- Reported cost was `0.008950328 0G`.
+- The unsuccessful synthetic evaluations were removed. The successful buyer
+  result remains available temporarily for visual review through its private
+  capability and expires automatically.
