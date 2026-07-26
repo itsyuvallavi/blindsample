@@ -12,6 +12,7 @@ import { getSupabaseServerClient } from "../supabase/client";
 import { paidLiveEnabled } from "../testing/paid-live";
 import { getZeroGConfig } from "../zero-g/client";
 import type { EvaluationResult } from "../scoring/types";
+import { GENERATED_ADVERSARIAL_SCENARIOS } from "../testing/generated-evaluation-scenarios";
 import {
   handleCreateEvaluation,
   handleGetEvaluation,
@@ -304,9 +305,13 @@ const allScenarios: LiveScenario[] = [
       },
     ],
   },
+  ...GENERATED_ADVERSARIAL_SCENARIOS,
 ];
 const difficulty = readDifficulty(process.env.E2E_DIFFICULTY);
 const scenarioIdsByDifficulty = {
+  adversarial: GENERATED_ADVERSARIAL_SCENARIOS.map(
+    (scenario) => scenario.id,
+  ),
   baseline: [
     "btc-market-quality",
     "timestamp-integrity",
@@ -615,7 +620,11 @@ describeLive(`${difficulty} live evaluation API flows`, () => {
 });
 
 function readDifficulty(value: string | undefined) {
-  if (value === "full" || value === "hard") {
+  if (
+    value === "adversarial" ||
+    value === "full" ||
+    value === "hard"
+  ) {
     return value;
   }
 

@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:0g": "ZERO_G_LIVE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/zero-g/client.live.test.ts",
     "test:e2e": "E2E_DIFFICULTY=baseline END_TO_END_LIVE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/api/evaluations.live.test.ts",
+    "test:e2e:adversarial": "E2E_DIFFICULTY=adversarial END_TO_END_LIVE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/api/evaluations.live.test.ts",
     "test:e2e:hard": "E2E_DIFFICULTY=hard END_TO_END_LIVE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/api/evaluations.live.test.ts",
     "test:e2e:full": "E2E_DIFFICULTY=full END_TO_END_LIVE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/api/evaluations.live.test.ts",
     "test:scoring": "SCORING_LIVE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/lib/scoring/score-sample.live.test.ts",
