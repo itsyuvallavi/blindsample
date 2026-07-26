@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { readCapabilityToken } from "../browser/capability";
+import { createDefaultSemanticCriterion } from "../evaluation-contracts/default-semantic";
 import { getSupabaseServerClient } from "../supabase/client";
 import { paidLiveEnabled } from "../testing/paid-live";
 import {
@@ -20,18 +21,7 @@ const criteria = [
     kind: "completeness" as const,
     question: "Are the submitted messages complete?",
   },
-  {
-    columns: ["message"],
-    controls: {
-      intermediate: "A general product question.",
-      negative: "A weather report unrelated to customer support.",
-      positive: "A customer asks an agent to fix a billing error.",
-    },
-    id: "relevance",
-    kind: "semantic_relevance" as const,
-    question: "Is this useful for a customer support classifier?",
-    target: "Customer support requests requiring an agent response.",
-  },
+  createDefaultSemanticCriterion("relevance"),
 ];
 
 describeLive("live evaluation API flow", () => {

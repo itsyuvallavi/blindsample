@@ -7,6 +7,7 @@ import type {
   CriterionKind,
   EvaluationContractPreview,
 } from "../lib/evaluation-contracts/types";
+import { createDefaultSemanticCriterion } from "../lib/evaluation-contracts/default-semantic";
 import {
   BrowserApiError,
   createEvaluation,
@@ -877,18 +878,7 @@ function createCriterion(
 ): CriterionDraft {
   switch (kind) {
     case "semantic_relevance":
-      return {
-        columns: ["message"],
-        controls: {
-          intermediate: "A general product question.",
-          negative: "A weather report unrelated to customer support.",
-          positive: "A customer asks an agent to fix a billing error.",
-        },
-        id,
-        kind,
-        question: "Is this useful for a customer support classifier?",
-        target: "Customer support requests requiring an agent response.",
-      };
+      return createDefaultSemanticCriterion(id);
     case "completeness":
       return {
         columns: ["message"],
