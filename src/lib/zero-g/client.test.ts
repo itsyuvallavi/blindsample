@@ -260,6 +260,35 @@ describe("requestVerifiedPrivateCompletion", () => {
     });
   });
 
+  it("leaves GLM reasoning enabled by default", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      response({
+        choices: [{ message: { content: "{}" } }],
+        x_0g_trace: {
+          provider: "0xprovider",
+          request_id: "request-reasoning",
+          tee_verified: true,
+        },
+      }),
+    );
+
+    await requestVerifiedPrivateCompletion(
+      [{ content: "Evaluate carefully.", role: "user" }],
+      {
+        config: { ...TEST_CONFIG, model: "glm-5.2" },
+        fetchImplementation,
+      },
+    );
+
+    const body = JSON.parse(
+      String(fetchImplementation.mock.calls[0]?.[1]?.body),
+    ) as {
+      chat_template_kwargs?: { enable_thinking?: boolean };
+    };
+
+    expect(body.chat_template_kwargs).toBeUndefined();
+  });
+
   it("forces one named function and parses only its JSON arguments", async () => {
     const argumentsJson =
       '{"evaluation_id":"evaluation-1","results":[]}';

@@ -69,7 +69,6 @@ export async function scorePrivateCsvSample(
     options.requestCompletion ??
     ((requestMessages) =>
       requestVerifiedPrivateCompletion(requestMessages, {
-        disableThinking: true,
         functionTool: buildEvaluationFunctionTool({
           columns: input.sample.columns,
           evaluationId: input.evaluationId,

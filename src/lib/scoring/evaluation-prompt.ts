@@ -49,6 +49,8 @@ export function buildEvaluationMessages(input: {
         "Use unable for semantic ambiguity only when no reasonable operational rubric can be derived from the buyer's words without external facts; the existence of multiple defensible thresholds is not enough.",
         "unit_judgments is the authoritative source for every count-based result. Use exactly one boolean per evaluated unit, where true means that unit met the buyer's criterion and false means it did not.",
         "For records and fields, unit_judgments must contain exactly one boolean per submitted row in ascending row_number order.",
+        "For any uniqueness question, first build an internal frequency map across the complete relevant column. A non-empty value that appears more than once must be false for every occurrence, not only for later duplicates. Recheck all repeated groups before returning.",
+        "For format and numeric questions, inspect every row exactly once and recheck that the boolean array length equals the submitted record_count.",
         "For expected_intervals, unit_judgments must contain one boolean per required interval in the order stated by the question.",
         "For events, unit_judgments must contain one boolean per evaluated event in the order described by evaluation_basis.",
         "Use holistic_rubric only when the question genuinely cannot be represented as countable units, and then unit_judgments must be empty.",
