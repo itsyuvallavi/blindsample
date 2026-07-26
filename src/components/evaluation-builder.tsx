@@ -129,23 +129,6 @@ export function EvaluationBuilder() {
     );
   }
 
-  function moveQuestion(index: number, direction: -1 | 1) {
-    const target = index + direction;
-
-    if (target < 0 || target >= questions.length) {
-      return;
-    }
-
-    setQuestions((current) => {
-      const reordered = [...current];
-      [reordered[index], reordered[target]] = [
-        reordered[target],
-        reordered[index],
-      ];
-      return reordered;
-    });
-  }
-
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -214,69 +197,80 @@ export function EvaluationBuilder() {
 
   if (created) {
     return (
-      <section className="terminal-window" aria-labelledby="links-title">
-        <TerminalBar path="~/blindsample/links" status="READY" />
-        <div className="terminal-body">
-          <CommandLine>private links create</CommandLine>
-          <p className="terminal-success">
-            Two role-specific links created
+      <section className="builder-card links-ready" aria-labelledby="links-title">
+        <div className="builder-header">
+          <p className="builder-step">Evaluation ready</p>
+          <h2 id="links-title">Share one link. Keep one private.</h2>
+          <p>
+            Creating these links did not call 0G or spend tokens. The private
+            evaluation starts only after the seller submits a CSV.
           </p>
-          <h2 id="links-title" className="terminal-title">
-            Share one link. Keep one link.
-          </h2>
-          <p className="terminal-copy">
-            BlindSample will send the seller&apos;s sample and all questions
-            together in one 0G request. Creating these links did not spend
-            0G tokens.
-          </p>
+        </div>
 
-          <div className="capability-stack">
-            <CapabilityLink
-              label="Send this link to the seller"
-              description="The seller can review your questions and submit one CSV. They cannot see your results."
-              value={created.sellerUrl}
-              copied={copied === "seller"}
-              onCopy={() => copyLink("seller", created.sellerUrl)}
-            />
-            <CapabilityLink
-              label="Keep this private results link"
-              description="This is your link for status and question-level results. Do not send it to the seller."
-              value={created.buyerUrl}
-              copied={copied === "buyer"}
-              onCopy={() => copyLink("buyer", created.buyerUrl)}
-            />
-          </div>
+        <div className="capability-notice">
+          <strong>These links grant access.</strong>
+          <span>
+            Send the seller link only to the seller. Keep the results link for
+            yourself.
+          </span>
+        </div>
 
-          <div className="button-row">
-            <a className="button-primary" href={created.buyerUrl}>
-              Open my private results
-            </a>
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={resetDraft}
-            >
-              New evaluation
-            </button>
+        <div className="capability-stack">
+          <CapabilityLink
+            label="Seller submission link"
+            description="The seller can review your questions and submit one CSV. They cannot see your results."
+            value={created.sellerUrl}
+            copied={copied === "seller"}
+            onCopy={() => copyLink("seller", created.sellerUrl)}
+          />
+          <CapabilityLink
+            label="Your private results link"
+            description="Use this link to follow status and see the question-level results."
+            value={created.buyerUrl}
+            copied={copied === "buyer"}
+            onCopy={() => copyLink("buyer", created.buyerUrl)}
+          />
+        </div>
+
+        {error ? (
+          <div className="message-wrap">
+            <StatusMessage tone="error">{error}</StatusMessage>
           </div>
+        ) : null}
+
+        <div className="button-row">
+          <a className="button-primary" href={created.buyerUrl}>
+            Open private results
+          </a>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={resetDraft}
+          >
+            Create another
+          </button>
         </div>
       </section>
     );
   }
 
   return (
-    <form onSubmit={handleCreate} className="terminal-window">
-      <TerminalBar path="~/new-evaluation" status="READY" />
-      <div className="terminal-body">
-        <CommandLine>start private evaluation</CommandLine>
-        <h2 className="terminal-title">Create an evaluation</h2>
-        <p className="terminal-copy">
-          Ask plain-language questions. BlindSample decides how to test each
-          one after reading the submitted CSV.
+    <form onSubmit={handleCreate} className="builder-card">
+      <div className="builder-header">
+        <p className="builder-step">Step 1 of 2</p>
+        <h2>What do you need to learn?</h2>
+        <p>
+          Ask in plain language. BlindSample reads the submitted CSV headers
+          and decides how each question can be evaluated.
         </p>
+      </div>
 
+      <div className="builder-body">
         <label className="field-group">
           <span className="field-label">Evaluation name</span>
+          <span className="field-support">
+            A short label both you and the seller will recognize.
+          </span>
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -289,7 +283,13 @@ export function EvaluationBuilder() {
 
         <fieldset className="field-group">
           <div className="field-heading">
-            <legend>Questions</legend>
+            <div>
+              <legend>Questions for the dataset</legend>
+              <p className="field-support">
+                Each question gets its own result. No column mapping or score
+                configuration is required.
+              </p>
+            </div>
             <span className="field-count">
               {questions.length}/{PRODUCT_LIMITS.maximumQuestions}
             </span>
@@ -304,12 +304,7 @@ export function EvaluationBuilder() {
                 onChange={(value) =>
                   updateQuestion(question.id, value)
                 }
-                onMove={(direction) =>
-                  moveQuestion(index, direction)
-                }
                 onRemove={() => removeQuestion(question.id)}
-                canMoveUp={index > 0}
-                canMoveDown={index < questions.length - 1}
                 canRemove={questions.length > 1}
               />
             ))}
@@ -326,8 +321,6 @@ export function EvaluationBuilder() {
             + Add another question
           </button>
         </fieldset>
-
-        <ExperiencePreviews question={questions[0]?.question} />
 
         {error ? (
           <div className="message-wrap">
@@ -360,9 +353,8 @@ export function EvaluationBuilder() {
         >
           {submitting ? "Creating private links…" : "Create private links"}
         </button>
-        <p className="terminal-footnote">
-          Creating links is free. 0G tokens are spent only if a submitted
-          question needs private AI evaluation.
+        <p className="builder-footnote">
+          No CSV is uploaded and no 0G request is made in this step.
         </p>
         <button
           type="button"
@@ -377,46 +369,30 @@ export function EvaluationBuilder() {
 }
 
 function QuestionEditor({
-  canMoveDown,
-  canMoveUp,
   canRemove,
   index,
   onChange,
-  onMove,
   onRemove,
   question,
 }: {
-  canMoveDown: boolean;
-  canMoveUp: boolean;
   canRemove: boolean;
   index: number;
   onChange: (question: string) => void;
-  onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
   question: EvaluationQuestion;
 }) {
   return (
-    <div className="question-row criterion-editor">
+    <div className="question-row">
       <div className="question-row__header">
-        <span className="question-index">
-          [{String(index).padStart(2, "0")}]
-        </span>
-        {canMoveUp || canMoveDown || canRemove ? (
-          <div className="question-actions">
-            {canMoveUp ? (
-              <MiniButton onClick={() => onMove(-1)}>
-                Move up
-              </MiniButton>
-            ) : null}
-            {canMoveDown ? (
-              <MiniButton onClick={() => onMove(1)}>
-                Move down
-              </MiniButton>
-            ) : null}
-            {canRemove ? (
-              <MiniButton onClick={onRemove}>Remove</MiniButton>
-            ) : null}
-          </div>
+        <span className="question-index">Question {index + 1}</span>
+        {canRemove ? (
+          <button
+            type="button"
+            className="button-mini"
+            onClick={onRemove}
+          >
+            Remove
+          </button>
         ) : null}
       </div>
 
@@ -434,65 +410,6 @@ function QuestionEditor({
           required
         />
       </label>
-    </div>
-  );
-}
-
-function MiniButton({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="button-mini"
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ExperiencePreviews({ question }: { question?: string }) {
-  return (
-    <div className="experience-previews">
-      <details className="experience-preview">
-        <summary>Preview seller experience</summary>
-        <div className="experience-preview__body">
-          <p className="preview-label">
-            Example only · Seller submission
-          </p>
-          <h3>Review the questions, then choose one CSV.</h3>
-          <p>
-            BlindSample sends the parsed sample and all questions together to
-            private 0G compute. The buyer never receives the sample rows.
-          </p>
-        </div>
-      </details>
-      <details className="experience-preview">
-        <summary>Preview example results</summary>
-        <div className="experience-preview__body example-result">
-          <div>
-            <p className="preview-label">
-              Example only · Private buyer result
-            </p>
-            <h3>
-              {question?.trim() ||
-                "Does this dataset meet my requirement?"}
-            </h3>
-          </div>
-          <p className="example-score">
-            82<small>/100</small>
-          </p>
-          <p>
-            Every answer is evaluated by 0G and shown separately.
-            BlindSample never calculates an overall dataset score.
-          </p>
-        </div>
-      </details>
     </div>
   );
 }
@@ -532,38 +449,6 @@ function CapabilityLink({
         </button>
       </div>
     </div>
-  );
-}
-
-export function TerminalBar({
-  path,
-  status,
-}: {
-  path: string;
-  status: string;
-}) {
-  return (
-    <div className="terminal-bar">
-      <span className="terminal-dots" aria-hidden="true">
-        <i />
-        <i />
-        <i />
-      </span>
-      <code>{path}</code>
-      <span className="terminal-status">{status}</span>
-    </div>
-  );
-}
-
-export function CommandLine({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <p className="command-line">
-      <span>$</span> {children}
-    </p>
   );
 }
 

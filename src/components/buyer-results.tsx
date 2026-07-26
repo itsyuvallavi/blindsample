@@ -200,7 +200,7 @@ function CompletedResults({
   return (
     <main className="buyer-results-page">
       <header className="buyer-results-header">
-        <p className="role-kicker">BUYER RESULTS</p>
+        <p className="role-kicker">Private buyer results</p>
         <h1 className="role-title">
           {noScores
             ? "No scores were produced"
@@ -218,13 +218,9 @@ function CompletedResults({
         <span className="verification-mark">✓</span>
         <div>
           <strong>Private execution verified</strong>
-          <p>
-            One private 0G request completed and produced this full result
-            set.
-          </p>
           <small>
-            Verification confirms protected execution. It does not guarantee
-            that every model judgment is correct.
+            One complete 0G request passed TEE verification. This confirms the
+            protected execution path, not the accuracy of every judgment.
           </small>
         </div>
       </section>
@@ -278,7 +274,7 @@ function ResultCard({
       <header>
         <div>
           <p className="result-provenance">
-            Question {index + 1} · Evaluated by 0G
+            Question {index + 1} / Evaluated by 0G
           </p>
           <h2>{question}</h2>
         </div>
@@ -322,7 +318,7 @@ function ResultsState({
   title: string;
 }) {
   return (
-    <section className="role-state buyer-results-state">
+    <section className="role-state">
       <p className="role-kicker">{label.toUpperCase()}</p>
       <h1 className="role-title">{title}</h1>
       <p className="role-description">{description}</p>

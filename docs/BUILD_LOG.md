@@ -1093,3 +1093,60 @@ Acceptance:
 - The synthetic browser evaluation was deleted from Supabase after the check.
 - The free suite passes with 108 tests; six paid/live suites remain skipped by
   default. Lint, TypeScript, and the production build pass.
+
+## 2026-07-26 — Premium public site and focused role flows
+
+Inspection:
+
+- The public homepage mixed product explanation and buyer setup in one dense
+  terminal-style workbench.
+- Monospace display type, repeated command-line chrome, inline previews, and
+  legacy CSS made the product feel technical without making the workflow
+  clearer.
+- Seller and buyer pages were functionally focused, but shared the same visual
+  shell as marketing and repeated several explanations.
+- Source mapping found an unreferenced security-rail component and roughly 30
+  legacy CSS selectors with no matching UI usage.
+
+Mapping and implementation:
+
+- Split public explanation, buyer setup, and documentation across `/`, `/new`,
+  and `/docs`.
+- Added separate public and task shells. Capability pages contain no public
+  navigation, reducing the chance that a seller or buyer leaves a private
+  session accidentally.
+- Rebuilt the homepage around one primary action, an explicitly illustrative
+  result preview, a three-step workflow, and concrete privacy proof.
+- Removed question ordering controls, terminal furniture, and buyer-side
+  experience previews from the evaluation builder.
+- Simplified the seller and buyer presentation while preserving their
+  validation, fail-closed, and question-level result behavior.
+- Replaced the terminal-heavy visual tokens and stylesheet with a responsive,
+  accessible dark product system. No animation or icon dependency was added.
+- Deleted the unreferenced `security-rail.tsx` component.
+
+Pre-mortem and mitigation:
+
+- Public navigation could cause private capability links to be lost: seller
+  and buyer pages use a navigation-free task shell.
+- Moving details into Docs could hide critical decisions: CSV limits, consent,
+  token timing, sample limitation, and TEE caveat remain inline.
+- A presentation refactor could affect evaluation behavior: no files under
+  `src/lib` or `src/app/api` were changed.
+- A marketing preview could be mistaken for a real result: it is labeled
+  “Illustrative result” and contains no live data or capability URL.
+- Motion could reduce accessibility: transitions use opacity/transform only
+  and honor `prefers-reduced-motion`.
+
+Acceptance:
+
+- Added source-contract tests for the route split, Docs guarantees, focused
+  task shell, keyboard skip link, and removal of ordering/terminal controls.
+- Lint, TypeScript, 97 non-live tests, and the production build pass.
+- Browser verification passed at 1280 px and 390 px for `/`, `/new`, and
+  `/docs`: no error overlays, console errors, or horizontal overflow.
+- The private seller shell exposed no public navigation and made no 0G
+  request during verification.
+- A focused secret scan found only documented placeholders and explicit
+  test-only credentials; `.env.example` remains the only tracked env file.
+- No paid or live 0G request was made.

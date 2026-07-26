@@ -5,33 +5,75 @@ export function SiteFrame({
   children,
   compact = false,
   role,
+  variant = "task",
 }: {
   children: ReactNode;
   compact?: boolean;
   role?: string;
+  variant?: "public" | "task";
 }) {
+  const publicFrame = variant === "public";
+
   return (
-    <div className="site-shell">
+    <div className={`site-shell site-shell--${variant}`}>
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <header className="site-nav">
-        <Link href="/" className="wordmark">
-          <span>$</span> blindsample
-        </Link>
-        <code>private data, useful answers</code>
-        <span className="system-chip" title="0G Private Computer">
-          0G PRIVATE
-        </span>
+        {publicFrame ? (
+          <Link href="/" className="wordmark" aria-label="BlindSample home">
+            <span className="wordmark-mark" aria-hidden="true">
+              B
+            </span>
+            <span>BlindSample</span>
+          </Link>
+        ) : (
+          <div className="wordmark" aria-label="BlindSample">
+            <span className="wordmark-mark" aria-hidden="true">
+              B
+            </span>
+            <span>BlindSample</span>
+          </div>
+        )}
+
+        {publicFrame ? (
+          <nav className="public-links" aria-label="Primary navigation">
+            <Link href="/#how-it-works">How it works</Link>
+            <Link href="/#privacy">Privacy</Link>
+            <Link href="/docs">Docs</Link>
+            <Link className="nav-cta" href="/new">
+              Create evaluation
+            </Link>
+          </nav>
+        ) : (
+          <div className="task-context">
+            {role ? <span>{role}</span> : null}
+            <span className="system-chip" title="0G Private Computer">
+              0G private
+            </span>
+          </div>
+        )}
       </header>
 
       <main
+        id="main-content"
         className={`site-main${compact ? " site-main--compact" : ""}`}
       >
-        {role ? <p className="page-role">{role}</p> : null}
         {children}
       </main>
 
       <footer className="site-footer">
-        <span>Built for ETHGlobal Lisbon 2026</span>
-        <span>Private compute by 0G</span>
+        {publicFrame ? (
+          <>
+            <span>BlindSample · Private dataset due diligence</span>
+            <span>Built with 0G Private Computer</span>
+          </>
+        ) : (
+          <>
+            <span>{role ?? "Private evaluation"}</span>
+            <span>Capability-protected session</span>
+          </>
+        )}
       </footer>
     </div>
   );

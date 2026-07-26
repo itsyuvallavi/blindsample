@@ -268,15 +268,17 @@ export function SellerSubmission({
   return (
     <main className="seller-flow">
       <header className="seller-flow__intro">
-        <div className="seller-role-line">
-          <span>Seller</span>
-          <span className="link-validity">Valid private link</span>
-        </div>
+        <p className="role-kicker">
+          Private seller task
+          <span className="link-validity">Link verified</span>
+        </p>
         <h1 className="role-title">Submit a private CSV sample</h1>
-        <p className="seller-for">For: {evaluation.title}</p>
+        <p className="seller-for">
+          Evaluation <strong>{evaluation.title}</strong>
+        </p>
         <p className="role-description">
           Your raw rows stay private. The buyer receives one result for each
-          question—never the CSV itself.
+          question, never the CSV itself.
         </p>
       </header>
 
@@ -299,8 +301,8 @@ export function SellerSubmission({
         <section aria-labelledby="sample-heading">
           <h2 id="sample-heading">Choose your sample</h2>
           <p className="section-support">
-            CSV only · up to {PRODUCT_LIMITS.maximumRows} records ·{" "}
-            {PRODUCT_LIMITS.maximumColumns} columns · 200 KB
+            CSV only. Up to {PRODUCT_LIMITS.maximumRows} records,{" "}
+            {PRODUCT_LIMITS.maximumColumns} columns, and 200 KB.
           </p>
 
           <div
@@ -337,10 +339,10 @@ export function SellerSubmission({
               <strong>
                 {inspecting
                   ? "Checking your CSV…"
-                  : "Drop a CSV here or choose a file"}
+                  : "Choose a CSV or drop it here"}
               </strong>
               <span id="sample-file-help">
-                The free check runs in this browser before any 0G request.
+                A free check runs in this browser before any 0G request.
               </span>
             </label>
           </div>
@@ -403,7 +405,8 @@ export function SellerSubmission({
           {buttonLabel}
         </button>
         <p className="token-disclosure" aria-live="polite">
-          No 0G tokens are spent before this click.
+          No 0G tokens are spent before this click. One request begins after
+          confirmation.
         </p>
       </form>
     </main>

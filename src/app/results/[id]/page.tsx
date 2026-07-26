@@ -21,7 +21,7 @@ export default async function ResultsPage({
   const { id } = await params;
 
   return (
-    <SiteFrame compact role="Private buyer results">
+    <SiteFrame compact role="Buyer results" variant="task">
       <BuyerResults evaluationId={id} />
     </SiteFrame>
   );

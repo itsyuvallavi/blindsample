@@ -138,7 +138,9 @@ payments, accounts, and dataset delivery.
 
 | Route | Purpose |
 |---|---|
-| `/` | Create an evaluation from a name and questions |
+| `/` | Product overview, workflow, and privacy model |
+| `/new` | Create an evaluation from a name and questions |
+| `/docs` | Product, privacy, scoring, and 0G documentation |
 | `/submit/[id]` | Seller question review and memory-only CSV submission |
 | `/results/[id]` | Buyer status and question-level 0G results |
 | `POST /api/evaluations` | Create capability links |

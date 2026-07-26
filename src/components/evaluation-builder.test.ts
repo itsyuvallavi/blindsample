@@ -21,4 +21,14 @@ describe("buyer evaluation builder contract", () => {
     expect(SOURCE).not.toContain("CriterionSettings");
     expect(SOURCE).not.toContain("approvedContractSetHash");
   });
+
+  it("keeps the buyer setup focused on questions and private links", () => {
+    expect(SOURCE).toContain("Create private links");
+    expect(SOURCE).toContain("No CSV is uploaded");
+    expect(SOURCE).not.toContain("Move up");
+    expect(SOURCE).not.toContain("Move down");
+    expect(SOURCE).not.toContain("TerminalBar");
+    expect(SOURCE).not.toContain("CommandLine");
+    expect(SOURCE).not.toContain("ExperiencePreviews");
+  });
 });
