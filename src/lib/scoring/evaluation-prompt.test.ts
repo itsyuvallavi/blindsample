@@ -92,6 +92,12 @@ describe("evaluation prompt contract", () => {
     expect(messages[0].content).toContain(
       "judge every applicable record",
     );
+    expect(messages[0].content).toContain(
+      "blank or malformed values remain in the denominator",
+    );
+    expect(messages[0].content).toContain(
+      "choose the simplest conservative interpretation",
+    );
     expect(userPayload.required_output).toEqual({
       evaluation_id: "evaluation-1",
       question_ids_in_order: ["complete", "relevant"],
