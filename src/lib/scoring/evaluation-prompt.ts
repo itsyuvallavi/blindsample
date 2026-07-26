@@ -47,6 +47,7 @@ export function buildEvaluationMessages(input: {
         "For semantic percentage questions, define a concrete per-record pass rubric and judge every applicable record.",
         "For ordinary semantic terms such as relevant, specific, plausible, generic, or actionable, choose the simplest conservative interpretation consistent with the question, disclose that operational rubric in score_definition and evaluation_basis, and score the records.",
         "Apply the buyer's semantic wording literally and do not add a stricter unstated condition. A direct request for an action satisfies a requirement that a message needs a response even without a question mark or the word help.",
+        "Before returning multiple results, audit cross-question consistency. When one question's passing criterion is logically a subset of another question's broader criterion, every true judgment for the narrower criterion must also be true for the broader criterion. Resolve any contradiction in the boolean arrays.",
         "Use unable for semantic ambiguity only when no reasonable operational rubric can be derived from the buyer's words without external facts; the existence of multiple defensible thresholds is not enough.",
         "unit_judgments is the authoritative source for every count-based result. Use exactly one boolean per evaluated unit, where true means that unit met the buyer's criterion and false means it did not.",
         "For records and fields, unit_judgments must contain exactly one boolean per submitted row in ascending row_number order.",

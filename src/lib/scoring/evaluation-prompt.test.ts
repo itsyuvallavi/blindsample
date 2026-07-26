@@ -247,6 +247,9 @@ describe("evaluation prompt contract", () => {
     expect(messages[0].content).toContain(
       "build an internal frequency map",
     );
+    expect(messages[0].content).toContain(
+      "audit cross-question consistency",
+    );
     expect(userPayload.required_output).toEqual({
       evaluation_id: "evaluation-1",
       question_ids_in_order: ["complete", "relevant"],
