@@ -12,7 +12,10 @@ import { getSupabaseServerClient } from "../supabase/client";
 import { paidLiveEnabled } from "../testing/paid-live";
 import { getZeroGConfig } from "../zero-g/client";
 import type { EvaluationResult } from "../scoring/types";
-import { GENERATED_ADVERSARIAL_SCENARIOS } from "../testing/generated-evaluation-scenarios";
+import {
+  GENERATED_ADVERSARIAL_SCENARIOS,
+  GENERATED_STRESS_SCENARIOS,
+} from "../testing/generated-evaluation-scenarios";
 import {
   handleCreateEvaluation,
   handleGetEvaluation,
@@ -307,6 +310,7 @@ const allScenarios: LiveScenario[] = [
     ],
   },
   ...GENERATED_ADVERSARIAL_SCENARIOS,
+  ...GENERATED_STRESS_SCENARIOS,
 ];
 const difficulty = readDifficulty(process.env.E2E_DIFFICULTY);
 const scenarioIdsByDifficulty = {
@@ -323,6 +327,9 @@ const scenarioIdsByDifficulty = {
     "support-message-quality",
     "catalog-quality",
   ],
+  stress: GENERATED_STRESS_SCENARIOS.map(
+    (scenario) => scenario.id,
+  ),
 } as const;
 const selectedScenarioIds =
   difficulty === "full"
@@ -657,7 +664,8 @@ function readDifficulty(value: string | undefined) {
   if (
     value === "adversarial" ||
     value === "full" ||
-    value === "hard"
+    value === "hard" ||
+    value === "stress"
   ) {
     return value;
   }

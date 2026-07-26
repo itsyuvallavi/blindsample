@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { parseCsvSample } from "../csv/parse-sample";
-import { GENERATED_ADVERSARIAL_SCENARIOS } from "./generated-evaluation-scenarios";
+import {
+  GENERATED_ADVERSARIAL_SCENARIOS,
+  GENERATED_STRESS_SCENARIOS,
+} from "./generated-evaluation-scenarios";
 
 describe("generated adversarial evaluation scenarios", () => {
   it("generates three reproducible datasets with fixed oracle scores", () => {
@@ -67,5 +70,23 @@ describe("generated adversarial evaluation scenarios", () => {
         ),
       ),
     ).toBe(true);
+  });
+
+  it("generates a maximum-row, five-question stress oracle", () => {
+    const [stress] = GENERATED_STRESS_SCENARIOS;
+    const sample = parseCsvSample(
+      new TextEncoder().encode(stress.csv),
+    );
+
+    expect(sample.rowCount).toBe(50);
+    expect(sample.columnCount).toBe(5);
+    expect(
+      stress.questions.map((question) => question.expected.exact),
+    ).toEqual([82, 90, 70, 74, 60]);
+    expect(
+      stress.questions.map(
+        (question) => question.expectedPassingRows?.length,
+      ),
+    ).toEqual([41, 45, 35, 37, 30]);
   });
 });
