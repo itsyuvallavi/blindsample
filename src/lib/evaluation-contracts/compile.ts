@@ -110,8 +110,8 @@ function compileCriterionDraft(
         ],
         [
           "Any approved column is absent.",
-          "Fewer than 80% of submitted records provide evaluable cells.",
         ],
+        { coverageRatio: 1 },
       );
     }
     case "format_validity": {
