@@ -246,3 +246,41 @@ Verified:
 
 - The preceding application workflow passed; this isolated update will be
   verified by its own push and pull-request checks.
+
+## 2026-07-26 — Strict independent scoring
+
+Completed:
+
+- Added the pinned `csv-parse` parser without the larger CSV package bundle.
+- Added strict evaluation-title and question validation.
+- Added in-memory UTF-8 CSV parsing with 200 KB, 200-row, and 20-column limits.
+- Preserved cell values while trimming and validating headers.
+- Added a fixed scoring prompt that treats cells as untrusted data, forbids
+  disclosure, and requests one independent integer score per exact question ID.
+- Added a strict response parser that rejects prose, extra keys, explanations,
+  overall scores, missing or duplicate IDs, decimals, and out-of-range values.
+- Added one corrective retry for malformed output with no lower-trust fallback.
+- Added seller-submission orchestration with an atomic claim, safe failure
+  codes, TEE-gated completion, and no raw-sample persistence.
+- Added an opt-in real two-question 0G scoring test.
+
+Why:
+
+- The product promise depends on converting a private sample into exact
+  question-level numbers without allowing model-format drift or raw-data
+  persistence.
+
+Verified:
+
+- 10 unit-test files and 44 tests pass; live tests remain opt-in.
+- Lint and typecheck pass.
+- Both the new scoring live test and the unchanged minimal 0G live proof were
+  attempted. Each returned HTTP 401 before model execution, confirming that
+  the current inference credential must be refreshed rather than indicating a
+  prompt or parser failure.
+
+Next:
+
+- Replace or reactivate `ZERO_G_API_KEY` locally and in Vercel.
+- Rerun `npm run test:0g` and `npm run test:scoring`.
+- Build the buyer and seller API routes and pages after the live gate passes.

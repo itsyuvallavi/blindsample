@@ -445,6 +445,10 @@ Gate:
 
 ### Phase 4 — Build the scoring pipeline
 
+Status: implementation complete on 2026-07-26; live scoring verification is
+pending a refreshed 0G inference key after the current key began returning
+HTTP 401.
+
 Implementation:
 
 - Define strict schemas for evaluation creation, questions, CSV constraints,

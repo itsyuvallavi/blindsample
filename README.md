@@ -46,8 +46,9 @@ The reusable 0G client is implemented and a live private request has returned
 a TEE-verified trace. The Supabase project and private metadata schema are
 deployed, with RLS and browser grants locked down. Live role separation,
 concurrent submission claiming, result persistence, and cleanup are verified.
-Strict scoring and the buyer/seller product flows are the next implementation
-milestones.
+The strict CSV and question-to-score pipeline is implemented. Its final live
+proof awaits a refreshed 0G inference key; the buyer/seller product flows are
+the next implementation milestone.
 
 ## Local development
 
@@ -96,6 +97,18 @@ npm run test:0g
 
 The returned `tee_verified` value is verification reported by 0G Router. It is
 not an independently reproduced attestation inside BlindSample.
+
+## Strict scoring pipeline
+
+[`src/lib/csv/parse-sample.ts`](src/lib/csv/parse-sample.ts) validates UTF-8
+CSV samples in memory and enforces the byte, row, and column limits.
+[`src/lib/scoring/score-sample.ts`](src/lib/scoring/score-sample.ts) sends a
+fixed privacy-aware prompt through the verified 0G client and retries malformed
+model output once.
+
+The response parser accepts only a JSON `scores` array containing each exact
+question ID once and one integer from 1 to 100. It rejects prose, explanations,
+missing or duplicate IDs, decimals, extra keys, and overall scores.
 
 ## Supabase persistence
 
