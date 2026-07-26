@@ -311,7 +311,7 @@ function serviceFailure(error: unknown) {
   return apiError(
     503,
     code,
-    "BlindSample is temporarily unavailable. Try again.",
+    "CipherQuery is temporarily unavailable. Try again.",
   );
 }
 

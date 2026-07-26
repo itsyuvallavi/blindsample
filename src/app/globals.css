@@ -378,7 +378,7 @@ code {
 }
 
 .hero-title {
-  max-width: 11ch;
+  max-width: 15ch;
   margin-block-start: var(--space-md);
   font-size: var(--text-display);
   font-weight: 630;

@@ -134,7 +134,7 @@ export function BuyerResults({
       <ResultsState
         label="Buyer results"
         title="Evaluation failed — no scores were produced."
-        description="BlindSample found no complete, verified 0G result set to display."
+        description="CipherQuery found no complete, verified 0G result set to display."
       >
         <StatusMessage tone="error">
           No partial or previous scores were published.
@@ -378,7 +378,7 @@ function reportedCost(evaluation: BuyerEvaluation) {
 function errorMessage(caught: unknown) {
   return caught instanceof BrowserApiError
     ? caught.message
-    : "BlindSample could not load this evaluation.";
+    : "CipherQuery could not load this evaluation.";
 }
 
 function failureMessage(errorCode: string | null) {

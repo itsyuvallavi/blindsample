@@ -1,4 +1,4 @@
-# BlindSample Build Log
+# CipherQuery Build Log
 
 This log records completed milestones and material decisions. It intentionally
 does not contain command transcripts, secrets, raw datasets, or speculative
@@ -65,7 +65,7 @@ Completed:
 - Created the `build/mvp` implementation branch.
 - Added Next.js 16.2.12, React 19.2.8, TypeScript, Tailwind CSS, and a Node.js
   22 runtime contract.
-- Replaced generator content with a minimal BlindSample landing route and
+- Replaced generator content with a minimal CipherQuery landing route and
   added a non-secret health endpoint.
 - Added executable score-boundary tests for the 1–100 product contract.
 - Added one GitHub Actions workflow for install, lint, typecheck, tests, and
@@ -122,7 +122,7 @@ Verified:
 
 Limitation:
 
-- The `tee_verified` field is verification reported by 0G Router. BlindSample
+- The `tee_verified` field is verification reported by 0G Router. CipherQuery
   does not independently reproduce the provider-signature verification.
 
 Next:
@@ -811,7 +811,7 @@ Inspection:
 - The semantic question passed plan and evidence preflight, then made one
   original-pass request. 0G returned HTTP `401` in 93 ms with no model,
   provider, TEE trace, token usage, or reported cost.
-- Because the original pass failed, BlindSample correctly did not make the
+- Because the original pass failed, CipherQuery correctly did not make the
   repeat-agreement request.
 - The scorer caught the request error and converted it into
   `unable_to_score` with zero-valued evidence, while the run-level diagnostics

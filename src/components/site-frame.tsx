@@ -21,18 +21,18 @@ export function SiteFrame({
       </a>
       <header className="site-nav">
         {publicFrame ? (
-          <Link href="/" className="wordmark" aria-label="BlindSample home">
+          <Link href="/" className="wordmark" aria-label="CipherQuery home">
             <span className="wordmark-mark" aria-hidden="true">
-              B
+              C
             </span>
-            <span>BlindSample</span>
+            <span>CipherQuery</span>
           </Link>
         ) : (
-          <div className="wordmark" aria-label="BlindSample">
+          <div className="wordmark" aria-label="CipherQuery">
             <span className="wordmark-mark" aria-hidden="true">
-              B
+              C
             </span>
-            <span>BlindSample</span>
+            <span>CipherQuery</span>
           </div>
         )}
 
@@ -65,7 +65,7 @@ export function SiteFrame({
       <footer className="site-footer">
         {publicFrame ? (
           <>
-            <span>BlindSample · Secure private data evaluation</span>
+            <span>CipherQuery · Encrypted data evaluation</span>
             <span>Encrypted transport · 0G private compute</span>
           </>
         ) : (

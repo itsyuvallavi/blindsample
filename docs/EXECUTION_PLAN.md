@@ -1,4 +1,4 @@
-# BlindSample Execution Plan
+# CipherQuery Execution Plan
 
 Current architecture plan, following:
 

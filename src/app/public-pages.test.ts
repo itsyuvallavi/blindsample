@@ -18,6 +18,9 @@ const DOCS_SOURCE = readFileSync(
 describe("public information architecture", () => {
   it("keeps marketing and evaluation creation on separate routes", () => {
     expect(HOME_SOURCE).toContain('href="/new"');
+    expect(HOME_SOURCE).toContain("CipherQuery");
+    expect(HOME_SOURCE).toContain("Encrypted data evaluation.");
+    expect(HOME_SOURCE).toContain("Without exposing the data.");
     expect(HOME_SOURCE).toContain("Illustrative result");
     expect(HOME_SOURCE).toContain("Encrypted in transit");
     expect(HOME_SOURCE).toContain("TEE-protected compute");

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { isValidScore, PRODUCT_LIMITS } from "./product-contract";
 
-describe("BlindSample product contract", () => {
+describe("CipherQuery product contract", () => {
   it("accepts every integer inside the score range", () => {
     expect(isValidScore(PRODUCT_LIMITS.scoreMinimum)).toBe(true);
     expect(isValidScore(50)).toBe(true);

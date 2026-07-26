@@ -376,7 +376,7 @@ export function SellerSubmission({
             </span>
           </label>
           <details className="privacy-disclosure">
-            <summary>How BlindSample protects your CSV</summary>
+            <summary>How CipherQuery protects your CSV</summary>
             <p>
               The CSV travels over TLS-encrypted transport, is held in server
               memory only for this evaluation, and is processed through 0G
@@ -582,7 +582,7 @@ function errorMessage(caught: unknown) {
     return caught.message;
   }
 
-  return "BlindSample could not complete this submission.";
+  return "CipherQuery could not complete this submission.";
 }
 
 function fileIssue(code: CsvSampleError["code"]) {

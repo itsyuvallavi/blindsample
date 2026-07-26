@@ -8,14 +8,14 @@ export default function Home() {
       <div className="marketing-page">
         <section className="hero-section">
           <div className="hero-copy">
-            <p className="eyebrow">Secure private data evaluation</p>
+            <p className="eyebrow">CipherQuery · Private data intelligence</p>
             <h1 className="hero-title">
-              Verify private data.
+              Encrypted data evaluation.
               <br />
-              <span>Without exposing it.</span>
+              <span>Without exposing the data.</span>
             </h1>
             <p className="hero-lede">
-              BlindSample gives buyers useful answers while sellers keep
+              CipherQuery lets buyers ask useful questions while sellers keep
               control of their data. The sample travels over encrypted
               transport, is handled only in memory, and is evaluated inside
               0G Private Computer.
@@ -95,7 +95,7 @@ export default function Home() {
               The sample stays protected from upload to answer.
             </h2>
             <p>
-              BlindSample encrypts transport, limits raw-data handling to
+              CipherQuery encrypts transport, limits raw-data handling to
               server memory, and reveals only safe question-level results.
               The buyer never receives the CSV.
             </p>

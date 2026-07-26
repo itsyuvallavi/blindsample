@@ -261,7 +261,7 @@ export function EvaluationBuilder() {
         <p className="builder-step">Step 1 of 2</p>
         <h2>What must the private sample prove?</h2>
         <p>
-          Ask in plain language. BlindSample securely reads the submitted CSV
+          Ask in plain language. CipherQuery securely reads the submitted CSV
           headers and decides how each question can be evaluated.
         </p>
       </div>
@@ -469,5 +469,5 @@ function createInitialEvaluationDraft(): EvaluationDraft {
 function errorMessage(caught: unknown) {
   return caught instanceof BrowserApiError
     ? caught.message
-    : "BlindSample could not complete this operation.";
+    : "CipherQuery could not complete this operation.";
 }

@@ -6,7 +6,7 @@ import { SiteFrame } from "../../components/site-frame";
 export const metadata: Metadata = {
   title: "Documentation",
   description:
-    "How BlindSample protects a private CSV with encrypted transport, memory-only handling, and TEE-verified 0G compute.",
+    "How CipherQuery protects a private CSV with encrypted transport, memory-only handling, and TEE-verified 0G compute.",
 };
 
 const sections = [
@@ -37,10 +37,10 @@ export default function DocsPage() {
 
         <article className="docs-content">
           <header className="docs-hero" id="overview">
-            <p className="eyebrow">BlindSample docs</p>
+            <p className="eyebrow">CipherQuery docs</p>
             <h1>Private evaluation, explained clearly.</h1>
             <p>
-              BlindSample is a secure evaluation layer for private data. The
+              CipherQuery is a secure evaluation layer for private data. The
               seller&apos;s bounded CSV travels over encrypted transport, is
               handled only in memory, and is evaluated through 0G Private
               Computer. The buyer receives verified answers, never raw rows.
@@ -60,7 +60,7 @@ export default function DocsPage() {
                   </span>
                 </li>
                 <li>
-                  <strong>BlindSample separates access.</strong>
+                  <strong>CipherQuery separates access.</strong>
                   <span>
                     The seller receives a CSV submission link. The buyer keeps
                     a different link for status and results.
@@ -85,7 +85,7 @@ export default function DocsPage() {
                   <strong>The buyer sees verified results.</strong>
                   <span>
                     Every question receives its own score or a clear unable
-                    state. BlindSample never calculates an overall score.
+                    state. CipherQuery never calculates an overall score.
                   </span>
                 </li>
               </ol>
@@ -112,7 +112,7 @@ export default function DocsPage() {
               </div>
               <p>
                 If 0G cannot answer a question safely from the sample,
-                BlindSample publishes <em>Unable</em> instead of inventing a
+                CipherQuery publishes <em>Unable</em> instead of inventing a
                 number. If the full verified result set is unavailable, no
                 scores are published.
               </p>
@@ -151,7 +151,7 @@ export default function DocsPage() {
             <div>
               <h2>0G Router and TEE verification</h2>
               <p>
-                BlindSample sends one OpenAI-compatible request to the 0G
+                CipherQuery sends one OpenAI-compatible request to the 0G
                 Router using private trust mode. The Router selects the
                 configured private-capable model and returns the inference
                 response with execution metadata.

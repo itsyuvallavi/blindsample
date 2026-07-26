@@ -108,7 +108,7 @@ async function requestJson<T>(input: string, init: RequestInit) {
     response = await fetch(input, init);
   } catch {
     throw new BrowserApiError(
-      "BlindSample could not reach the server. Try again.",
+      "CipherQuery could not reach the server. Try again.",
       "network_error",
       0,
     );
@@ -120,7 +120,7 @@ async function requestJson<T>(input: string, init: RequestInit) {
     body = await response.json();
   } catch {
     throw new BrowserApiError(
-      "BlindSample received an invalid server response.",
+      "CipherQuery received an invalid server response.",
       "invalid_response",
       response.status,
     );
@@ -158,6 +158,6 @@ function readError(body: unknown): { code: string; message: string } {
 
   return {
     code: "unknown_error",
-    message: "BlindSample could not complete the request.",
+    message: "CipherQuery could not complete the request.",
   };
 }

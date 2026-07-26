@@ -1,6 +1,6 @@
-# BlindSample
+# CipherQuery
 
-BlindSample is a secure evaluation layer for private CSV data. The seller's
+CipherQuery is an encrypted evaluation layer for private CSV data. The seller's
 sample travels over encrypted transport, is handled only in memory, and is
 evaluated through one private, TEE-verified 0G request. The buyer receives
 question-level answers without receiving the raw rows.
@@ -10,16 +10,16 @@ Built for the **Best AI Product on 0G** track at ETHGlobal Lisbon 2026.
 ## Product flow
 
 1. The buyer names an evaluation and writes 1–20 plain-text questions.
-2. BlindSample creates separate seller and buyer capability links.
+2. CipherQuery creates separate seller and buyer capability links.
 3. The seller submits one UTF-8 CSV with 1–50 records.
 4. The server parses the complete bounded sample in memory.
 5. The sample and all original questions are sent together in exactly one 0G
    request.
-6. BlindSample validates the verified response as one atomic result set.
+6. CipherQuery validates the verified response as one atomic result set.
 7. The buyer sees one independent result per question, each marked
    **Evaluated by 0G**.
 
-BlindSample never calculates an overall dataset score and never answers a
+CipherQuery never calculates an overall dataset score and never answers a
 buyer question locally.
 
 ## Atomic 0G evaluation
@@ -48,7 +48,7 @@ ID exactly once. Each result contains:
 - evidence limited to row numbers, aggregate counts, and sanitized reasons
 
 For count-based questions, 0G returns one boolean judgment per evaluated unit.
-BlindSample validates the schema, coverage, question IDs, evidence bounds,
+CipherQuery validates the schema, coverage, question IDs, evidence bounds,
 evaluation ID, and TEE trace, then mechanically counts those 0G judgments and
 applies the documented rounding rule. It never inspects the CSV to make or
 replace a model judgment. Holistic questions keep the model's validated score.
