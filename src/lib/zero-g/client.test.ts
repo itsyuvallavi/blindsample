@@ -48,9 +48,28 @@ describe("requestVerifiedPrivateCompletion", () => {
   it("forces private routing and TEE verification", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       response({
-        choices: [{ message: { content: "OK" } }],
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              content: "OK",
+              reasoning_content: "must never be retained",
+            },
+          },
+        ],
         model: "test-model",
+        usage: {
+          completion_tokens: 4,
+          completion_tokens_details: { reasoning_tokens: 2 },
+          prompt_tokens: 7,
+          total_tokens: 11,
+        },
         x_0g_trace: {
+          billing: {
+            input_cost: "700",
+            output_cost: "400",
+            total_cost: "1100",
+          },
           provider: "0xprovider",
           request_id: "request-1",
           tee_verified: true,
@@ -78,6 +97,30 @@ describe("requestVerifiedPrivateCompletion", () => {
       requestId: "request-1",
       teeVerified: true,
     });
+    expect(result.diagnostics).toEqual([
+      {
+        attempt: 1,
+        billing: {
+          inputCostNeuron: "700",
+          outputCostNeuron: "400",
+          totalCostNeuron: "1100",
+        },
+        durationMs: expect.any(Number),
+        finishReason: "stop",
+        httpStatus: 200,
+        outcome: "succeeded",
+        responseLength: 2,
+        usage: {
+          completionTokens: 4,
+          promptTokens: 7,
+          reasoningTokens: 2,
+          totalTokens: 11,
+        },
+      },
+    ]);
+    expect(JSON.stringify(result.diagnostics)).not.toContain(
+      "must never be retained",
+    );
   });
 
   it("rejects a response that is not TEE verified", async () => {
@@ -92,12 +135,22 @@ describe("requestVerifiedPrivateCompletion", () => {
       }),
     );
 
-    await expect(
-      requestVerifiedPrivateCompletion(
-        [{ content: "Return OK.", role: "user" }],
-        { config: TEST_CONFIG, fetchImplementation },
-      ),
-    ).rejects.toMatchObject({ code: "unverified_response" });
+    const rejected = requestVerifiedPrivateCompletion(
+      [{ content: "Return OK.", role: "user" }],
+      { config: TEST_CONFIG, fetchImplementation },
+    );
+
+    await expect(rejected).rejects.toMatchObject({
+      code: "unverified_response",
+      diagnostics: [
+        expect.objectContaining({
+          attempt: 1,
+          httpStatus: 200,
+          outcome: "unverified_response",
+          responseLength: 2,
+        }),
+      ],
+    });
   });
 
   it("retries one transient failure without changing trust mode", async () => {
@@ -128,6 +181,38 @@ describe("requestVerifiedPrivateCompletion", () => {
     for (const call of fetchImplementation.mock.calls) {
       const headers = call[1]?.headers as Record<string, string>;
       expect(headers["X-0G-Provider-Trust-Mode"]).toBe("private");
+    }
+  });
+
+  it("captures safe failure metadata without retaining response bodies", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response("private provider error", { status: 400 }),
+    );
+
+    const rejected = requestVerifiedPrivateCompletion(
+      [{ content: "private submitted record", role: "user" }],
+      { config: TEST_CONFIG, fetchImplementation },
+    );
+
+    await expect(rejected).rejects.toMatchObject({
+      code: "request_failed",
+      diagnostics: [
+        expect.objectContaining({
+          attempt: 1,
+          httpStatus: 400,
+          outcome: "http_error",
+        }),
+      ],
+      status: 400,
+    });
+
+    try {
+      await rejected;
+    } catch (error) {
+      expect(JSON.stringify(error)).not.toContain("private provider error");
+      expect(JSON.stringify(error)).not.toContain(
+        "private submitted record",
+      );
     }
   });
 });
