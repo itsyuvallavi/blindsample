@@ -711,3 +711,80 @@ Acceptance:
   browser's full-page mobile capture produced an empty raster, so acceptance
   relied on the rendered live viewport, normal mobile screenshot, DOM order,
   and measured layout instead.
+
+## 2026-07-26 — Question-only evaluation planning
+
+Inspection:
+
+- Confirmed that buyer-authored immutable contracts were stored before any CSV
+  existed and were passed directly into scoring during seller submission.
+- Confirmed the default semantic constructor hard-coded `message` and
+  customer-support controls.
+- Confirmed deterministic and semantic scoring rejected missing required
+  columns before any 0G call, which made an unrelated saved plan permanently
+  incompatible with a new dataset.
+
+Mapping:
+
+- Evaluation creation now stores only an evaluation name and question IDs/text.
+- Seller submission parses the real CSV before generating any technical plan.
+- Generated plans are fingerprinted to the exact question and parsed sample,
+  validated against the real headers, then passed to scoring.
+- Completion replaces the question JSON in the existing audit column with the
+  generated plans; no schema migration or raw-row persistence was required.
+
+Review:
+
+- The plan generator is deterministic application code. It recognizes exact
+  completeness and uniqueness requests, maps question terms and aliases to
+  real headers, and infers text-bearing evidence only when necessary.
+- Semantic plans contain internal fields, controls, confidence, score
+  meanings, evidence requirements, and a record-level rubric. The model can
+  return labels only; application code still calculates the final score.
+- Objective-only evaluations are allowed and make zero 0G requests.
+
+Pre-mortem:
+
+- A stale plan could be reused after a question or sample changed.
+- A generated plan could hallucinate a nonexistent header.
+- A preflight failure could still consume a private inference request.
+- All-unable results could misleadingly imply that the dataset failed.
+- Retained live-test fixtures could silently continue using the retired
+  buyer-authored contract API.
+
+Mitigation:
+
+- Added question and dataset fingerprints to every generated plan.
+- Added plan validation before the request budget is created or consumed.
+- A missing-column plan is regenerated once with the real headers; a second
+  invalid plan becomes a plain-language unable result without inference.
+- Semantic evidence coverage is checked before inference.
+- Replaced the all-unable badge with `NO SCORES PRODUCED`, an explanation that
+  this does not mean the dataset failed, and an explicit AI-request indicator.
+- Migrated opt-in live fixtures to name-plus-question creation while keeping
+  every live suite disabled by default.
+
+Planning and implementation:
+
+- Commit `2512fd4` replaces buyer-authored contracts with submission-time
+  planning, removes the saved `message` default, and simplifies buyer/seller
+  surfaces.
+- Commit `c8ad93f` adds focused question-only, BTC planning, invalid-plan,
+  zero-request, semantic audit, and all-unable presentation regressions.
+
+Acceptance:
+
+- Lint and TypeScript pass.
+- 119 local tests pass; six paid/live suites remain skipped.
+- The production build passes. One combined `npm run check` build attempt hit
+  intermittent Google Fonts DNS, and an immediate standalone build completed.
+- The clean five-row BTC fixture maps the completeness question to
+  `timestamp, open, high, low, close, volume` and returns `100` in code.
+- The BTC context question maps to
+  `symbol, open, high, low, close, market_context` and uses mocked private
+  per-record judgments to produce an auditable score.
+- Neither generated BTC plan contains `message` or customer-support controls.
+- An invalid plan is rejected before the mocked 0G requester is called.
+- Local rendered-browser inspection found one name field, plain-text question
+  fields, zero selectors, and none of the retired scoring-configuration labels.
+- No live 0G request or paid end-to-end test was run.

@@ -1,21 +1,23 @@
 # BlindSample
 
 BlindSample lets a buyer evaluate a private CSV sample without receiving its
-rows. The buyer defines measurable questions, approves the exact scoring
-contracts, and receives one audited result per question.
+rows. The buyer provides an evaluation name and plain-text questions.
+BlindSample decides how to test each question only after reading the submitted
+CSV, then returns one audited result per question.
 
 Built for the **Best AI Product on 0G** track at ETHGlobal Lisbon 2026.
 
 ## What the product does
 
-1. A buyer creates evaluation criteria.
-2. BlindSample converts them into versioned scoring contracts.
-3. The buyer reviews and approves those contracts.
-4. A separate seller link accepts one CSV containing 1–50 parsed data records.
-5. Exact metrics run in application code. Semantic classification runs
-   privately through 0G.
-6. The buyer sees one `1–100` or `unable_to_score` result per approved
-   question, plus safe audit evidence.
+1. A buyer enters an evaluation name and one or more plain-text questions.
+2. A separate seller link accepts one CSV containing 1–50 parsed data records.
+3. BlindSample parses the actual headers and rows.
+4. It generates and validates a fresh internal plan for every question,
+   fingerprinted to both the question and submitted sample.
+5. Exact calculations run in application code. Questions that require
+   record-level judgment use private 0G classification.
+6. The buyer sees one `1–100` or `unable_to_score` result per question, plus
+   safe audit evidence.
 
 BlindSample never calculates an overall score. A result describes only the
 submitted records and cannot prove that the sample represents the seller's
@@ -23,8 +25,8 @@ complete dataset.
 
 ## Why 0G is load-bearing
 
-Every activated evaluation must contain at least one semantic criterion.
-Semantic evidence is classified through 0G Private Computer using:
+When a question needs semantic judgment, evidence is classified through 0G
+Private Computer using:
 
 - `X-0G-Provider-Trust-Mode: private`
 - a TeeML provider
@@ -35,17 +37,16 @@ The model returns rubric labels per submitted record, not a final score.
 BlindSample validates those labels and calculates the final integer itself.
 No numeric semantic result is published without verified private 0G execution.
 
-Objective criteria—including completeness, format validity, uniqueness,
-freshness, numeric ranges, column availability, and category coverage—use
-deterministic application code.
+Objective questions use deterministic application code and make no 0G request.
 
 TEE verification proves protected execution. It does not prove that a judgment
 is correct.
 
 ## Defensible semantic scoring
 
-Each semantic contract includes a buyer-approved target and human-reviewed
-negative, intermediate, and positive controls.
+Each semantic plan contains generated evidence fields, a per-record rubric,
+score meanings, confidence, and internal negative, intermediate, and positive
+controls. The buyer never creates or maintains these fields.
 
 A semantic result is published only when:
 
@@ -70,7 +71,7 @@ evidence, and false TEE verification.
 - 20 columns maximum
 - 200 KB maximum
 - no truncation, hidden sampling, or discarded rows
-- one accepted contract produces one result record
+- one buyer question produces one result record
 - scored results are integers from 1 to 100
 - insufficient or unreliable evidence produces `unable_to_score`
 - raw CSV rows, prompts, and capability tokens are never persisted
@@ -83,7 +84,7 @@ least three usable records.
 
 The buyer and seller receive separate high-entropy capability links:
 
-- the seller can read approved contracts and submit one sample;
+- the seller can read the buyer's plain-text questions and submit one sample;
 - the buyer can read status and results;
 - the seller cannot read results;
 - the buyer cannot submit data; and
@@ -102,26 +103,30 @@ transiently.
 ## Architecture
 
 ```text
-Buyer → contract preview → buyer approval → separate capability links
-                                              |
-Seller → bounded CSV → in-memory parser -------+
-                         |                     |
-                         | exact metrics       | semantic evidence
-                         v                     v
-                  deterministic code     0G Private Computer
-                         |                     |
-                         +------ validated ----+
-                                   |
-                          question-level results
-                                   |
-                                Supabase
-                                   |
-                              Buyer results
+Buyer questions → separate capability links
+                              |
+Seller → bounded CSV → in-memory parser
+                              |
+                    fresh plan generation
+                              |
+                    header/plan validation
+                         |             |
+              exact calculation   semantic rubric
+                         |       0G Private Computer
+                         |             |
+                         +-- app score-+
+                              |
+                    question-level results
+                              |
+                plans + safe audit in Supabase
+                              |
+                         Buyer results
 ```
 
-Supabase stores only approved contracts, the contract-set hash, state,
-aggregate result evidence, safe 0G request traces, token hashes, and
-non-sensitive dimensions.
+Supabase initially stores only the questions. When evaluation completes, the
+question JSON is replaced with the generated, sample-fingerprinted plans.
+Supabase also stores aggregate result evidence, safe 0G request traces, token
+hashes, and non-sensitive dimensions. Raw CSV rows are never persisted.
 
 BlindSample does not use 0G Storage, a custom smart contract, payments,
 accounts, or dataset delivery in this MVP.
@@ -130,11 +135,11 @@ accounts, or dataset delivery in this MVP.
 
 | Route | Purpose |
 |---|---|
-| `/` | Create and approve an evaluation |
-| `/submit/[id]` | Seller contract review and CSV submission |
+| `/` | Create an evaluation from plain-text questions |
+| `/submit/[id]` | Seller question review and CSV submission |
 | `/results/[id]` | Buyer status and question-level results |
-| `POST /api/evaluation-contracts` | Compile a preview without creating links |
-| `POST /api/evaluations` | Activate an approved contract set |
+| `POST /api/evaluation-contracts` | Retired; returns `410 question_only_workflow` |
+| `POST /api/evaluations` | Create links from a name and questions |
 | `GET /api/evaluations/[id]` | Return the capability-scoped view |
 | `POST /api/evaluations/[id]/submit` | Claim and evaluate one bounded sample |
 | `GET /api/health` | Non-secret readiness |
@@ -145,7 +150,7 @@ Requirements:
 
 - Node.js 22
 - npm 10.9.4
-- a funded 0G testnet inference key created in Private trust mode
+- a funded 0G inference key created in Private trust mode
 - a Supabase `sb_secret_...` server key
 - a random capability pepper containing at least 32 characters
 
@@ -174,7 +179,8 @@ cleanup, including after a failed scoring attempt.
 
 ## Important implementation paths
 
-- [Evaluation contracts](src/lib/evaluation-contracts)
+- [Submission-time evaluation plans](src/lib/evaluation-plans)
+- [Internal evaluation contracts](src/lib/evaluation-contracts)
 - [Deterministic scoring](src/lib/scoring/deterministic.ts)
 - [Semantic scoring](src/lib/scoring/semantic.ts)
 - [0G client](src/lib/zero-g/client.ts)
