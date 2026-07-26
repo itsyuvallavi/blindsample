@@ -83,6 +83,15 @@ describe("evaluation prompt contract", () => {
     };
 
     expect(messages[0].content).toContain(EVALUATION_TOOL_NAME);
+    expect(messages[0].content).toContain(
+      "count failing units against the numerator",
+    );
+    expect(messages[0].content).toContain(
+      "Do not use unable merely because",
+    );
+    expect(messages[0].content).toContain(
+      "judge every applicable record",
+    );
     expect(userPayload.required_output).toEqual({
       evaluation_id: "evaluation-1",
       question_ids_in_order: ["complete", "relevant"],

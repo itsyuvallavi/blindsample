@@ -523,30 +523,15 @@ describeLive(`${difficulty} live evaluation API flows`, () => {
       ).toEqual(questions.map((question) => question.id));
 
       const reportedResults = buyerView.evaluation.results.map(
-        (result) => {
-          const expected = scenario.questions.find(
+        (result) => ({
+          confidence: result.confidence,
+          expected: scenario.questions.find(
             (question) => question.id === result.questionId,
-          )?.expected;
-
-          expect(result.status).toBe("scored");
-          expect(result.evaluatedBy).toBe("0g");
-          expect(result.teeVerified).toBe(true);
-          expect(result.score).not.toBeNull();
-
-          if (expected && result.score !== null) {
-            scoreCheckCount += 1;
-            expectScore(result.score, expected);
-            matchedScoreCount += 1;
-          }
-
-          return {
-            confidence: result.confidence,
-            expected,
-            questionId: result.questionId,
-            score: result.score,
-            status: result.status,
-          };
-        },
+          )?.expected,
+          questionId: result.questionId,
+          score: result.score,
+          status: result.status,
+        }),
       );
 
       console.info(
@@ -557,6 +542,23 @@ describeLive(`${difficulty} live evaluation API flows`, () => {
           scenario: scenario.id,
         }),
       );
+
+      for (const result of buyerView.evaluation.results) {
+        const expected = scenario.questions.find(
+          (question) => question.id === result.questionId,
+        )?.expected;
+
+        expect(result.status).toBe("scored");
+        expect(result.evaluatedBy).toBe("0g");
+        expect(result.teeVerified).toBe(true);
+        expect(result.score).not.toBeNull();
+
+        if (expected && result.score !== null) {
+          scoreCheckCount += 1;
+          expectScore(result.score, expected);
+          matchedScoreCount += 1;
+        }
+      }
 
       const sellerResponse = await handleGetEvaluation(
         authorizedRead(created.evaluationId, sellerToken),
