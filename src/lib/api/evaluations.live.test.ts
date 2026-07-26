@@ -27,6 +27,7 @@ type ExpectedScore = {
 
 type ScenarioQuestion = {
   expected: ExpectedScore;
+  expectedPassingRows?: number[];
   id: string;
   question: string;
 };
@@ -515,6 +516,7 @@ describeLive(`${difficulty} live evaluation API flows`, () => {
               evaluationBasis: result.evaluationBasis.unit,
               explanation: result.explanation,
               numerator: result.numerator,
+              passingRowNumbers: result.evidence.rowNumbers,
               questionId: result.questionId,
               score: result.score,
               status: result.status,
@@ -573,10 +575,41 @@ describeLive(`${difficulty} live evaluation API flows`, () => {
           expected: scenario.questions.find(
             (question) => question.id === result.questionId,
           )?.expected,
+          expectedPassingRows: scenario.questions.find(
+            (question) => question.id === result.questionId,
+          )?.expectedPassingRows,
           questionId: result.questionId,
           score: result.score,
           status: result.status,
         }),
+      );
+
+      const rowOracleDifferences = safeModelResults.flatMap(
+        (result) => {
+          const expectedRows = scenario.questions.find(
+            (question) => question.id === result.questionId,
+          )?.expectedPassingRows;
+
+          if (!expectedRows) {
+            return [];
+          }
+
+          const actualRows = result.passingRowNumbers;
+          const expectedSet = new Set(expectedRows);
+          const actualSet = new Set(actualRows);
+
+          return [
+            {
+              extraRows: actualRows.filter(
+                (rowNumber) => !expectedSet.has(rowNumber),
+              ),
+              missingRows: expectedRows.filter(
+                (rowNumber) => !actualSet.has(rowNumber),
+              ),
+              questionId: result.questionId,
+            },
+          ];
+        },
       );
 
       console.info(
@@ -584,6 +617,7 @@ describeLive(`${difficulty} live evaluation API flows`, () => {
           diagnostics:
             buyerView.evaluation.inferenceDiagnostics.requests[0],
           results: reportedResults,
+          rowOracleDifferences,
           safeModelResults,
           scenario: scenario.id,
         }),

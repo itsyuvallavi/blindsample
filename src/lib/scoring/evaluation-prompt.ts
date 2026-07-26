@@ -46,6 +46,7 @@ export function buildEvaluationMessages(input: {
         'If the buyer explicitly asks about "non-empty", "present", or another filtered population, use only that clearly stated population.',
         "For semantic percentage questions, define a concrete per-record pass rubric and judge every applicable record.",
         "For ordinary semantic terms such as relevant, specific, plausible, generic, or actionable, choose the simplest conservative interpretation consistent with the question, disclose that operational rubric in score_definition and evaluation_basis, and score the records.",
+        "Apply the buyer's semantic wording literally and do not add a stricter unstated condition. A direct request for an action satisfies a requirement that a message needs a response even without a question mark or the word help.",
         "Use unable for semantic ambiguity only when no reasonable operational rubric can be derived from the buyer's words without external facts; the existence of multiple defensible thresholds is not enough.",
         "unit_judgments is the authoritative source for every count-based result. Use exactly one boolean per evaluated unit, where true means that unit met the buyer's criterion and false means it did not.",
         "For records and fields, unit_judgments must contain exactly one boolean per submitted row in ascending row_number order.",

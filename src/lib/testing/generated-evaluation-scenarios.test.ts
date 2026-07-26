@@ -48,4 +48,24 @@ describe("generated adversarial evaluation scenarios", () => {
       ),
     ).toBe(true);
   });
+
+  it("precomputes row-number-only semantic oracles", () => {
+    const semantic = GENERATED_ADVERSARIAL_SCENARIOS.find(
+      (scenario) =>
+        scenario.id === "generated-support-semantics",
+    );
+
+    expect(
+      semantic?.questions.map(
+        (question) => question.expectedPassingRows?.length,
+      ),
+    ).toEqual([12, 8, 4]);
+    expect(
+      semantic?.questions.every((question) =>
+        question.expectedPassingRows?.every(
+          (rowNumber) => rowNumber >= 1 && rowNumber <= 20,
+        ),
+      ),
+    ).toBe(true);
+  });
 });

@@ -3,6 +3,7 @@ export type GeneratedEvaluationScenario = {
   id: string;
   questions: Array<{
     expected: { exact: number };
+    expectedPassingRows?: number[];
     id: string;
     question: string;
   }>;
@@ -192,16 +193,45 @@ function generateSupportScenario(): GeneratedEvaluationScenario {
   ];
   const rows = seededShuffle(
     [
-      ...accountRequests.map((message) => ({ message })),
-      ...otherSupportRequests.map((message) => ({ message })),
-      ...productFeedback.map((message) => ({ message })),
-      ...unrelatedMessages.map((message) => ({ message })),
+      ...accountRequests.map((message) => ({
+        account: true,
+        message,
+        support: true,
+        unrelated: false,
+      })),
+      ...otherSupportRequests.map((message) => ({
+        account: false,
+        message,
+        support: true,
+        unrelated: false,
+      })),
+      ...productFeedback.map((message) => ({
+        account: false,
+        message,
+        support: false,
+        unrelated: false,
+      })),
+      ...unrelatedMessages.map((message) => ({
+        account: false,
+        message,
+        support: false,
+        unrelated: true,
+      })),
     ],
     260_728,
   );
+  const passingRows = (
+    predicate: (row: (typeof rows)[number]) => boolean,
+  ) =>
+    rows.flatMap((row, index) =>
+      predicate(row) ? [index + 1] : [],
+    );
 
   return {
-    csv: toCsv(["message"], rows),
+    csv: toCsv(
+      ["message"],
+      rows.map((row) => ({ message: row.message })),
+    ),
     id: "generated-support-semantics",
     questions: [
       {
@@ -211,6 +241,7 @@ function generateSupportScenario(): GeneratedEvaluationScenario {
             rows.length,
           ),
         },
+        expectedPassingRows: passingRows((row) => row.support),
         id: "clear_support_requests",
         question:
           "What percentage of messages clearly describe a customer-support request that requires an agent response?",
@@ -219,6 +250,7 @@ function generateSupportScenario(): GeneratedEvaluationScenario {
         expected: {
           exact: percentage(accountRequests.length, rows.length),
         },
+        expectedPassingRows: passingRows((row) => row.account),
         id: "account_payment_access",
         question:
           "What percentage of messages explicitly describe an account, payment, or access problem?",
@@ -227,6 +259,7 @@ function generateSupportScenario(): GeneratedEvaluationScenario {
         expected: {
           exact: percentage(unrelatedMessages.length, rows.length),
         },
+        expectedPassingRows: passingRows((row) => row.unrelated),
         id: "unrelated_messages",
         question:
           "What percentage of messages are unrelated to both customer support and product experience?",
