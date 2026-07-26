@@ -173,10 +173,27 @@ with `NEXT_PUBLIC_`, commit `.env.local`, or test with a real seller dataset.
 Paid 0G suites require both their suite flag and `ALLOW_PAID_0G=1`:
 
 ```bash
-npm run test:0g
-npm run test:scoring
-npm run test:e2e
+ALLOW_PAID_0G=1 npm run test:0g
+ALLOW_PAID_0G=1 npm run test:scoring
+ALLOW_PAID_0G=1 npm run test:e2e
 ```
+
+The E2E reliability loop is deliberately staged:
+
+```bash
+# Three baseline scenarios. Run this after every scoring change.
+ALLOW_PAID_0G=1 npm run test:e2e
+
+# Three harder interval and semantic-quality scenarios. Run only after baseline passes.
+ALLOW_PAID_0G=1 npm run test:e2e:hard
+
+# All ten scenarios. Run only after both three-scenario tiers pass.
+ALLOW_PAID_0G=1 npm run test:e2e:full
+```
+
+Each scenario makes one 0G request, has no automatic retry, checks every score
+against a precomputed expectation, and deletes its temporary Supabase row.
+Failed output validation logs only a safe failure code, never raw model output.
 
 The Supabase-only live check is separate and makes no 0G request:
 

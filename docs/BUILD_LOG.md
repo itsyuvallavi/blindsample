@@ -1010,3 +1010,53 @@ Acceptance:
   ceiling.
 - Targeted tests, TypeScript, and lint pass.
 - No live or paid 0G request was made.
+
+## 2026-07-26 — Staged 0G reliability and quality loop
+
+Inspection:
+
+- Ten paid E2E scenarios reached 0G successfully: every request returned HTTP
+  200, `finish_reason: stop`, and verified TEE provenance.
+- Seven responses passed strict validation and published 14 question results.
+  All 14 published scores exactly matched the benchmark expectations.
+- Three responses were rejected as `zero_g_invalid_response`. They were not
+  timeouts or token-limit failures, but the stored diagnostics did not identify
+  the exact safe validator reason.
+
+Mapping and review:
+
+- Enumerated the response validator's envelope, question ID, result shape,
+  arithmetic, evidence, privacy, and numeric rejection paths.
+- Kept atomic publication: one invalid question still fails the whole
+  evaluation and publishes zero scores.
+- Added a typed, privacy-safe output-validation status and failure code to
+  diagnostics. Raw prompts, rows, cell values, and model responses remain
+  excluded from persistence and logs.
+
+Pre-mortem and mitigation:
+
+- Automatic retries could spend tokens without improving the prompt: every
+  scenario still has exactly one attempt.
+- Large batches obscure the cause and waste calls: the default paid cycle now
+  runs only the three previously failing scenarios.
+- A parser failure could be mistaken for poor scoring: integration completion
+  and expected-score accuracy are reported separately.
+- Relaxing validation could leak private values or accept broken arithmetic:
+  validation remains strict; the prompt now includes an explicit final schema,
+  arithmetic, unique-row, and privacy checklist.
+
+Planning:
+
+- `test:e2e` runs the three-scenario baseline.
+- `test:e2e:hard` runs three interval/semantic-quality scenarios only after the
+  baseline passes.
+- `test:e2e:full` retains the ten-scenario sweep only after both smaller tiers
+  pass.
+- Every tier has a hard request-count guard, no retries, exact score
+  expectations, aggregate quality output, and per-scenario Supabase cleanup.
+
+Acceptance:
+
+- Lint, TypeScript, 91 non-live tests, and the production build pass.
+- Commits `2cb2f2a` and `9153af2` were pushed to `main`.
+- No additional paid 0G request was made while implementing this repair.
