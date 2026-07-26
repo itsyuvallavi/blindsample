@@ -865,9 +865,18 @@ Planning and implementation:
   provider-error mapping, and mocked regression coverage.
 - Commit `fc31d5e` renders errors as `ERROR / not scored`, displays `N/A`
   evidence, and removes the false no-call message.
+- Commit `0aa8691` classifies empty, malformed, and truncated model output as
+  execution errors rather than evidence failures.
+- Commit `ff7a227` documents request packaging and the three distinct result
+  states.
 
 Acceptance:
 
 - Focused error, packaging, presentation, and source-contract tests pass.
-- TypeScript and lint pass.
+- Lint and TypeScript pass.
+- The full local suite passes: 124 tests passed and all six opt-in live suites
+  remained skipped.
+- The combined check reached the production build but encountered the known
+  intermittent Google Fonts DNS failure. One immediate standalone production
+  build completed successfully.
 - No live 0G request or paid inference test was run.
