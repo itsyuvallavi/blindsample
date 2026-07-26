@@ -103,6 +103,8 @@ export function isAtomicVerifiedResultSet(
   const resultIds = new Set(results.map((result) => result.questionId));
 
   return (
+    expectedIds.size === questions.length &&
+    resultIds.size === results.length &&
     resultIds.size === expectedIds.size &&
     [...expectedIds].every((questionId) => resultIds.has(questionId)) &&
     results.every((result) =>

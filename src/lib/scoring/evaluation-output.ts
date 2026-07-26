@@ -185,6 +185,15 @@ function parseResult(
     );
   }
 
+  if (
+    evaluationBasis.unit !== "holistic_rubric" &&
+    numerator === null
+  ) {
+    throw new EvaluationOutputError(
+      "Count-based results require a numerator and denominator.",
+    );
+  }
+
   if (numerator !== null && denominator !== null) {
     const numericNumerator = readInteger(
       numerator,

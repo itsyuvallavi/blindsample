@@ -177,6 +177,20 @@ describe("scorePrivateCsvSample", () => {
         ],
       }),
     ],
+    [
+      "missing count arithmetic",
+      completion({
+        evaluation_id: "evaluation-1",
+        results: [
+          {
+            ...validOutput().results[0],
+            denominator: null,
+            numerator: null,
+          },
+          validOutput().results[1],
+        ],
+      }),
+    ],
   ])("rejects %s without returning partial scores", async (_, response) => {
     const requestCompletion = vi.fn().mockResolvedValue(response);
 
