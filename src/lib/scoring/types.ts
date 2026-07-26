@@ -24,6 +24,27 @@ export type UnableToScoreReason =
   | "semantic_output_truncated"
   | "unstable_classification";
 
+export type EvaluationExecutionErrorCode =
+  | "private_compute_authentication_failed"
+  | "private_compute_configuration_failed"
+  | "private_compute_execution_failed"
+  | "private_compute_invalid_response"
+  | "private_compute_rate_limited"
+  | "private_compute_unavailable"
+  | "private_compute_verification_failed";
+
+export type EvaluationExecutionError = {
+  code: EvaluationExecutionErrorCode;
+  httpStatus: number | null;
+  outcome:
+    | "http_error"
+    | "invalid_response"
+    | "network_error"
+    | "unverified_response"
+    | null;
+  requestMade: boolean;
+};
+
 export type SemanticOutputFailure = {
   kind: "empty" | "invalid_json" | "invalid_shape" | "truncated";
   pass: "original" | "repeat";
@@ -47,7 +68,7 @@ export type ResultEvidence = {
     | typeof EVALUATION_PLAN_VERSION;
   controlCheck: "failed" | "not_applicable" | "passed";
   controlClassifications?: SemanticControlClassification[];
-  coverageRatio: number;
+  coverageRatio: number | null;
   limitation: string;
   measurement: {
     name: string;
@@ -55,7 +76,7 @@ export type ResultEvidence = {
     value: number;
   } | null;
   method: EvaluationContract["method"] | "unable";
-  recordsEvaluated: number;
+  recordsEvaluated: number | null;
   recordsSubmitted: number;
   semanticFailure: SemanticOutputFailure | null;
   zeroG: {
@@ -79,9 +100,18 @@ export type UnableEvaluationResult = {
   status: "unable_to_score";
 };
 
+export type ErroredEvaluationResult = {
+  error: EvaluationExecutionError;
+  evidence: ResultEvidence;
+  questionId: string;
+  score: null;
+  status: "error";
+};
+
 export type EvaluationResult =
   | ScoredEvaluationResult
-  | UnableEvaluationResult;
+  | UnableEvaluationResult
+  | ErroredEvaluationResult;
 
 export function zeroGEvidence(traces: ZeroGTrace[]) {
   const first = traces[0];
@@ -124,4 +154,29 @@ export function unableReasonExplanation(reason: UnableToScoreReason) {
     case "semantic_output_truncated":
       return "The private model response ended before all record-level judgments were returned.";
   }
+}
+
+export function executionErrorExplanation(
+  error: EvaluationExecutionError,
+) {
+  switch (error.code) {
+    case "private_compute_authentication_failed":
+      return `0G rejected BlindSample's production credential${statusSuffix(error.httpStatus)}. The model did not evaluate this question.`;
+    case "private_compute_configuration_failed":
+      return "BlindSample's private-compute configuration is incomplete or invalid. The model did not evaluate this question.";
+    case "private_compute_rate_limited":
+      return `0G temporarily refused the request because its request limit was reached${statusSuffix(error.httpStatus)}.`;
+    case "private_compute_verification_failed":
+      return "The private-compute response could not be verified, so BlindSample refused to publish a score.";
+    case "private_compute_invalid_response":
+      return `0G returned a response BlindSample could not verify or parse${statusSuffix(error.httpStatus)}.`;
+    case "private_compute_unavailable":
+      return `The private-compute service did not complete the request${statusSuffix(error.httpStatus)}.`;
+    case "private_compute_execution_failed":
+      return "BlindSample encountered an internal execution error before it could publish this question's score.";
+  }
+}
+
+function statusSuffix(httpStatus: number | null) {
+  return httpStatus === null ? "" : ` (HTTP ${httpStatus})`;
 }

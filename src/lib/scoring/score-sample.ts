@@ -18,6 +18,7 @@ import {
   type EvaluationRunDiagnostics,
   InferenceAuditRecorder,
 } from "./run-diagnostics";
+import { executionErrorFromFailure } from "./execution-error";
 import { evaluateSemanticContract } from "./semantic";
 import type { EvaluationResult } from "./types";
 import {
@@ -120,9 +121,9 @@ export async function scorePrivateCsvSample(
             requestCompletion: options.requestCompletion,
           }),
         );
-      } catch {
+      } catch (error) {
         results.push(
-          semanticExecutionUnableResult(plan, sample),
+          semanticExecutionErrorResult(plan, sample, error),
         );
       }
     }
@@ -148,11 +149,13 @@ export async function scorePrivateCsvSample(
   };
 }
 
-function semanticExecutionUnableResult(
+function semanticExecutionErrorResult(
   plan: AnswerableEvaluationPlan,
   sample: ParsedCsvSample,
+  error: unknown,
 ): EvaluationResult {
   return {
+    error: executionErrorFromFailure(error),
     evidence: {
       agreement: {
         ratio: null,
@@ -161,22 +164,21 @@ function semanticExecutionUnableResult(
       },
       contractVersion: plan.contract.contractVersion,
       controlCheck: "not_applicable",
-      coverageRatio: 0,
+      coverageRatio: null,
       limitation:
         sample.rowCount === 1
           ? ONE_RECORD_LIMITATION
           : SUBMITTED_DATA_LIMITATION,
       measurement: null,
       method: "semantic",
-      recordsEvaluated: 0,
+      recordsEvaluated: null,
       recordsSubmitted: sample.rowCount,
       semanticFailure: null,
       zeroG: null,
     },
     questionId: plan.questionId,
-    reason: "model_or_verification_failed",
     score: null,
-    status: "unable_to_score",
+    status: "error",
   };
 }
 

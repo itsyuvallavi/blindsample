@@ -10,7 +10,10 @@ import {
   EVALUATION_PLAN_VERSION,
   type GeneratedEvaluationPlan,
 } from "../evaluation-plans/types";
-import type { VerifiedCompletion } from "../zero-g/client";
+import {
+  ZeroGClientError,
+  type VerifiedCompletion,
+} from "../zero-g/client";
 import { prepareSemanticRecords } from "./semantic";
 import { scorePrivateCsvSample } from "./score-sample";
 
@@ -174,6 +177,92 @@ describe("scorePrivateCsvSample", () => {
     ]);
     expect(scoring).not.toHaveProperty("overallScore");
     expect(JSON.stringify(scoring)).not.toContain("overallScore");
+  });
+
+  it("packages all records into each semantic pass instead of requesting per record", async () => {
+    const requestCompletion = vi
+      .fn()
+      .mockResolvedValueOnce(semanticCompletion("original"))
+      .mockResolvedValueOnce(semanticCompletion("repeat"));
+
+    await scorePrivateCsvSample(plansFor(SAMPLE), SAMPLE, {
+      requestCompletion,
+    });
+
+    expect(requestCompletion).toHaveBeenCalledTimes(2);
+
+    for (const [messages] of requestCompletion.mock.calls) {
+      const serialized = JSON.stringify(messages);
+
+      expect(serialized).toContain("record_001");
+      expect(serialized).toContain("record_005");
+    }
+  });
+
+  it("publishes a provider rejection as an error with no zero-valued evidence", async () => {
+    const requestCompletion = vi.fn().mockRejectedValueOnce(
+      new ZeroGClientError(
+        "0G Router request failed with status 401.",
+        "request_failed",
+        401,
+        [
+          {
+            attempt: 1,
+            billing: {
+              inputCostNeuron: null,
+              outputCostNeuron: null,
+              totalCostNeuron: null,
+            },
+            durationMs: 93,
+            finishReason: null,
+            httpStatus: 401,
+            outcome: "http_error",
+            reasoningContentPresent: null,
+            responseLength: null,
+            usage: {
+              completionTokens: null,
+              promptTokens: null,
+              reasoningTokens: null,
+              totalTokens: null,
+            },
+          },
+        ],
+      ),
+    );
+
+    const scoring = await scorePrivateCsvSample(
+      plansFor(SAMPLE),
+      SAMPLE,
+      { requestCompletion },
+    );
+
+    expect(requestCompletion).toHaveBeenCalledTimes(1);
+    expect(scoring.inferenceRequests).toEqual({
+      made: 1,
+      maximum: 6,
+    });
+    expect(scoring.diagnostics.requests).toEqual([
+      expect.objectContaining({
+        httpStatus: 401,
+        outcome: "http_error",
+        pass: "original",
+        questionId: "relevance",
+      }),
+    ]);
+    expect(scoring.results[1]).toMatchObject({
+      error: {
+        code: "private_compute_authentication_failed",
+        httpStatus: 401,
+        requestMade: true,
+      },
+      evidence: {
+        coverageRatio: null,
+        recordsEvaluated: null,
+        recordsSubmitted: 5,
+      },
+      score: null,
+      status: "error",
+    });
   });
 
   it("does not call 0G for a preflight semantic unable result", async () => {
