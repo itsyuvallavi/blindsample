@@ -153,34 +153,30 @@ describe("requestVerifiedPrivateCompletion", () => {
     });
   });
 
-  it("retries one transient failure without changing trust mode", async () => {
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(response({}, { status: 503 }))
-      .mockResolvedValueOnce(
-        response({
-          choices: [{ message: { content: "OK" } }],
-          x_0g_trace: {
-            provider: "0xprovider",
-            request_id: "request-3",
-            tee_verified: true,
-          },
-        }),
-      );
+  it("never retries a failed paid request automatically", async () => {
+    for (const status of [429, 503]) {
+      const fetchImplementation = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(response({}, { status }));
 
-    await requestVerifiedPrivateCompletion(
-      [{ content: "Return OK.", role: "user" }],
-      {
-        config: TEST_CONFIG,
-        fetchImplementation,
-        retryDelayMs: 0,
-      },
-    );
+      await expect(
+        requestVerifiedPrivateCompletion(
+          [{ content: "Return OK.", role: "user" }],
+          { config: TEST_CONFIG, fetchImplementation },
+        ),
+      ).rejects.toMatchObject({
+        code: "request_failed",
+        diagnostics: [
+          expect.objectContaining({
+            attempt: 1,
+            httpStatus: status,
+            outcome: "http_error",
+          }),
+        ],
+        status,
+      });
 
-    expect(fetchImplementation).toHaveBeenCalledTimes(2);
-    for (const call of fetchImplementation.mock.calls) {
-      const headers = call[1]?.headers as Record<string, string>;
-      expect(headers["X-0G-Provider-Trust-Mode"]).toBe("private");
+      expect(fetchImplementation).toHaveBeenCalledTimes(1);
     }
   });
 

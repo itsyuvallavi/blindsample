@@ -1,9 +1,7 @@
 const DEFAULT_BASE_URL =
   "https://router-api-testnet.integratenetwork.work/v1";
-const DEFAULT_RETRY_DELAY_MS = 250;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const PRIVATE_TRUST_MODE = "private";
-const RETRYABLE_STATUS_CODES = new Set([429, 503]);
 
 export type ZeroGMessage = {
   content: string;
@@ -58,7 +56,6 @@ type RequestOptions = {
   config?: ZeroGClientConfig;
   fetchImplementation?: typeof fetch;
   maxTokens?: number;
-  retryDelayMs?: number;
   signal?: AbortSignal;
 };
 
@@ -156,113 +153,95 @@ export async function requestVerifiedPrivateCompletion(
 ): Promise<VerifiedCompletion> {
   const config = options.config ?? getZeroGConfig();
   const fetchImplementation = options.fetchImplementation ?? fetch;
-  const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
   const signal =
     options.signal ?? AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
   const diagnostics: ZeroGRequestDiagnostics[] = [];
+  const attempt = 1;
+  const startedAt = Date.now();
+  let response: Response;
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const startedAt = Date.now();
-    let response: Response;
-
-    try {
-      response = await fetchImplementation(
-        `${config.baseUrl}/chat/completions`,
-        {
-          body: JSON.stringify({
-            max_tokens: options.maxTokens ?? 256,
-            messages,
-            model: config.model,
-            temperature: 0,
-            verify_tee: true,
-          }),
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            "Content-Type": "application/json",
-            "X-0G-Provider-Trust-Mode": PRIVATE_TRUST_MODE,
-          },
-          method: "POST",
-          signal,
+  try {
+    response = await fetchImplementation(
+      `${config.baseUrl}/chat/completions`,
+      {
+        body: JSON.stringify({
+          max_tokens: options.maxTokens ?? 256,
+          messages,
+          model: config.model,
+          temperature: 0,
+          verify_tee: true,
+        }),
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/json",
+          "X-0G-Provider-Trust-Mode": PRIVATE_TRUST_MODE,
         },
-      );
-    } catch {
-      diagnostics.push(
-        emptyDiagnostics(
-          attempt + 1,
-          elapsedMs(startedAt),
-          null,
-          "network_error",
-        ),
-      );
-      throw new ZeroGClientError(
-        "0G Router request failed before receiving a response.",
-        "request_failed",
-        undefined,
-        diagnostics,
-      );
-    }
-
-    if (!response.ok) {
-      diagnostics.push(
-        emptyDiagnostics(
-          attempt + 1,
-          elapsedMs(startedAt),
-          response.status,
-          "http_error",
-        ),
-      );
-      const shouldRetry =
-        attempt === 0 && RETRYABLE_STATUS_CODES.has(response.status);
-
-      if (shouldRetry) {
-        await wait(retryDelayMs);
-        continue;
-      }
-
-      throw new ZeroGClientError(
-        `0G Router request failed with status ${response.status}.`,
-        "request_failed",
-        response.status,
-        diagnostics,
-      );
-    }
-
-    let payload: RouterResponse;
-
-    try {
-      payload = (await response.json()) as RouterResponse;
-    } catch {
-      diagnostics.push(
-        emptyDiagnostics(
-          attempt + 1,
-          elapsedMs(startedAt),
-          response.status,
-          "invalid_response",
-        ),
-      );
-      throw new ZeroGClientError(
-        "0G Router returned an unreadable response.",
-        "invalid_response",
-        response.status,
-        diagnostics,
-      );
-    }
-
-    return parseVerifiedResponse(
-      payload,
-      config.model,
+        method: "POST",
+        signal,
+      },
+    );
+  } catch {
+    diagnostics.push(
+      emptyDiagnostics(
+        attempt,
+        elapsedMs(startedAt),
+        null,
+        "network_error",
+      ),
+    );
+    throw new ZeroGClientError(
+      "0G Router request failed before receiving a response.",
+      "request_failed",
+      undefined,
       diagnostics,
-      attempt + 1,
-      elapsedMs(startedAt),
-      response.status,
     );
   }
 
-  throw new ZeroGClientError(
-    "0G Router request failed after retry.",
-    "request_failed",
-    undefined,
+  if (!response.ok) {
+    diagnostics.push(
+      emptyDiagnostics(
+        attempt,
+        elapsedMs(startedAt),
+        response.status,
+        "http_error",
+      ),
+    );
+    throw new ZeroGClientError(
+      `0G Router request failed with status ${response.status}.`,
+      "request_failed",
+      response.status,
+      diagnostics,
+    );
+  }
+
+  let payload: RouterResponse;
+
+  try {
+    payload = (await response.json()) as RouterResponse;
+  } catch {
+    diagnostics.push(
+      emptyDiagnostics(
+        attempt,
+        elapsedMs(startedAt),
+        response.status,
+        "invalid_response",
+      ),
+    );
+    throw new ZeroGClientError(
+      "0G Router returned an unreadable response.",
+      "invalid_response",
+      response.status,
+      diagnostics,
+    );
+  }
+
+  return parseVerifiedResponse(
+    payload,
+    config.model,
     diagnostics,
+    attempt,
+    elapsedMs(startedAt),
+    response.status,
   );
 }
 
@@ -408,12 +387,4 @@ function neuronValue(value: unknown) {
 
 function elapsedMs(startedAt: number) {
   return Math.max(0, Date.now() - startedAt);
-}
-
-async function wait(delayMs: number) {
-  if (delayMs <= 0) {
-    return;
-  }
-
-  await new Promise((resolve) => setTimeout(resolve, delayMs));
 }

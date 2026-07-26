@@ -7,6 +7,7 @@ import {
   type ZeroGMessage,
   type ZeroGTrace,
 } from "../zero-g/client";
+import type { InferenceRequestBudget } from "../zero-g/request-budget";
 import {
   parseSemanticClassificationOutput,
   type RubricLabel,
@@ -52,6 +53,7 @@ type CompletionRequester = (
 ) => Promise<VerifiedCompletion>;
 
 type SemanticOptions = {
+  requestBudget?: InferenceRequestBudget;
   requestCompletion?: CompletionRequester;
 };
 
@@ -107,27 +109,16 @@ export async function evaluateSemanticContract(
       requestVerifiedPrivateCompletion(messages, {
         maxTokens: Math.min(2_048, 320 + records.length * 28),
       }));
+  const guardedRequest = (messages: ZeroGMessage[]) => {
+    options.requestBudget?.consume();
+    return requestCompletion(messages);
+  };
 
-  const [original, repeated] = await Promise.all([
-    requestCompletion(
-      buildSemanticClassificationMessages(
-        contract,
-        records,
-        controls,
-      ),
-    ),
-    requestCompletion(
-      buildSemanticClassificationMessages(
-        contract,
-        repeatRecords,
-        controls,
-      ),
-    ),
-  ]);
-  const traces = [verifiedTrace(original), verifiedTrace(repeated)];
-
+  const original = await guardedRequest(
+    buildSemanticClassificationMessages(contract, records, controls),
+  );
+  const traces = [verifiedTrace(original)];
   let originalOutput: SemanticClassificationOutput;
-  let repeatedOutput: SemanticClassificationOutput;
 
   try {
     originalOutput = parseSemanticClassificationOutput(
@@ -135,6 +126,29 @@ export async function evaluateSemanticContract(
       records.map((record) => record.recordId),
       controls.map((control) => control.controlId),
     );
+  } catch {
+    return unableResult(
+      contract,
+      sample,
+      "invalid_semantic_output",
+      0,
+      0,
+      traces,
+      { controlCheck: "failed" },
+    );
+  }
+
+  const repeated = await guardedRequest(
+    buildSemanticClassificationMessages(
+      contract,
+      repeatRecords,
+      controls,
+    ),
+  );
+  traces.push(verifiedTrace(repeated));
+  let repeatedOutput: SemanticClassificationOutput;
+
+  try {
     repeatedOutput = parseSemanticClassificationOutput(
       repeated.content,
       repeatRecords.map((record) => record.recordId),

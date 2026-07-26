@@ -80,6 +80,10 @@ describe("scorePrivateCsvSample", () => {
       requestCompletion,
     });
 
+    expect(scoring.inferenceRequests).toEqual({
+      made: 2,
+      maximum: 6,
+    });
     expect(scoring.semanticVerification).toBe("verified");
     expect(scoring.results).toHaveLength(CONTRACTS.length);
     expect(scoring.results.map((result) => result.questionId)).toEqual(
@@ -114,6 +118,10 @@ describe("scorePrivateCsvSample", () => {
     });
 
     expect(scoring.semanticVerification).toBe("not_run");
+    expect(scoring.inferenceRequests).toEqual({
+      made: 0,
+      maximum: 6,
+    });
     expect(scoring.results[1]).toMatchObject({
       reason: "insufficient_records",
       score: null,
@@ -126,5 +134,20 @@ describe("scorePrivateCsvSample", () => {
     await expect(
       scorePrivateCsvSample([CONTRACTS[0]], SAMPLE),
     ).rejects.toThrow("requires at least one semantic");
+  });
+
+  it("rejects an over-budget evaluation before making a request", async () => {
+    const requestCompletion = vi.fn();
+
+    await expect(
+      scorePrivateCsvSample(CONTRACTS, SAMPLE, {
+        maximumInferenceRequests: 1,
+        requestCompletion,
+      }),
+    ).rejects.toThrow(
+      "exceeds its private inference request budget",
+    );
+
+    expect(requestCompletion).not.toHaveBeenCalled();
   });
 });

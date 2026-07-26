@@ -155,6 +155,27 @@ describe("evaluateSemanticContract", () => {
     });
   });
 
+  it("does not spend the repeat request when the original output is invalid", async () => {
+    const requestCompletion = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ...completion([], []),
+        content: "not-json",
+      });
+
+    await expect(
+      evaluateSemanticContract(CONTRACT, SAMPLE, {
+        requestCompletion,
+      }),
+    ).resolves.toMatchObject({
+      reason: "invalid_semantic_output",
+      score: null,
+      status: "unable_to_score",
+    });
+
+    expect(requestCompletion).toHaveBeenCalledTimes(1);
+  });
+
   it("returns unable_to_score for unstable repeated judgments", async () => {
     const ids = prepareSemanticRecords(CONTRACT, SAMPLE).map(
       (record) => record.recordId,

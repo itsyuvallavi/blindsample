@@ -4,6 +4,10 @@ import type {
   VerifiedCompletion,
   ZeroGMessage,
 } from "../zero-g/client";
+import {
+  getInferenceRequestLimit,
+  InferenceRequestBudget,
+} from "../zero-g/request-budget";
 import { evaluateDeterministicContract } from "./deterministic";
 import { evaluateSemanticContract } from "./semantic";
 import type { EvaluationResult } from "./types";
@@ -13,10 +17,15 @@ type CompletionRequester = (
 ) => Promise<VerifiedCompletion>;
 
 type ScoringOptions = {
+  maximumInferenceRequests?: number;
   requestCompletion?: CompletionRequester;
 };
 
 export type PrivateScoringResult = {
+  inferenceRequests: {
+    made: number;
+    maximum: number;
+  };
   results: EvaluationResult[];
   semanticVerification: "not_run" | "verified";
 };
@@ -35,11 +44,20 @@ export async function scorePrivateCsvSample(
     );
   }
 
+  const budget = new InferenceRequestBudget(
+    options.maximumInferenceRequests ?? getInferenceRequestLimit(),
+  );
+  const plannedSemanticRequests =
+    contracts.filter((contract) => contract.method === "semantic")
+      .length * 2;
+  budget.assertCanPlan(plannedSemanticRequests);
+
   const results = await Promise.all(
     contracts.map((contract) =>
       contract.method === "deterministic"
         ? evaluateDeterministicContract(contract, sample)
         : evaluateSemanticContract(contract, sample, {
+            requestBudget: budget,
             requestCompletion: options.requestCompletion,
           }),
     ),
@@ -52,6 +70,7 @@ export async function scorePrivateCsvSample(
   );
 
   return {
+    inferenceRequests: budget.snapshot(),
     results,
     semanticVerification:
       verifiedSemanticResults.length > 0 ? "verified" : "not_run",
