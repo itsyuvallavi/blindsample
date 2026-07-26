@@ -153,6 +153,11 @@ describe("evaluation prompt contract", () => {
           items: {
             properties: {
               denominator: { minimum: number; type: string };
+              evaluation_basis: {
+                properties: {
+                  unit: { enum: string[] };
+                };
+              };
               numerator: { minimum: number; type: string };
               question_id: { enum: string[] };
               score: {
@@ -194,6 +199,9 @@ describe("evaluation prompt contract", () => {
       items: { type: "boolean" },
       minItems: 1,
     });
+    expect(
+      resultSchema.properties.evaluation_basis.properties.unit.enum,
+    ).not.toContain("holistic_rubric");
 
     const messages = buildEvaluationMessages({
       evaluationId: "evaluation-2",

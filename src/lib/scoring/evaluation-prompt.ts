@@ -207,13 +207,20 @@ function resultSchema(
             type: "string",
           },
           unit: {
-            enum: [
-              "records",
-              "expected_intervals",
-              "fields",
-              "events",
-              "holistic_rubric",
-            ],
+            enum: scoreRequired
+              ? [
+                  "records",
+                  "expected_intervals",
+                  "fields",
+                  "events",
+                ]
+              : [
+                  "records",
+                  "expected_intervals",
+                  "fields",
+                  "events",
+                  "holistic_rubric",
+                ],
             type: "string",
           },
         },
