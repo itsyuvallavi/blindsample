@@ -11,7 +11,7 @@ export const SEMANTIC_E2E_CRITERIA = [
     columns: ["message"],
     controls: {
       intermediate:
-        "A customer asks what subscription plans are available but does not request account action.",
+        "A customer asks a general subscription question that may be answered by documentation or an agent.",
       negative:
         "A public weather forecast with no customer or service request.",
       positive:
