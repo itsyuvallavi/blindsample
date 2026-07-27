@@ -9,13 +9,13 @@ const SOURCE = readFileSync(
 
 describe("seller submission presentation", () => {
   it("uses the concise seller task flow", () => {
-    expect(SOURCE).toContain("Submit your dataset securely");
+    expect(SOURCE).toContain("Share a private sample");
     expect(SOURCE).toContain("Questions to evaluate");
     expect(SOURCE).toContain("Run private evaluation");
     expect(SOURCE).toContain(
       "No 0G tokens are spent before this click.",
     );
-    expect(SOURCE).toContain("TLS-encrypted transport");
+    expect(SOURCE).toContain("Encrypted in transit");
   });
 
   it("runs the free structured-sample preflight before submission", () => {

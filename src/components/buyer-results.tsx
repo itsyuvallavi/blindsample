@@ -212,7 +212,7 @@ function CompletedResults({
         <h1 className="role-title">
           {noScores
             ? "No scores were produced"
-            : "Evaluation complete"}
+            : "Verified answers"}
         </h1>
         <p className="buyer-results-title">{evaluation.title}</p>
         <p className="role-description">

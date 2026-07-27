@@ -282,13 +282,13 @@ export function SellerSubmission({
           Private seller task
           <span className="link-validity">Link verified</span>
         </p>
-        <h1 className="role-title">Submit your dataset securely</h1>
+        <h1 className="role-title">Share a private sample</h1>
         <p className="seller-for">
           Evaluation <strong>{evaluation.title}</strong>
         </p>
         <p className="role-description">
-          Upload a bounded sample. CipherQuery sends it through encrypted
-          transport to 0G and returns only question-level results.
+          Review the buyer’s questions, then choose the records you want 0G to
+          evaluate. The buyer never receives your raw rows.
         </p>
         <WorkflowProgress current="sample" />
       </header>
@@ -375,10 +375,10 @@ export function SellerSubmission({
           ) : null}
 
           <div className="privacy-strip" id="privacy-heading">
-            <strong>Private by design</strong>
+            <strong>Your sample stays private</strong>
             <span>
-              Encrypted transport. Memory-only handling. Raw records are never
-              shown to the buyer.
+              Encrypted in transit · processed in memory · never shown to the
+              buyer
             </span>
           </div>
           <label className="check-row">
@@ -393,15 +393,6 @@ export function SellerSubmission({
               I understand the results apply only to this sample.
             </span>
           </label>
-          <details className="privacy-disclosure">
-            <summary>How CipherQuery protects your sample</summary>
-            <p>
-              The sample travels over TLS-encrypted transport, is held in
-              server memory only for this evaluation, and is processed through
-              0G private compute. Raw records are not stored or shown to the
-              buyer.
-            </p>
-          </details>
         </section>
 
         {evaluation.status === "failed" ? (

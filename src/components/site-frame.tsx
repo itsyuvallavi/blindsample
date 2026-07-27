@@ -31,14 +31,14 @@ export function SiteFrame({
         {publicFrame ? (
           <Link href="/" className="wordmark" aria-label="CipherQuery home">
             <span className="wordmark-mark" aria-hidden="true">
-              C
+              CQ
             </span>
             <span>CipherQuery</span>
           </Link>
         ) : (
           <div className="wordmark" aria-label="CipherQuery">
             <span className="wordmark-mark" aria-hidden="true">
-              C
+              CQ
             </span>
             <span>CipherQuery</span>
           </div>
@@ -58,8 +58,8 @@ export function SiteFrame({
         ) : (
           <div className="task-context">
             {role ? <span>{role}</span> : null}
-            <span className="system-chip" title="0G Private Computer">
-              0G private
+            <span className="system-chip" title="Capability-protected session">
+              Secure session
             </span>
           </div>
         )}
@@ -84,7 +84,7 @@ export function SiteFrame({
           ) : (
             <>
               <span>{role ?? "Private evaluation"}</span>
-              <span>Capability-protected session</span>
+              <span>Encrypted · capability protected</span>
             </>
           )}
         </footer>

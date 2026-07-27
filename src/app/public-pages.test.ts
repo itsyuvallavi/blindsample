@@ -16,20 +16,19 @@ const DOCS_SOURCE = readFileSync(
 );
 
 describe("public information architecture", () => {
-  it("keeps the original encrypted-evaluation hero on the homepage", () => {
+  it("keeps a focused encrypted-evaluation hero on the homepage", () => {
     expect(HOME_SOURCE).toContain('href="/new"');
     expect(HOME_SOURCE).toContain(
       '<SiteFrame currentPage="home" landing',
     );
-    expect(HOME_SOURCE).toContain("CipherQuery");
-    expect(HOME_SOURCE).toContain("Encrypted data evaluation.");
-    expect(HOME_SOURCE).toContain("Without exposing the data.");
-    expect(HOME_SOURCE).toContain("Illustrative result");
+    expect(HOME_SOURCE).toContain("Encrypted answers");
+    expect(HOME_SOURCE).toContain("data you cannot share");
+    expect(HOME_SOURCE).toContain("Example evaluation");
     expect(HOME_SOURCE).toContain("private news feed");
-    expect(HOME_SOURCE).toContain("8 of 10 timestamped events");
-    expect(HOME_SOURCE).toContain("Encrypted in transit");
-    expect(HOME_SOURCE).toContain("Memory-only handling");
-    expect(HOME_SOURCE).toContain("Raw rows never shared");
+    expect(HOME_SOURCE).toContain("news_feed.csv");
+    expect(HOME_SOURCE).toContain("Seller keeps control");
+    expect(HOME_SOURCE).toContain("Raw rows stay private");
+    expect(HOME_SOURCE).toContain("TEE verified");
     expect(HOME_SOURCE).not.toContain("how-it-works");
     expect(HOME_SOURCE).not.toContain("proof-section");
     expect(HOME_SOURCE).not.toContain("EvaluationBuilder");

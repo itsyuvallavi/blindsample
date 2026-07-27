@@ -13,7 +13,7 @@ describe("site frame navigation boundary", () => {
     expect(SOURCE).toContain("publicFrame ?");
     expect(SOURCE).toContain('className="public-links"');
     expect(SOURCE).toContain('className="task-context"');
-    expect(SOURCE).toContain("Capability-protected session");
+    expect(SOURCE).toContain("Secure session");
     expect(SOURCE).toContain('<Link href="/docs">Docs</Link>');
     expect(SOURCE).not.toContain("/docs#workflow");
     expect(SOURCE).not.toContain("/docs#privacy");

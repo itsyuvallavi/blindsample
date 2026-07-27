@@ -17,13 +17,13 @@ export default function NewEvaluationPage() {
       <div className="creation-page">
         <header className="creation-intro">
           <Link className="back-link" href="/">
-            <span aria-hidden="true">←</span> Back to overview
+            <span aria-hidden="true">←</span> Home
           </Link>
-          <p className="eyebrow">Private buyer setup</p>
-          <h1>Ask what the data must prove.</h1>
+          <p className="eyebrow">Buyer setup</p>
+          <h1>Create a private evaluation.</h1>
           <p>
-            Name the evaluation and write your questions. CipherQuery creates
-            separate private links for the seller and your results.
+            Write your questions. CipherQuery creates one private link for the
+            seller and one for your results.
           </p>
           <WorkflowProgress current="questions" />
         </header>

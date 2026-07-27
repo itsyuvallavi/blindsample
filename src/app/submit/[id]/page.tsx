@@ -4,7 +4,7 @@ import { SellerSubmission } from "../../../components/seller-submission";
 import { SiteFrame } from "../../../components/site-frame";
 
 export const metadata: Metadata = {
-  title: "Submit a private dataset sample | CipherQuery",
+  title: "Submit a private dataset sample",
   description:
     "Review the buyer's questions and run one private 0G evaluation without storing the dataset sample.",
   robots: {

@@ -4,7 +4,7 @@ import { BuyerResults } from "../../../components/buyer-results";
 import { SiteFrame } from "../../../components/site-frame";
 
 export const metadata: Metadata = {
-  title: "Private dataset results | CipherQuery",
+  title: "Private dataset results",
   description:
     "View one verified 0G result for each buyer question.",
   robots: {
