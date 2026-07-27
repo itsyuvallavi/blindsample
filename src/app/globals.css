@@ -953,12 +953,20 @@ code {
 .seller-flow {
   display: grid;
   grid-template-columns: minmax(16rem, 0.72fr) minmax(0, 1.28fr);
-  gap: var(--space-xl);
+  grid-template-areas:
+    "intro submit"
+    "questions submit";
+  align-items: start;
+  column-gap: clamp(3rem, 6vw, 5rem);
+  row-gap: var(--space-xl);
 }
 
 .seller-flow__intro {
-  grid-column: 1 / -1;
-  padding-block-end: var(--space-md);
+  grid-area: intro;
+}
+
+.seller-flow__intro .workflow-progress ol {
+  grid-template-columns: 1fr;
 }
 
 .role-kicker {
@@ -989,6 +997,7 @@ code {
 }
 
 .buyer-question-card {
+  grid-area: questions;
   align-self: start;
   border: 0;
   border-block: var(--rule-thin) solid var(--color-rule);
@@ -1050,6 +1059,7 @@ code {
 }
 
 .seller-submit-card {
+  grid-area: submit;
   padding: var(--space-xl);
 }
 
@@ -1774,10 +1784,15 @@ code {
 
   .seller-flow {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "intro"
+      "questions"
+      "submit";
+    gap: var(--space-xl);
   }
 
-  .seller-flow__intro {
-    grid-column: auto;
+  .seller-flow__intro .workflow-progress ol {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .creation-page {
