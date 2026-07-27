@@ -110,7 +110,10 @@ export function BuyerResults({
         description="Your questions are ready. Results will appear here after the seller submits a private sample."
         workflowStage="sample"
       >
-        <StatusMessage>Waiting for the seller.</StatusMessage>
+        <div className="buyer-progress" aria-live="polite">
+          <span />
+          Waiting for the seller to submit a sample
+        </div>
       </ResultsState>
     );
   }

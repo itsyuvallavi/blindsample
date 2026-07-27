@@ -50,7 +50,7 @@
   --text-2xl: 2.25rem;
   --text-3xl: 3rem;
   --text-display: clamp(3.5rem, 6.5vw, 7rem);
-  --text-display-small: clamp(2.4rem, 4.5vw, 4.5rem);
+  --text-display-small: clamp(2.4rem, 4vw, 4rem);
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);

@@ -23,11 +23,11 @@ describe("public information architecture", () => {
     );
     expect(HOME_SOURCE).toContain("Encrypted answers");
     expect(HOME_SOURCE).toContain("data you cannot share");
-    expect(HOME_SOURCE).toContain("Example evaluation");
+    expect(HOME_SOURCE).toContain("Private evaluation");
     expect(HOME_SOURCE).toContain("private news feed");
-    expect(HOME_SOURCE).toContain("news_feed.csv");
-    expect(HOME_SOURCE).toContain("Seller keeps control");
-    expect(HOME_SOURCE).toContain("Raw rows stay private");
+    expect(HOME_SOURCE).toContain("0G private compute");
+    expect(HOME_SOURCE).toContain("0 raw rows exposed");
+    expect(HOME_SOURCE).toContain("memory-only processing");
     expect(HOME_SOURCE).toContain("TEE verified");
     expect(HOME_SOURCE).not.toContain("how-it-works");
     expect(HOME_SOURCE).not.toContain("proof-section");

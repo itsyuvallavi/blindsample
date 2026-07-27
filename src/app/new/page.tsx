@@ -22,8 +22,7 @@ export default function NewEvaluationPage() {
           <p className="eyebrow">Buyer setup</p>
           <h1>Create a private evaluation.</h1>
           <p>
-            Write your questions. CipherQuery creates one private link for the
-            seller and one for your results.
+            Name it, write your questions, and share the private seller link.
           </p>
           <WorkflowProgress current="questions" />
         </header>

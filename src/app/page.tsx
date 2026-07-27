@@ -7,7 +7,6 @@ export default function Home() {
     <SiteFrame currentPage="home" landing variant="public">
       <section className="hero-section" aria-labelledby="hero-heading">
         <div className="hero-copy">
-          <p className="eyebrow">Encrypted dataset evaluation</p>
           <h1 id="hero-heading" className="hero-title">
             Encrypted answers for data you cannot share.
           </h1>
@@ -19,15 +18,10 @@ export default function Home() {
             <Link className="button-primary" href="/new">
               Create an evaluation
             </Link>
-            <Link className="text-link" href="/docs">
-              See how privacy works
-            </Link>
           </div>
-          <ul className="trust-line" aria-label="Product assurances">
-            <li>Seller keeps control</li>
-            <li>Raw rows stay private</li>
-            <li>TEE verified</li>
-          </ul>
+          <p className="hero-proof">
+            Encrypted in transit · memory-only processing · TEE verified
+          </p>
         </div>
 
         <PrivacyBoundary />
@@ -40,9 +34,9 @@ function PrivacyBoundary() {
   return (
     <aside className="privacy-demo" aria-label="How private evaluation works">
       <div className="privacy-demo__topline">
-        <span>Example evaluation</span>
+        <span>Private evaluation</span>
         <span>
-          <i aria-hidden="true" /> Protected by 0G
+          <i aria-hidden="true" /> TEE verified
         </span>
       </div>
 
@@ -54,21 +48,15 @@ function PrivacyBoundary() {
         </h2>
       </div>
 
-      <div className="privacy-demo__flow">
-        <div className="sealed-input">
-          <span>Seller submits</span>
-          <strong>news_feed.csv</strong>
-          <small>Raw rows sealed</small>
+      <div className="privacy-demo__answer">
+        <div className="privacy-route" aria-label="Encrypted evaluation path">
+          <span>Seller sample</span>
+          <i aria-hidden="true">→</i>
+          <strong>0G private compute</strong>
+          <i aria-hidden="true">→</i>
+          <span>Verified answer</span>
         </div>
-
-        <div className="privacy-boundary" aria-label="Encrypted private boundary">
-          <span aria-hidden="true">↗</span>
-          <strong>Private boundary</strong>
-          <small>Encrypted · memory only</small>
-        </div>
-
         <div className="verified-output">
-          <span>Buyer receives</span>
           <div>
             <strong>80</strong>
             <small>/100</small>
@@ -78,7 +66,7 @@ function PrivacyBoundary() {
       </div>
 
       <div className="privacy-demo__footer">
-        <span>One answer per question</span>
+        <span>Encrypted · memory only</span>
         <strong>0 raw rows exposed</strong>
       </div>
     </aside>

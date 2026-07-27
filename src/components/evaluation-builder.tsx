@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   BrowserApiError,
@@ -23,6 +23,7 @@ type CreatedLinks = CreatedEvaluationResponse & {
 };
 
 export function EvaluationBuilder() {
+  const resultRef = useRef<HTMLElement>(null);
   const [initialDraft] = useState(createInitialEvaluationDraft);
   const [title, setTitle] = useState(initialDraft.title);
   const [questions, setQuestions] = useState(initialDraft.questions);
@@ -95,6 +96,15 @@ export function EvaluationBuilder() {
         warnBeforeLeaving,
       );
   }, [draftPersistenceFailed]);
+
+  useEffect(() => {
+    if (created) {
+      resultRef.current?.scrollIntoView({
+        behavior: "auto",
+        block: "start",
+      });
+    }
+  }, [created]);
 
   function updateQuestion(id: string, question: string) {
     setQuestions((current) =>
@@ -197,7 +207,11 @@ export function EvaluationBuilder() {
 
   if (created) {
     return (
-      <section className="builder-card links-ready" aria-labelledby="links-title">
+      <section
+        ref={resultRef}
+        className="builder-card links-ready"
+        aria-labelledby="links-title"
+      >
         <div className="builder-header">
           <p className="builder-step">Evaluation ready</p>
           <h2 id="links-title">Share one link. Keep one private.</h2>
@@ -256,14 +270,11 @@ export function EvaluationBuilder() {
   }
 
   return (
-    <form onSubmit={handleCreate} className="builder-card">
-      <div className="builder-header">
-        <h2>Define the evaluation</h2>
-        <p>
-          Give it a recognizable name, then ask exactly what you need to know.
-        </p>
-      </div>
-
+    <form
+      onSubmit={handleCreate}
+      className="builder-card builder-card--form"
+      aria-label="Create a private evaluation"
+    >
       <div className="builder-body">
         <label className="field-group">
           <span className="field-label">Evaluation name</span>

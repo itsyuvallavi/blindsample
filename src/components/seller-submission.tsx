@@ -279,16 +279,16 @@ export function SellerSubmission({
     <main className="seller-flow">
       <header className="seller-flow__intro">
         <p className="role-kicker">
-          Private seller task
+          Seller task
           <span className="link-validity">Link verified</span>
         </p>
-        <h1 className="role-title">Share a private sample</h1>
+        <h1 className="role-title">Submit a private sample</h1>
         <p className="seller-for">
           Evaluation <strong>{evaluation.title}</strong>
         </p>
         <p className="role-description">
-          Review the buyer’s questions, then choose the records you want 0G to
-          evaluate. The buyer never receives your raw rows.
+          Review the questions, then upload up to 50 records. Your raw rows
+          never go to the buyer.
         </p>
         <WorkflowProgress current="sample" />
       </header>
