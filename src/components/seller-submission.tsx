@@ -16,6 +16,10 @@ import {
 } from "../lib/samples/types";
 import { PRODUCT_LIMITS } from "../lib/product-contract";
 import { StatusMessage } from "./status-message";
+import {
+  WorkflowProgress,
+  type WorkflowStage,
+} from "./workflow-progress";
 
 type FilePreflight = {
   columnCount: number;
@@ -234,6 +238,7 @@ export function SellerSubmission({
         label="Seller"
         title="Private evaluation complete"
         description="The buyer can now view one 0G result for each question. Your dataset sample was not stored."
+        workflowStage="results"
       >
         <StatusMessage tone="success">
           The buyer’s result link is ready. You can close this page.
@@ -253,6 +258,7 @@ export function SellerSubmission({
         label="Seller"
         title="0G evaluation in progress"
         description="The sample is being evaluated privately. Results are published only after the complete response is verified."
+        workflowStage="results"
       >
         <ProcessingSteps />
       </PageIntro>
@@ -281,16 +287,18 @@ export function SellerSubmission({
           Evaluation <strong>{evaluation.title}</strong>
         </p>
         <p className="role-description">
-          Your sample travels over encrypted transport, is handled only in
-          memory, and is evaluated through 0G Private Computer. The buyer gets
-          question-level results, never the file or its records.
+          Upload a bounded sample. CipherQuery sends it through encrypted
+          transport to 0G and returns only question-level results.
         </p>
+        <WorkflowProgress current="sample" />
       </header>
 
       <section className="buyer-question-card" aria-labelledby="buyer-questions">
         <h2 id="buyer-questions">
-          What the buyer wants to know
-          <span>{evaluation.questions.length}</span>
+          Questions to evaluate
+          <span aria-label={`${evaluation.questions.length} questions`}>
+            {evaluation.questions.length}
+          </span>
         </h2>
         <ol>
           {evaluation.questions.map((question, index) => (
@@ -365,12 +373,17 @@ export function SellerSubmission({
               <StatusMessage tone="error">{fileError}</StatusMessage>
             </div>
           ) : null}
-        </section>
 
-        <section className="seller-consent" aria-labelledby="privacy-heading">
-          <h2 id="privacy-heading">Before you run it</h2>
+          <div className="privacy-strip" id="privacy-heading">
+            <strong>Private by design</strong>
+            <span>
+              Encrypted transport. Memory-only handling. Raw records are never
+              shown to the buyer.
+            </span>
+          </div>
           <label className="check-row">
             <input
+              name="sample-limitation-confirmed"
               type="checkbox"
               checked={consent}
               aria-required="true"
@@ -554,17 +567,22 @@ function PageIntro({
   description,
   label,
   title,
+  workflowStage,
 }: {
   children: React.ReactNode;
   description: string;
   label: string;
   title: string;
+  workflowStage?: WorkflowStage;
 }) {
   return (
     <section className="role-state">
       <p className="role-kicker">{label.toUpperCase()}</p>
       <h1 className="role-title">{title}</h1>
       <p className="role-description">{description}</p>
+      {workflowStage ? (
+        <WorkflowProgress current={workflowStage} />
+      ) : null}
       <div className="role-state__content">{children}</div>
     </section>
   );

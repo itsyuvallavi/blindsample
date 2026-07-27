@@ -258,11 +258,9 @@ export function EvaluationBuilder() {
   return (
     <form onSubmit={handleCreate} className="builder-card">
       <div className="builder-header">
-        <p className="builder-step">Step 1 of 2</p>
-        <h2>What must the private sample prove?</h2>
+        <h2>Define the evaluation</h2>
         <p>
-          Ask in plain language. CipherQuery securely reads the submitted
-          dataset fields and decides how each question can be evaluated.
+          Give it a recognizable name, then ask exactly what you need to know.
         </p>
       </div>
 
@@ -273,6 +271,8 @@ export function EvaluationBuilder() {
             A short label both you and the seller will recognize.
           </span>
           <input
+            name="evaluation-title"
+            autoComplete="off"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             maxLength={PRODUCT_LIMITS.maximumTitleCharacters}
@@ -287,8 +287,7 @@ export function EvaluationBuilder() {
             <div>
               <legend>Questions for the dataset</legend>
               <p className="field-support">
-                Each question gets its own result. No column mapping or score
-                configuration is required.
+                Plain text only. Each question receives its own result.
               </p>
             </div>
             <span className="field-count">
@@ -355,15 +354,14 @@ export function EvaluationBuilder() {
           {submitting ? "Creating private links…" : "Create private links"}
         </button>
         <p className="builder-footnote">
-          No dataset is uploaded and no 0G request is made in this step. The
-          seller&apos;s later submission uses TLS-encrypted transport.
+          No dataset is uploaded and no 0G request is made yet.
         </p>
         <button
           type="button"
           className="button-quiet discard-draft"
           onClick={resetDraft}
         >
-          Discard draft
+          Clear draft
         </button>
       </div>
     </form>
@@ -383,10 +381,14 @@ function QuestionEditor({
   onRemove: () => void;
   question: EvaluationQuestion;
 }) {
+  const fieldId = `question-${question.id}`;
+
   return (
     <div className="question-row">
       <div className="question-row__header">
-        <span className="question-index">Question {index + 1}</span>
+        <label className="question-index" htmlFor={fieldId}>
+          Question {index + 1}
+        </label>
         {canRemove ? (
           <button
             type="button"
@@ -398,20 +400,18 @@ function QuestionEditor({
         ) : null}
       </div>
 
-      <label className="field-group">
-        <span className="field-label">
-          What do you want to know about this dataset?
-        </span>
-        <textarea
-          className="text-area"
-          rows={3}
-          maxLength={PRODUCT_LIMITS.maximumQuestionCharacters}
-          value={question.question}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="What percentage of records contain all required price fields?"
-          required
-        />
-      </label>
+      <textarea
+        id={fieldId}
+        name="questions[]"
+        className="text-area"
+        rows={2}
+        maxLength={PRODUCT_LIMITS.maximumQuestionCharacters}
+        value={question.question}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="For example: Are the price records complete and sequential?"
+        aria-label={`Question ${index + 1}`}
+        required
+      />
     </div>
   );
 }

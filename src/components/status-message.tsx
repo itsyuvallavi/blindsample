@@ -7,7 +7,7 @@ export function StatusMessage({
 }) {
   const mark = {
     error: "×",
-    neutral: "·",
+    neutral: null,
     success: "✓",
   }[tone];
 
@@ -17,9 +17,11 @@ export function StatusMessage({
       data-tone={tone}
       role={tone === "error" ? "alert" : "status"}
     >
-      <span className="status-message__mark" aria-hidden="true">
-        {mark}
-      </span>
+      {mark ? (
+        <span className="status-message__mark" aria-hidden="true">
+          {mark}
+        </span>
+      ) : null}
       <span>{children}</span>
     </div>
   );

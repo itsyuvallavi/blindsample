@@ -10,6 +10,10 @@ import {
 } from "../lib/browser/evaluations";
 import type { BuyerQuestionResult } from "../lib/supabase/evaluations";
 import { StatusMessage } from "./status-message";
+import {
+  WorkflowProgress,
+  type WorkflowStage,
+} from "./workflow-progress";
 
 const POLL_INTERVAL_MS = 3_000;
 
@@ -104,6 +108,7 @@ export function BuyerResults({
         label="Buyer results"
         title={evaluation.title}
         description="Your questions are ready. Results will appear here after the seller submits a private sample."
+        workflowStage="sample"
       >
         <StatusMessage>Waiting for the seller.</StatusMessage>
       </ResultsState>
@@ -116,6 +121,7 @@ export function BuyerResults({
         label="Buyer results"
         title="0G evaluation in progress"
         description="All questions are being evaluated together in one private request."
+        workflowStage="results"
       >
         <div className="buyer-progress" aria-live="polite">
           <span />
@@ -133,8 +139,9 @@ export function BuyerResults({
     return (
       <ResultsState
         label="Buyer results"
-        title="Evaluation failed — no scores were produced."
+        title="Evaluation failed. No scores were produced."
         description="CipherQuery found no complete, verified 0G result set to display."
+        workflowStage="results"
       >
         <StatusMessage tone="error">
           No partial or previous scores were published.
@@ -159,8 +166,9 @@ function FailedEvaluation({
   return (
     <ResultsState
       label="Buyer results"
-      title="Evaluation failed — no scores were produced."
+      title="Evaluation failed. No scores were produced."
       description={failureMessage(evaluation.errorCode)}
+      workflowStage="results"
     >
       <StatusMessage tone="error">
         {evaluation.failure.requestMade
@@ -210,21 +218,19 @@ function CompletedResults({
         <p className="role-description">
           {noScores
             ? "0G could not safely score these questions from the submitted sample. This does not mean the dataset failed your requirements."
-            : "All questions were evaluated by 0G. Each score answers only its own question—there is no overall dataset score."}
+            : "All questions were evaluated by 0G. Each score answers only its own question. There is no overall dataset score."}
         </p>
+        <WorkflowProgress current="results" />
       </header>
 
-      <section className="verification-summary" aria-label="0G verification">
-        <span className="verification-mark">✓</span>
-        <div>
-          <strong>Private execution verified</strong>
-          <small>
-            The sample used encrypted transport, and one complete 0G request
-            passed TEE verification. This confirms the protected execution
-            path, not the accuracy of every judgment.
-          </small>
-        </div>
-      </section>
+      {!noScores ? (
+        <section className="score-legend" aria-label="How to read the scores">
+          <strong>How to read the scores</strong>
+          <span><b>0</b> requirement not met</span>
+          <span><b>100</b> requirement fully met</span>
+          <span>Confidence is shown separately.</span>
+        </section>
+      ) : null}
 
       <section className="buyer-score-list" aria-label="Question results">
         {evaluation.questions.map((question, index) => (
@@ -237,6 +243,17 @@ function CompletedResults({
             }
           />
         ))}
+      </section>
+
+      <section className="verification-summary" aria-label="0G verification">
+        <span className="verification-mark">✓</span>
+        <div>
+          <strong>Private execution verified</strong>
+          <small>
+            One complete 0G request passed TEE verification. This confirms the
+            protected execution path, not the accuracy of every judgment.
+          </small>
+        </div>
       </section>
 
       <aside className="sample-limitation">
@@ -294,35 +311,40 @@ function ResultCard({
 
       <p className="result-explanation">{result.explanation}</p>
 
-      <details className="result-reading-guide">
-        <summary>How to read this result</summary>
-        <p>
-          {result.status === "scored"
-            ? "0 means the sample did not meet this requirement; 100 means it fully met it."
-            : "No score was published because 0G could not answer this question safely from the sample."}
-        </p>
-        <p>Model confidence: {result.confidence}%</p>
-      </details>
+      <div className="result-meta">
+        {result.status === "scored" ? (
+          <span>Confidence {result.confidence}%</span>
+        ) : (
+          <span>
+            0G could not answer this question safely from the sample.
+          </span>
+        )}
+      </div>
     </article>
   );
 }
 
 function ResultsState({
   children,
-  description,
-  label,
-  title,
+    description,
+    label,
+    title,
+    workflowStage,
 }: {
   children: React.ReactNode;
   description: string;
   label: string;
   title: string;
+  workflowStage?: WorkflowStage;
 }) {
   return (
     <section className="role-state">
       <p className="role-kicker">{label.toUpperCase()}</p>
       <h1 className="role-title">{title}</h1>
       <p className="role-description">{description}</p>
+      {workflowStage ? (
+        <WorkflowProgress current={workflowStage} />
+      ) : null}
       <div className="role-state__content">{children}</div>
     </section>
   );

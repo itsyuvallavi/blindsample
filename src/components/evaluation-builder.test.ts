@@ -9,9 +9,8 @@ const SOURCE = readFileSync(
 
 describe("buyer evaluation builder contract", () => {
   it("asks only for an evaluation name and plain-text questions", () => {
-    expect(SOURCE).toContain(
-      "What do you want to know about this dataset?",
-    );
+    expect(SOURCE).toContain('name="questions[]"');
+    expect(SOURCE).toContain('aria-label={`Question ${index + 1}`}');
     expect(SOURCE).toContain("Evaluation name");
     expect(SOURCE).not.toContain("<select");
     expect(SOURCE).not.toContain("What should we check?");

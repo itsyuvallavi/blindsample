@@ -10,7 +10,7 @@ const SOURCE = readFileSync(
 describe("seller submission presentation", () => {
   it("uses the concise seller task flow", () => {
     expect(SOURCE).toContain("Submit your dataset securely");
-    expect(SOURCE).toContain("What the buyer wants to know");
+    expect(SOURCE).toContain("Questions to evaluate");
     expect(SOURCE).toContain("Run private evaluation");
     expect(SOURCE).toContain(
       "No 0G tokens are spent before this click.",

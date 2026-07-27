@@ -14,7 +14,7 @@ describe("buyer result presentation", () => {
       "All questions were evaluated by 0G.",
     );
     expect(SOURCE).toContain(
-      "Evaluation failed — no scores were produced.",
+      "Evaluation failed. No scores were produced.",
     );
     expect(SOURCE).toContain("Evaluated by 0G");
   });

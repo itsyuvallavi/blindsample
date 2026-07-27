@@ -4,12 +4,14 @@ import type { ReactNode } from "react";
 export function SiteFrame({
   children,
   compact = false,
+  currentPage,
   landing = false,
   role,
   variant = "task",
 }: {
   children: ReactNode;
   compact?: boolean;
+  currentPage?: "docs" | "home" | "new";
   landing?: boolean;
   role?: string;
   variant?: "public" | "task";
@@ -44,12 +46,14 @@ export function SiteFrame({
 
         {publicFrame ? (
           <nav className="public-links" aria-label="Primary navigation">
-            <Link href="/docs#workflow">How it works</Link>
-            <Link href="/docs#privacy">Privacy</Link>
-            <Link href="/docs">Docs</Link>
-            <Link className="nav-cta" href="/new">
-              Create evaluation
-            </Link>
+            {currentPage !== "docs" ? (
+              <Link href="/docs">Docs</Link>
+            ) : null}
+            {!landing && currentPage !== "new" ? (
+              <Link className="nav-cta" href="/new">
+                Create evaluation
+              </Link>
+            ) : null}
           </nav>
         ) : (
           <div className="task-context">
@@ -74,8 +78,8 @@ export function SiteFrame({
         <footer className="site-footer">
           {publicFrame ? (
             <>
-              <span>CipherQuery · Encrypted data evaluation</span>
-              <span>Encrypted transport · 0G private compute</span>
+              <span>CipherQuery</span>
+              <span>Private data evaluation</span>
             </>
           ) : (
             <>
