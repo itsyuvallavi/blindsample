@@ -16,15 +16,20 @@ const DOCS_SOURCE = readFileSync(
 );
 
 describe("public information architecture", () => {
-  it("keeps marketing and evaluation creation on separate routes", () => {
+  it("keeps the original encrypted-evaluation hero on the homepage", () => {
     expect(HOME_SOURCE).toContain('href="/new"');
+    expect(HOME_SOURCE).toContain("<SiteFrame landing");
     expect(HOME_SOURCE).toContain("CipherQuery");
     expect(HOME_SOURCE).toContain("Encrypted data evaluation.");
     expect(HOME_SOURCE).toContain("Without exposing the data.");
     expect(HOME_SOURCE).toContain("Illustrative result");
+    expect(HOME_SOURCE).toContain("private news feed");
+    expect(HOME_SOURCE).toContain("8 of 10 timestamped events");
     expect(HOME_SOURCE).toContain("Encrypted in transit");
     expect(HOME_SOURCE).toContain("TEE-protected compute");
     expect(HOME_SOURCE).toContain("Raw rows never shared");
+    expect(HOME_SOURCE).not.toContain("how-it-works");
+    expect(HOME_SOURCE).not.toContain("proof-section");
     expect(HOME_SOURCE).not.toContain("EvaluationBuilder");
     expect(NEW_SOURCE).toContain("<EvaluationBuilder />");
   });

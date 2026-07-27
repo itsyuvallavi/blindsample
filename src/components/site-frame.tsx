@@ -4,18 +4,24 @@ import type { ReactNode } from "react";
 export function SiteFrame({
   children,
   compact = false,
+  landing = false,
   role,
   variant = "task",
 }: {
   children: ReactNode;
   compact?: boolean;
+  landing?: boolean;
   role?: string;
   variant?: "public" | "task";
 }) {
   const publicFrame = variant === "public";
 
   return (
-    <div className={`site-shell site-shell--${variant}`}>
+    <div
+      className={`site-shell site-shell--${variant}${
+        landing ? " site-shell--landing" : ""
+      }`}
+    >
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
@@ -38,8 +44,8 @@ export function SiteFrame({
 
         {publicFrame ? (
           <nav className="public-links" aria-label="Primary navigation">
-            <Link href="/#how-it-works">How it works</Link>
-            <Link href="/#privacy">Privacy</Link>
+            <Link href="/docs#workflow">How it works</Link>
+            <Link href="/docs#privacy">Privacy</Link>
             <Link href="/docs">Docs</Link>
             <Link className="nav-cta" href="/new">
               Create evaluation
@@ -57,24 +63,28 @@ export function SiteFrame({
 
       <main
         id="main-content"
-        className={`site-main${compact ? " site-main--compact" : ""}`}
+        className={`site-main${compact ? " site-main--compact" : ""}${
+          landing ? " site-main--landing" : ""
+        }`}
       >
         {children}
       </main>
 
-      <footer className="site-footer">
-        {publicFrame ? (
-          <>
-            <span>CipherQuery · Encrypted data evaluation</span>
-            <span>Encrypted transport · 0G private compute</span>
-          </>
-        ) : (
-          <>
-            <span>{role ?? "Private evaluation"}</span>
-            <span>Capability-protected session</span>
-          </>
-        )}
-      </footer>
+      {landing ? null : (
+        <footer className="site-footer">
+          {publicFrame ? (
+            <>
+              <span>CipherQuery · Encrypted data evaluation</span>
+              <span>Encrypted transport · 0G private compute</span>
+            </>
+          ) : (
+            <>
+              <span>{role ?? "Private evaluation"}</span>
+              <span>Capability-protected session</span>
+            </>
+          )}
+        </footer>
+      )}
     </div>
   );
 }

@@ -4,161 +4,38 @@ import { SiteFrame } from "../components/site-frame";
 
 export default function Home() {
   return (
-    <SiteFrame variant="public">
-      <div className="marketing-page">
-        <section className="hero-section">
-          <div className="hero-copy">
-            <p className="eyebrow">CipherQuery · Private data intelligence</p>
-            <h1 className="hero-title">
-              Encrypted data evaluation.
-              <br />
-              <span>Without exposing the data.</span>
-            </h1>
-            <p className="hero-lede">
-              CipherQuery lets buyers ask useful questions while sellers keep
-              control of their data. The sample travels over encrypted
-              transport, is handled only in memory, and is evaluated inside
-              0G Private Computer.
-            </p>
-            <div className="hero-actions">
-              <Link className="button-primary" href="/new">
-                Create an evaluation
-              </Link>
-              <Link className="text-link" href="/#how-it-works">
-                See how it works <span aria-hidden="true">↓</span>
-              </Link>
-            </div>
-            <ul className="trust-line" aria-label="Product assurances">
-              <li>Encrypted in transit</li>
-              <li>TEE-protected compute</li>
-              <li>Raw rows never shared</li>
-            </ul>
-          </div>
-
-          <ProductPreview />
-        </section>
-
-        <section
-          className="content-section"
-          id="how-it-works"
-          aria-labelledby="how-heading"
-        >
-          <div className="section-heading">
-            <p className="eyebrow">
-              One protected path, two private roles
-            </p>
-            <h2 id="how-heading">
-              From encrypted submission to verified answer.
-            </h2>
-            <p>
-              The buyer learns what matters. The seller keeps the underlying
-              data private.
-            </p>
-          </div>
-
-          <ol className="process-grid">
-            <li>
-              <span>01</span>
-              <h3>Ask plain questions</h3>
-              <p>
-                The buyer names the evaluation and writes exactly what they
-                need to learn about the data.
-              </p>
-            </li>
-            <li>
-              <span>02</span>
-              <h3>Submit through a private link</h3>
-              <p>
-                The seller&apos;s CSV travels over TLS-encrypted transport.
-                The buyer keeps a separate private results link.
-              </p>
-            </li>
-            <li>
-              <span>03</span>
-              <h3>Evaluate in protected compute</h3>
-              <p>
-                The sample and all questions go through one 0G Private
-                Computer request. Results publish only after TEE verification.
-              </p>
-            </li>
-          </ol>
-        </section>
-
-        <section
-          className="proof-section"
-          id="privacy"
-          aria-labelledby="privacy-heading"
-        >
-          <div className="proof-copy">
-            <p className="eyebrow">Protection at every boundary</p>
-            <h2 id="privacy-heading">
-              The sample stays protected from upload to answer.
-            </h2>
-            <p>
-              CipherQuery encrypts transport, limits raw-data handling to
-              server memory, and reveals only safe question-level results.
-              The buyer never receives the CSV.
-            </p>
-            <Link className="text-link" href="/docs#privacy">
-              Read the privacy boundary <span aria-hidden="true">→</span>
-            </Link>
-          </div>
-
-          <dl className="proof-list">
-            <div>
-              <dt>Encrypted transport</dt>
-              <dd>
-                TLS protects the seller&apos;s submission and buyer&apos;s
-                questions while they travel.
-              </dd>
-            </div>
-            <div>
-              <dt>Memory-only handling</dt>
-              <dd>
-                The parsed CSV exists only for the evaluation request. It is
-                never written to Supabase.
-              </dd>
-            </div>
-            <div>
-              <dt>TEE-verified compute</dt>
-              <dd>
-                One 0G private request handles the complete sample and every
-                question. A positive TEE trace is required before publication.
-              </dd>
-            </div>
-          </dl>
-        </section>
-
-        <section className="use-case-section" aria-labelledby="use-case-heading">
-          <div className="section-heading">
-            <p className="eyebrow">Useful when trust is expensive</p>
-            <h2 id="use-case-heading">
-              Test quality before the data changes hands.
-            </h2>
-          </div>
-          <ul className="use-case-list">
-            <li>Market and pricing feeds</li>
-            <li>Business intelligence exports</li>
-            <li>News and event signals</li>
-            <li>Sequential data quality</li>
-          </ul>
-        </section>
-
-        <section className="closing-section">
-          <div>
-            <p className="eyebrow">Protected from upload to result</p>
-            <h2>Keep the rows private. Share only the answer.</h2>
-          </div>
-          <div className="closing-actions">
+    <SiteFrame landing variant="public">
+      <section className="hero-section" aria-labelledby="hero-heading">
+        <div className="hero-copy">
+          <p className="eyebrow">CipherQuery · Private data intelligence</p>
+          <h1 id="hero-heading" className="hero-title">
+            Encrypted data evaluation.
+            <br />
+            <span>Without exposing the data.</span>
+          </h1>
+          <p className="hero-lede">
+            CipherQuery lets buyers ask useful questions while sellers keep
+            control of their data. The sample travels over encrypted
+            transport, is handled only in memory, and is evaluated inside 0G
+            Private Computer.
+          </p>
+          <div className="hero-actions">
             <Link className="button-primary" href="/new">
               Create an evaluation
             </Link>
-            <Link className="button-secondary" href="/docs">
-              Read the docs
+            <Link className="text-link" href="/docs">
+              See how it works <span aria-hidden="true">→</span>
             </Link>
           </div>
-        </section>
-      </div>
+          <ul className="trust-line" aria-label="Product assurances">
+            <li>Encrypted in transit</li>
+            <li>TEE-protected compute</li>
+            <li>Raw rows never shared</li>
+          </ul>
+        </div>
+
+        <ProductPreview />
+      </section>
     </SiteFrame>
   );
 }
@@ -175,11 +52,12 @@ function ProductPreview() {
       <div className="preview-body">
         <p className="preview-label">Question 01 · Evaluated by 0G</p>
         <h2>
-          Are the BTC price records complete and sequential?
+          Does this private news feed identify market-moving events before BTC
+          reacts?
         </h2>
         <div className="preview-score-row">
           <div>
-            <strong>92</strong>
+            <strong>80</strong>
             <span>/100</span>
           </div>
           <p>High confidence</p>
@@ -188,8 +66,8 @@ function ProductPreview() {
           <span />
         </div>
         <p className="preview-explanation">
-          The submitted sample contains the required OHLCV fields and follows
-          the expected time sequence, with one small interval inconsistency.
+          8 of 10 timestamped events appear before the related price move. Two
+          arrive only after the market has already reacted.
         </p>
       </div>
       <div className="preview-footer">
