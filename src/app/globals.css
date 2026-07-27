@@ -160,17 +160,15 @@ code {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xl);
-  border-block-end: var(--rule-thin) solid var(--color-rule);
   padding-inline: var(--space-xl);
 }
 
 .site-shell--public .site-nav {
   position: sticky;
   top: 0;
-  border-block-end: 0;
 }
 
-.site-shell--public .site-nav::before {
+.site-nav::before {
   position: absolute;
   z-index: -1;
   inset-block: 0;
