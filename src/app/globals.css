@@ -647,6 +647,39 @@ code {
 
 .builder-card--form .builder-body {
   border-block-start: 0;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+}
+
+.builder-card--form .field-group {
+  gap: var(--space-2xs);
+}
+
+.builder-card--form .text-input {
+  min-height: var(--control-height);
+}
+
+.builder-card--form .text-area {
+  min-height: 5rem;
+  padding-block: var(--space-sm);
+}
+
+.builder-card--form .question-row {
+  gap: var(--space-xs);
+  padding-block: var(--space-md);
+}
+
+.builder-card--form .message-wrap {
+  margin-block: 0;
+}
+
+.builder-card--form .status-message {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.builder-actions {
+  display: grid;
+  gap: var(--space-xs);
 }
 
 .links-ready {

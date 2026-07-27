@@ -356,24 +356,26 @@ export function EvaluationBuilder() {
           </div>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          aria-busy={submitting}
-          className="button-primary button-wide"
-        >
-          {submitting ? "Creating private links…" : "Create private links"}
-        </button>
-        <p className="builder-footnote">
-          No dataset is uploaded and no 0G request is made yet.
-        </p>
-        <button
-          type="button"
-          className="button-quiet discard-draft"
-          onClick={resetDraft}
-        >
-          Clear draft
-        </button>
+        <div className="builder-actions">
+          <button
+            type="submit"
+            disabled={submitting}
+            aria-busy={submitting}
+            className="button-primary button-wide"
+          >
+            {submitting ? "Creating private links…" : "Create private links"}
+          </button>
+          <p className="builder-footnote">
+            No dataset is uploaded and no 0G request is made yet.
+          </p>
+          <button
+            type="button"
+            className="button-quiet discard-draft"
+            onClick={resetDraft}
+          >
+            Clear draft
+          </button>
+        </div>
       </div>
     </form>
   );
