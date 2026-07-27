@@ -1,0 +1,270 @@
+/*
+ * Motion explains privacy, progress, and state changes.
+ * Routine interactions stay below 300ms; the homepage route is the one
+ * deliberate, first-view focal sequence.
+ */
+
+.workflow-progress li,
+.workflow-progress li > span {
+  transition:
+    background-color var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out),
+    color var(--dur-short) var(--ease-out),
+    opacity var(--dur-short) var(--ease-out),
+    transform var(--dur-short) var(--ease-out);
+}
+
+.workflow-progress li[data-state="current"] > span {
+  transform: scale(1);
+}
+
+.privacy-route {
+  position: relative;
+  padding-block-end: calc(var(--space-lg) + var(--space-xs));
+}
+
+.privacy-route__rail {
+  position: absolute;
+  inset: auto var(--space-lg) var(--space-sm);
+  height: 1px;
+  background: var(--color-rule-strong);
+  overflow: hidden;
+}
+
+.privacy-route__rail::before {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-accent) 18%,
+    var(--color-accent) 82%,
+    transparent
+  );
+  content: "";
+  filter: drop-shadow(0 0 0.35rem var(--color-accent));
+  transform: scaleX(0.02);
+  transform-origin: left;
+  animation: privacy-route-trace var(--dur-focal) var(--ease-emphasized) 180ms
+    both;
+}
+
+.verified-output > div,
+.verified-output > p {
+  animation: verified-output-enter var(--dur-layout) var(--ease-out) both;
+}
+
+.verified-output > div {
+  animation-delay: 760ms;
+}
+
+.verified-output > p {
+  animation-delay: 820ms;
+}
+
+.question-row {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--dur-short) var(--ease-out),
+    transform var(--dur-short) var(--ease-out);
+}
+
+.question-row--leaving {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.35rem);
+}
+
+@starting-style {
+  .question-row {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+}
+
+.status-message,
+.preflight-card,
+.links-ready {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--dur-short) var(--ease-out),
+    transform var(--dur-short) var(--ease-out);
+}
+
+.seller-flow__intro,
+.buyer-question-card,
+.seller-submit-card,
+.buyer-results-header,
+.score-legend,
+.verification-summary,
+.sample-limitation,
+.buyer-technical-details {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--dur-layout) var(--ease-out),
+    transform var(--dur-layout) var(--ease-out);
+}
+
+.buyer-question-card,
+.score-legend {
+  transition-delay: 40ms;
+}
+
+.seller-submit-card,
+.verification-summary {
+  transition-delay: 80ms;
+}
+
+.sample-limitation,
+.buyer-technical-details {
+  transition-delay: 120ms;
+}
+
+@starting-style {
+  .status-message,
+  .preflight-card {
+    opacity: 0;
+    transform: translateY(0.3rem);
+  }
+
+  .links-ready {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  .seller-flow__intro,
+  .buyer-question-card,
+  .seller-submit-card,
+  .buyer-results-header,
+  .score-legend,
+  .verification-summary,
+  .sample-limitation,
+  .buyer-technical-details {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.sample-dropzone label::before {
+  transition:
+    border-color var(--dur-short) var(--ease-out),
+    color var(--dur-short) var(--ease-out),
+    transform var(--dur-short) var(--ease-out);
+}
+
+.sample-dropzone--active label::before {
+  border-color: var(--color-accent);
+  transform: translateY(-0.2rem);
+}
+
+.buyer-result-card {
+  --result-enter-delay: 0ms;
+
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    border-color var(--dur-short) var(--ease-out),
+    opacity var(--dur-layout) var(--ease-out) var(--result-enter-delay),
+    transform var(--dur-layout) var(--ease-out) var(--result-enter-delay);
+}
+
+.buyer-score-list .buyer-result-card:nth-child(2) {
+  --result-enter-delay: 30ms;
+}
+
+.buyer-score-list .buyer-result-card:nth-child(3) {
+  --result-enter-delay: 60ms;
+}
+
+.buyer-score-list .buyer-result-card:nth-child(4) {
+  --result-enter-delay: 90ms;
+}
+
+.buyer-score-list .buyer-result-card:nth-child(n + 5) {
+  --result-enter-delay: 120ms;
+}
+
+@starting-style {
+  .buyer-result-card {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.buyer-technical-details summary::after,
+.privacy-disclosure summary::after {
+  transition:
+    color var(--dur-short) var(--ease-out),
+    transform var(--dur-short) var(--ease-out);
+}
+
+.buyer-technical-details[open] summary::after,
+.privacy-disclosure[open] summary::after {
+  transform: rotate(180deg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sample-dropzone:hover label::before {
+    border-color: var(--color-accent);
+    transform: translateY(-0.15rem);
+  }
+
+  .buyer-result-card:hover {
+    border-color: rgb(183 95 255 / 28%);
+  }
+}
+
+@keyframes privacy-route-trace {
+  from {
+    opacity: 0.25;
+    transform: scaleX(0.02);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes verified-output-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 52rem) {
+  .site-shell--landing .privacy-route {
+    padding-block-end: calc(var(--space-md) + var(--space-xs));
+  }
+
+  .site-shell--landing .privacy-route__rail {
+    inset-inline: var(--space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .privacy-route__rail::before,
+  .verified-output > div,
+  .verified-output > p {
+    animation: none;
+  }
+
+  .privacy-route__rail::before {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  .sample-dropzone--active label::before,
+  .sample-dropzone:hover label::before {
+    transform: none;
+  }
+}

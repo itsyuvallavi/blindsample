@@ -1,26 +1,30 @@
 :root {
-  --color-paper: #0b0e0d;
-  --color-paper-2: #101412;
-  --color-paper-3: #151a17;
-  --color-paper-4: #1a201c;
-  --color-rule: rgb(238 244 240 / 8%);
-  --color-rule-strong: rgb(238 244 240 / 14%);
-  --color-muted: #77827b;
-  --color-neutral: #a8b1ab;
-  --color-ink-2: #d9dedb;
-  --color-ink: #f1f3f1;
-  --color-accent: #aecab7;
-  --color-accent-hover: #c0d8c8;
-  --color-accent-soft: #17231c;
-  --color-accent-ink: #0d1711;
-  --color-focus: #d0e2d6;
-  --color-error: #e99a90;
-  --color-error-soft: #251917;
-  --color-success: #9ac9aa;
-  --color-success-soft: #142119;
-  --color-disabled: #555e58;
-  --color-selection: #30483a;
-  --color-shadow: rgb(0 0 0 / 34%);
+  --color-paper: #08090f;
+  --color-paper-2: #0f111a;
+  --color-paper-3: #161925;
+  --color-paper-4: #1d202e;
+  --color-rule: rgb(245 246 250 / 9%);
+  --color-rule-strong: rgb(245 246 250 / 16%);
+  --color-muted: #9aa3b2;
+  --color-neutral: #c8ccd6;
+  --color-ink-2: #e1e4eb;
+  --color-ink: #f5f6fa;
+  --color-accent: #b75fff;
+  --color-accent-hover: #ca86ff;
+  --color-accent-soft: #24132f;
+  --color-accent-ink: #09050d;
+  --color-focus: #d9b5ff;
+  --color-error: #ff8e8e;
+  --color-error-soft: #2b141c;
+  --color-success: #55d6a6;
+  --color-success-soft: #10251e;
+  --color-disabled: #686f80;
+  --color-selection: #4a2465;
+  --color-shadow: rgb(0 0 0 / 46%);
+  --color-atmosphere: rgb(183 95 255 / 13%);
+  --color-atmosphere-strong: rgb(183 95 255 / 24%);
+  --color-stage: #11131d;
+  --color-stage-raised: #181b28;
 
   --font-display:
     "Iowan Old Style", "Baskerville", "Times New Roman", ui-serif, serif;
@@ -52,11 +56,14 @@
   --text-display: clamp(3.5rem, 6.5vw, 7rem);
   --text-display-small: clamp(2.4rem, 4vw, 4rem);
 
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
   --dur-micro: 120ms;
-  --dur-short: 200ms;
+  --dur-short: 180ms;
+  --dur-layout: 240ms;
   --dur-long: 480ms;
+  --dur-focal: 680ms;
 
   --rule-thin: 1px;
   --rule-focus: 2px;

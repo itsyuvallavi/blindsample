@@ -312,61 +312,72 @@ export function SellerSubmission({
 
       <form className="seller-submit-card" onSubmit={handleSubmit}>
         <section aria-labelledby="sample-heading">
-          <h2 id="sample-heading">Choose your sample</h2>
-          <p className="section-support">
-            CSV, JSONL, NDJSON, or Parquet. Up to{" "}
-            {PRODUCT_LIMITS.maximumRows} records,{" "}
-            {PRODUCT_LIMITS.maximumColumns} columns, and 200 KB.
-          </p>
-
-          <div
-            className={`sample-dropzone${dragActive ? " sample-dropzone--active" : ""}`}
-            onDragEnter={(event) => {
-              event.preventDefault();
-              setDragActive(true);
-            }}
-            onDragOver={(event) => event.preventDefault()}
-            onDragLeave={(event) => {
-              if (event.currentTarget === event.target) {
-                setDragActive(false);
-              }
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              setDragActive(false);
-              void inspectFile(event.dataTransfer.files[0] ?? null);
-            }}
-          >
-            <input
-              ref={fileInputRef}
-              id="sample-file"
-              type="file"
-              accept=".csv,.jsonl,.ndjson,.parquet,text/csv,application/x-ndjson,application/vnd.apache.parquet"
-              aria-describedby="sample-file-help"
-              aria-invalid={Boolean(fileError)}
-              aria-required="true"
-              onChange={(event) =>
-                void inspectFile(event.target.files?.[0] ?? null)
-              }
-            />
-            <label htmlFor="sample-file">
-              <strong>
-                {inspecting
-                  ? "Checking your sample…"
-                  : "Choose a dataset sample or drop it here"}
-              </strong>
-              <span id="sample-file-help">
-                A free check runs in this browser before any 0G request.
-              </span>
-            </label>
-          </div>
+          <input
+            ref={fileInputRef}
+            id="sample-file"
+            className="sample-file-input"
+            type="file"
+            accept=".csv,.jsonl,.ndjson,.parquet,text/csv,application/x-ndjson,application/vnd.apache.parquet"
+            aria-describedby={
+              preflight ? undefined : "sample-file-help"
+            }
+            aria-invalid={Boolean(fileError)}
+            aria-required="true"
+            onChange={(event) =>
+              void inspectFile(event.target.files?.[0] ?? null)
+            }
+          />
 
           {preflight ? (
-            <PreflightSummary
-              preflight={preflight}
-              onReplace={openFilePicker}
-            />
-          ) : null}
+            <>
+              <h2 id="sample-heading">Sample ready</h2>
+              <PreflightSummary
+                preflight={preflight}
+                onReplace={openFilePicker}
+              />
+            </>
+          ) : (
+            <>
+              <h2 id="sample-heading">Choose your sample</h2>
+              <p className="section-support">
+                CSV, JSONL, NDJSON, or Parquet. Up to{" "}
+                {PRODUCT_LIMITS.maximumRows} records,{" "}
+                {PRODUCT_LIMITS.maximumColumns} columns, and 200 KB.
+              </p>
+              <div
+                className={`sample-dropzone${dragActive ? " sample-dropzone--active" : ""}`}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragOver={(event) => event.preventDefault()}
+                onDragLeave={(event) => {
+                  if (event.currentTarget === event.target) {
+                    setDragActive(false);
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setDragActive(false);
+                  void inspectFile(
+                    event.dataTransfer.files[0] ?? null,
+                  );
+                }}
+              >
+                <label htmlFor="sample-file">
+                  <strong>
+                    {inspecting
+                      ? "Checking your sample…"
+                      : "Choose a dataset sample or drop it here"}
+                  </strong>
+                  <span id="sample-file-help">
+                    A free check runs in this browser before any 0G
+                    request.
+                  </span>
+                </label>
+              </div>
+            </>
+          )}
 
           {fileError ? (
             <div className="message-wrap" aria-live="polite">

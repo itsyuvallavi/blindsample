@@ -395,9 +395,22 @@ function QuestionEditor({
   question: EvaluationQuestion;
 }) {
   const fieldId = `question-${question.id}`;
+  const [leaving, setLeaving] = useState(false);
+
+  function handleRemove() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      onRemove();
+      return;
+    }
+
+    setLeaving(true);
+    window.setTimeout(onRemove, 180);
+  }
 
   return (
-    <div className="question-row">
+    <div
+      className={`question-row${leaving ? " question-row--leaving" : ""}`}
+    >
       <div className="question-row__header">
         <label className="question-index" htmlFor={fieldId}>
           Question {index + 1}
@@ -406,7 +419,8 @@ function QuestionEditor({
           <button
             type="button"
             className="button-mini"
-            onClick={onRemove}
+            disabled={leaving}
+            onClick={handleRemove}
           >
             Remove
           </button>
