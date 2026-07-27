@@ -167,8 +167,20 @@ code {
 .site-shell--public .site-nav {
   position: sticky;
   top: 0;
+  border-block-end: 0;
+}
+
+.site-shell--public .site-nav::before {
+  position: absolute;
+  z-index: -1;
+  inset-block: 0;
+  left: 50%;
+  width: 100vw;
+  border-block-end: var(--rule-thin) solid var(--color-rule);
   background: rgb(11 14 13 / 88%);
   backdrop-filter: blur(18px);
+  content: "";
+  transform: translateX(-50%);
 }
 
 .wordmark {
